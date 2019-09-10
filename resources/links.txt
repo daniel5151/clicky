@@ -1,0 +1,5 @@
+https://github.com/Rockbox/rockbox
+https://www.rockbox.org/wiki/IpodPort
+https://www.rockbox.org/wiki/IpodFlash
+https://github.com/iPodLinux/ipodloader
+https://github.com/iPodLinux/ipodloader2
