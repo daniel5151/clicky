@@ -1,4 +1,4 @@
-# clicky 
+# clicky
 
 A classic clickwheel iPod emulator.
 
@@ -34,7 +34,7 @@ MVP target hardware: the iPod 4g (Grayscale) (PP5020).
     - A bigger beast than Rockbox, and likely much more difficult to step through & debug
     - **Goals:**
         - Booth _another_ actual OS on the iPod
-        - Fill in the gaps between the hardware Rockbox uses, and the hardware iPod Linux uses 
+        - Fill in the gaps between the hardware Rockbox uses, and the hardware iPod Linux uses
 - [ ] Boot into RetailOS
     - i.e: _the big money goal_
     - Hopefully, by getting two other OSs up and running, RetailOS will "just work"
@@ -52,7 +52,6 @@ MVP target hardware: the iPod 4g (Grayscale) (PP5020).
     - Boy, it sure would _suck_ if the iPod actually made use of ARM's configurable Endianness!
 - Funky iPod hardware that _hasn't_ been reverse engineered
     - ...this will suck, and unfortunately, It's probably something I'll encounter once I start messing around with RetailOS.
-
 
 ## Things I won't be tackling off the bat
 
