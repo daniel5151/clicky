@@ -12,6 +12,7 @@ pub struct Ram {
 }
 
 impl Ram {
+    /// size in bytes
     pub fn new(size: usize) -> Ram {
         Ram {
             mem: vec![0u8; size],
@@ -23,23 +24,14 @@ impl Ram {
         ram.mem[..data.len()].clone_from_slice(data);
         ram
     }
+
+    pub fn bulk_write(&mut self, offset: usize, data: &[u8]) {
+        self.mem[offset..offset + data.len()].copy_from_slice(data)
+    }
 }
 
 impl Memory for Ram {
-    // reads are side-effect free
     fn r8(&mut self, addr: u32) -> u8 {
-        self.p8(addr)
-    }
-
-    fn r16(&mut self, addr: u32) -> u16 {
-        self.p16(addr)
-    }
-
-    fn r32(&mut self, addr: u32) -> u32 {
-        self.p32(addr)
-    }
-
-    fn p8(&self, addr: u32) -> u8 {
         let idx = addr as usize;
         if idx < self.mem.len() {
             self.mem[idx]
@@ -48,7 +40,7 @@ impl Memory for Ram {
         }
     }
 
-    fn p16(&self, addr: u32) -> u16 {
+    fn r16(&mut self, addr: u32) -> u16 {
         debug_assert!(addr % 2 == 0);
 
         let idx = addr as usize;
@@ -59,7 +51,7 @@ impl Memory for Ram {
         }
     }
 
-    fn p32(&self, addr: u32) -> u32 {
+    fn r32(&mut self, addr: u32) -> u32 {
         debug_assert!(addr % 4 == 0);
 
         let idx = addr as usize;

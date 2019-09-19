@@ -6,6 +6,12 @@ A classic clickwheel iPod emulator.
 
 If only! No, no... we are still in the _very_ early stages here haha.
 
+That said, if you want to see _something_ happening, try running:
+
+```sh
+RUST_LOG=trace cargo run ./resources/ipodloader_deadbeefs.bin
+```
+
 ## The Gameplan
 
 MVP target hardware: the iPod 4g (Grayscale) (PP5020).
