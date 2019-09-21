@@ -29,3 +29,11 @@ This would be awesome, but likely be quite difficult to pull off properly, as I 
 As such, I'll likely begin by using my high-level bootloader to load the second-stage bootloader, just to get things going. Once I feel more comfortable with this whole endeavor, I'll revisit this idea...
 
 ---
+
+Oh shit would you look at that.
+
+https://www.rockbox.org/wiki/IpodFlash#Apple_39s_flash_code
+
+Looks like the rockbox devs also wanted to pull the contents of flash ROM from iPods, and wrote a utlity to do so.
+
+That's great, but unfortunately for me, _I don't have an iPod to rip the flash from!_. Guess I'll just have to keep chugging along with the HLE bootloader approach...

@@ -5,50 +5,114 @@ use std::fs::File;
 
 mod devices;
 mod firmware;
+mod memory;
 mod ram;
+mod registers;
 
 use arm7tdmi_rs::{reg, Cpu, Memory};
 
-use crate::devices::cpuid::CpuId;
-use crate::devices::Device;
+use crate::devices::FakeFlash;
 use crate::firmware::FirmwareInfo;
+use crate::memory::WordAligned;
 use crate::ram::Ram;
+use crate::registers::{CpuController, CpuId};
 
-struct PP5020 {
-    sdram: Ram,   // 32 MB
-    fastram: Ram, // 96 KB
-    cpuid: Device<CpuId>,
+struct PP5020System {
+    cpu: Cpu,
+    cop: Cpu,
+    devices: PP5020Devices,
 }
 
-impl PP5020 {
-    fn new() -> PP5020 {
-        PP5020 {
+impl PP5020System {
+    fn new_hle_boot(mut fw_file: impl Read + Seek) -> std::io::Result<PP5020System> {
+        let fw_info = FirmwareInfo::new_from_reader(&mut fw_file)?;
+
+        let os_image = fw_info.images().find(|img| img.name == *b"osos").unwrap();
+        println!("Found OS Image: {:#x?}", os_image);
+
+        // extract image from firmware
+        fw_file.seek(SeekFrom::Start(os_image.dev_offset as u64 + 0x200))?;
+        let mut os_image_data = vec![0; os_image.len as usize];
+        fw_file.read_exact(&mut os_image_data)?;
+
+        let mut devices = PP5020Devices::new();
+        devices.sdram.bulk_write(0, &os_image_data);
+
+        // fake the bootloader, load directly at the image address
+        let cpu = Cpu::new(&[
+            (0, reg::PC, os_image.addr + os_image.entry_offset),
+            (0, reg::CPSR, 0xd3),
+        ]);
+        let cop = Cpu::new(&[
+            (0, reg::PC, os_image.addr + os_image.entry_offset),
+            (0, reg::CPSR, 0xd3),
+        ]);
+
+        Ok(PP5020System { cpu, cop, devices })
+    }
+
+    fn cycle(&mut self) {
+        // Check / Update CPU Controllers
+        // TODO: implement the controllers properly
+        use crate::registers::cpu_controller::flags as cpuctl;
+        if self.devices.cpu_controller.raw() & cpuctl::FLOW_MASK == 0 {
+            // run the cpu
+            eprint!("CPU: ");
+            self.cpu.cycle(self.devices.with_cpuid(CpuId::Cpu));
+        }
+
+        if self.devices.cop_controller.raw() & cpuctl::FLOW_MASK == 0 {
+            // run the cop
+            eprint!("COP: ");
+            self.cop.cycle(self.devices.with_cpuid(CpuId::Cop));
+        }
+    }
+}
+
+struct PP5020Devices {
+    pub fakeflash: WordAligned<FakeFlash>,
+    pub sdram: Ram,   // 32 MB
+    pub fastram: Ram, // 96 KB
+    pub cpuid: WordAligned<CpuId>,
+    pub cpu_controller: WordAligned<CpuController>,
+    pub cop_controller: WordAligned<CpuController>,
+}
+
+impl PP5020Devices {
+    fn new() -> PP5020Devices {
+        PP5020Devices {
+            fakeflash: WordAligned::new(FakeFlash::new()),
             sdram: Ram::new(32 * 1024 * 1024),
             fastram: Ram::new(96 * 1024),
-            cpuid: Device::new(CpuId::Cpu),
+            cpuid: WordAligned::new(CpuId::Cpu),
+            cpu_controller: WordAligned::new(CpuController::new()),
+            cop_controller: WordAligned::new(CpuController::new()),
         }
     }
 
-    fn set_cpuid(&mut self, cpuid: CpuId) -> &mut Self {
-        *self.cpuid.as_mut() = cpuid;
+    fn with_cpuid(&mut self, cpuid: CpuId) -> &mut Self {
+        *self.cpuid = cpuid;
         self
     }
 
     // TODO: explore other ways of specifying memory map, preferably _without_
-    // trait objects
+    // trait objects (or, at the very least, wihtout having to constantly remake the
+    // same trait object)
 
     fn addr_to_mem(&mut self, addr: u32) -> (&mut dyn Memory, u32) {
         match addr {
-            0x0000_0000..=0x0fff_ffff => panic!("accessed Flash address {:#08x}", addr),
+            0x0000_0000..=0x0fff_ffff => (&mut self.fakeflash, addr),
             0x1000_0000..=0x3fff_ffff => (&mut self.sdram, addr - 0x1000_0000),
             0x4000_0000..=0x4001_7fff => (&mut self.fastram, addr - 0x4000_0000),
             0x6000_0000 => (&mut self.cpuid, addr - 0x6000_0000),
-            _ => panic!("accessed unimplemented addr {:#08x}", addr),
+            0x6000_7000 => (&mut self.cpu_controller, addr - 0x6000_7000),
+            0x6000_7004 => (&mut self.cop_controller, addr - 0x6000_7004),
+            _ => panic!("accessed unimplemented addr {:#010x}", addr),
         }
     }
 }
 
-impl Memory for PP5020 {
+impl Memory for PP5020Devices {
     fn r8(&mut self, addr: u32) -> u8 {
         let (mem, addr) = self.addr_to_mem(addr);
         mem.r8(addr)
@@ -87,40 +151,27 @@ fn main() -> std::io::Result<()> {
 
     let args: Vec<String> = std::env::args().collect();
 
-    let mut fw_file = File::open(&args[1])?;
-    let fw_info = FirmwareInfo::new_from_reader(&mut fw_file)?;
+    let fw_file = File::open(&args[1])?;
+    let mut system = PP5020System::new_hle_boot(fw_file)?;
 
-    let os_image = fw_info.images().find(|img| img.name == *b"osos").unwrap();
-
-    println!("Found OS Image: {:#x?}", os_image);
-
-    // extract image from firmware
-    fw_file.seek(SeekFrom::Start(os_image.dev_offset as u64 + 0x200))?;
-    let mut os_image_data = vec![0; os_image.len as usize];
-    fw_file.read_exact(&mut os_image_data)?;
-
-    // fake the bootloader, load directly at the image address
-    let mut mem = PP5020::new();
-    mem.sdram.bulk_write(0, &os_image_data);
-
-    let mut cpu = Cpu::new(&[
-        (0, reg::PC, os_image.addr + os_image.entry_offset),
-        (0, reg::CPSR, 0xd3),
-    ]);
-    let mut cop = Cpu::new(&[
-        (0, reg::PC, os_image.addr + os_image.entry_offset),
-        (0, reg::CPSR, 0xd3),
-    ]);
-
+    let mut step_through = false;
     loop {
-        // TODO: find a cleaner way to giving each CPU a _slightly_ different mmu
-        eprint!("CPU: ");
-        cpu.cycle(mem.set_cpuid(CpuId::Cpu));
-        eprint!("COP: ");
-        cop.cycle(mem.set_cpuid(CpuId::Cop));
+        system.cycle();
+
+        match system.cpu.reg_get(0, reg::PC) {
+            // 0x1000_0474 => step_through = true,
+            // 0x4000_0098 => step_through = true,
+            _ => {}
+        }
 
         // quick-and-dirty step through
-        let _ = std::io::stdin().read(&mut [0u8]).unwrap();
-        // disasm last instruction
+        if step_through {
+            let c = std::io::stdin().bytes().next().unwrap().unwrap();
+            match c as char {
+                'r' => step_through = false,
+                's' => step_through = true,
+                _ => {}
+            }
+        }
     }
 }

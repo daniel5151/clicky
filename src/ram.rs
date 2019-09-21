@@ -36,7 +36,7 @@ impl Memory for Ram {
         if idx < self.mem.len() {
             self.mem[idx]
         } else {
-            panic!("p8 from invalid address {:#08x}", addr);
+            panic!("p8 from invalid address {:#010x}", addr);
         }
     }
 
@@ -47,7 +47,7 @@ impl Memory for Ram {
         if idx < self.mem.len() - 1 {
             LittleEndian::read_u16(&self.mem[idx..idx + 2])
         } else {
-            panic!("p16 from invalid address {:#08x}", addr);
+            panic!("p16 from invalid address {:#010x}", addr);
         }
     }
 
@@ -58,7 +58,7 @@ impl Memory for Ram {
         if idx < self.mem.len() - 3 {
             LittleEndian::read_u32(&self.mem[idx..idx + 4])
         } else {
-            panic!("p32 from invalid address {:#08x}", addr);
+            panic!("p32 from invalid address {:#010x}", addr);
         }
     }
 
@@ -67,7 +67,7 @@ impl Memory for Ram {
         if idx < self.mem.len() {
             self.mem[idx] = val;
         } else {
-            panic!("w8 to invalid address {:#08x}", addr);
+            panic!("w8 to invalid address {:#010x}", addr);
         }
     }
 
@@ -78,7 +78,7 @@ impl Memory for Ram {
         if idx < self.mem.len() - 1 {
             LittleEndian::write_u16(&mut self.mem[idx..idx + 2], val);
         } else {
-            panic!("w16 to invalid address {:#08x}", addr);
+            panic!("w16 to invalid address {:#010x}", addr);
         }
     }
 
@@ -89,7 +89,7 @@ impl Memory for Ram {
         if idx < self.mem.len() - 3 {
             LittleEndian::write_u32(&mut self.mem[idx..idx + 4], val);
         } else {
-            panic!("w32 to invalid address {:#08x}", addr);
+            panic!("w32 to invalid address {:#010x}", addr);
         }
     }
 }
