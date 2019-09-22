@@ -1,6 +1,6 @@
 # clicky
 
-A classic clickwheel iPod emulator.
+A clickwheel iPod emulator.
 
 ## Usage
 
@@ -69,6 +69,7 @@ MVP target hardware: the iPod 4g (Grayscale) (PP5020).
 
 - Assembler & C source-code maps (for easier Debugging)
     - This would likely be implemented as part of [arm7tdmi-rs](https://github.com/daniel5151/arm7tdmi-rs), as it isn't something iPod specific.
+    - **update:** I've slapped _something_ together (see `src/debugger/asm2line.rs`) but it really should be rewritten. I think a good approach might be to write a gdb stub. I mean, how hard could that be?
 
 ## Long-term plans
 

@@ -2,7 +2,9 @@
 #![allow(dead_code)] // TODO: remove once project matures
 
 use std::fs::File;
+use std::io::{Read, Seek, SeekFrom};
 
+mod debugger;
 mod devices;
 mod firmware;
 mod memory;
@@ -16,6 +18,8 @@ use crate::firmware::FirmwareInfo;
 use crate::memory::WordAligned;
 use crate::ram::Ram;
 use crate::registers::{CpuController, CpuId};
+
+use crate::debugger::asm2line::Asm2Line;
 
 struct PP5020System {
     cpu: Cpu,
@@ -57,19 +61,25 @@ impl PP5020System {
         use crate::registers::cpu_controller::flags as cpuctl;
         if self.devices.cpu_controller.raw() & cpuctl::FLOW_MASK == 0 {
             // run the cpu
-            eprint!("CPU: ");
+            if log::log_enabled!(log::Level::Trace) {
+                eprint!("CPU: ");
+            }
             self.cpu.cycle(self.devices.with_cpuid(CpuId::Cpu));
         }
 
         if self.devices.cop_controller.raw() & cpuctl::FLOW_MASK == 0 {
             // run the cop
-            eprint!("COP: ");
+            if log::log_enabled!(log::Level::Trace) {
+                eprint!("COP: ");
+            }
             self.cop.cycle(self.devices.with_cpuid(CpuId::Cop));
         }
     }
 }
 
 struct PP5020Devices {
+    pub bad_mem_access: Option<u32>,
+
     pub fakeflash: WordAligned<FakeFlash>,
     pub sdram: Ram,   // 32 MB
     pub fastram: Ram, // 96 KB
@@ -81,6 +91,8 @@ struct PP5020Devices {
 impl PP5020Devices {
     fn new() -> PP5020Devices {
         PP5020Devices {
+            bad_mem_access: None,
+
             fakeflash: WordAligned::new(FakeFlash::new()),
             sdram: Ram::new(32 * 1024 * 1024),
             fastram: Ram::new(96 * 1024),
@@ -107,7 +119,12 @@ impl PP5020Devices {
             0x6000_0000 => (&mut self.cpuid, addr - 0x6000_0000),
             0x6000_7000 => (&mut self.cpu_controller, addr - 0x6000_7000),
             0x6000_7004 => (&mut self.cop_controller, addr - 0x6000_7004),
-            _ => panic!("accessed unimplemented addr {:#010x}", addr),
+            _ => {
+                self.bad_mem_access = Some(addr);
+                // just return _something_. not like it matters, since we are
+                // gonna exit after this instruction anyways
+                (&mut self.cpuid, 0)
+            }
         }
     }
 }
@@ -144,34 +161,62 @@ impl Memory for PP5020Devices {
     }
 }
 
-use std::io::{Read, Seek, SeekFrom};
-
 fn main() -> std::io::Result<()> {
     env_logger::init();
 
     let args: Vec<String> = std::env::args().collect();
 
     let fw_file = File::open(&args[1])?;
+
+    let mut debugger = None;
+    if let Some(objdump_fname) = args.get(2) {
+        let mut dbg = Asm2Line::new();
+        dbg.load_objdump(objdump_fname)?;
+        debugger = Some(dbg)
+    }
+
     let mut system = PP5020System::new_hle_boot(fw_file)?;
 
     let mut step_through = false;
     loop {
+        let pc = system.cpu.reg_get(0, reg::PC);
+
         system.cycle();
 
-        match system.cpu.reg_get(0, reg::PC) {
-            // 0x1000_0474 => step_through = true,
-            // 0x4000_0098 => step_through = true,
+        #[allow(clippy::single_match)]
+        match pc {
+            0x1000_0474 => step_through = true, // right after relocate to 0x40000000
+            0x4000_0098 => step_through = true, // right after init_bss
             _ => {}
         }
 
         // quick-and-dirty step through
         if step_through {
+            if let Some(ref mut debugger) = debugger {
+                match debugger.lookup(pc) {
+                    Some(info) => println!("{}", info),
+                    None => println!("???"),
+                }
+            }
+
             let c = std::io::stdin().bytes().next().unwrap().unwrap();
             match c as char {
                 'r' => step_through = false,
                 's' => step_through = true,
                 _ => {}
             }
+        }
+
+        if let Some(addr) = system.devices.bad_mem_access {
+            eprintln!("accessed unimplemented addr {:#010x}", addr);
+            eprintln!("{:#x?}", system.cpu);
+            if let Some(ref mut debugger) = debugger {
+                match debugger.lookup(pc) {
+                    Some(info) => eprintln!("{}", info),
+                    None => eprintln!("???"),
+                }
+            }
+            panic!();
         }
     }
 }
