@@ -11,13 +11,13 @@ mod memory;
 mod ram;
 mod registers;
 
-use arm7tdmi_rs::{reg, Cpu, Memory};
+use arm7tdmi_rs::{reg, Cpu, Memory as ArmMemory};
 
-use crate::devices::FakeFlash;
+use crate::devices::{FakeFlash, SysControl};
 use crate::firmware::FirmwareInfo;
-use crate::memory::WordAligned;
+use crate::memory::{AccessViolation, AccessViolationKind, MemResultExt, Memory};
 use crate::ram::Ram;
-use crate::registers::{CpuController, CpuId};
+use crate::registers::CpuId;
 
 use crate::debugger::asm2line::Asm2Line;
 
@@ -27,7 +27,26 @@ struct PP5020System {
     devices: PP5020Devices,
 }
 
+#[derive(Debug)]
+enum FatalError {
+    CpuHalted,
+    FatalAccessViolation(AccessViolation),
+}
+
 impl PP5020System {
+    /// Returns a new PP5020System. Boots from a "cold start," running the
+    /// bootloader code present in the Flash ROM. Requires a copy of flash_rom
+    /// dumped from original hardware.
+    /// See https://www.rockbox.org/wiki/IpodFlash for details on how to obtain a dump
+    // TODO: implement this once I find an actual Flash ROM dump
+    fn new(flash_rom: impl Read, fw_file: impl Read) -> std::io::Result<PP5020System> {
+        let _ = (flash_rom, fw_file);
+        unimplemented!()
+    }
+
+    /// Returns a new PP5020System using High Level Emulation (HLE) of the
+    /// bootloader. Execution begins from OS code (as specified in the fw_file's
+    /// structure), and the contents of Flash ROM are faked.
     fn new_hle_boot(mut fw_file: impl Read + Seek) -> std::io::Result<PP5020System> {
         let fw_info = FirmwareInfo::new_from_reader(&mut fw_file)?;
 
@@ -55,11 +74,8 @@ impl PP5020System {
         Ok(PP5020System { cpu, cop, devices })
     }
 
-    fn cycle(&mut self) {
-        // Check / Update CPU Controllers
-        // TODO: implement the controllers properly
-        use crate::registers::cpu_controller::flags as cpuctl;
-        if self.devices.cpu_controller.raw() & cpuctl::FLOW_MASK == 0 {
+    fn cycle(&mut self) -> Result<(), FatalError> {
+        if self.devices.syscontrol.should_cycle_cpu() {
             // run the cpu
             if log::log_enabled!(log::Level::Trace) {
                 eprint!("CPU: ");
@@ -67,98 +83,115 @@ impl PP5020System {
             self.cpu.cycle(self.devices.with_cpuid(CpuId::Cpu));
         }
 
-        if self.devices.cop_controller.raw() & cpuctl::FLOW_MASK == 0 {
+        if let Some(access_violation) = self.devices.access_violation.take() {
+            match access_violation.kind() {
+                AccessViolationKind::Unimplemented => {
+                    return Err(FatalError::FatalAccessViolation(access_violation))
+                }
+                AccessViolationKind::Misaligned => {
+                    log::warn!("CPU {:#010x?}", access_violation);
+                    // FIXME: Misaligned access (i.e: Data Abort) _should_ be recoverable.
+                    // ...but for early development, it's probably more likely than not that a
+                    // misaligned access is a side-effect of my bad code, _not_ application code
+                    // running inside the emulator doing Bad Things.
+                    return Err(FatalError::FatalAccessViolation(access_violation));
+                }
+            }
+        }
+
+        if self.devices.syscontrol.should_cycle_cop() {
             // run the cop
             if log::log_enabled!(log::Level::Trace) {
                 eprint!("COP: ");
             }
             self.cop.cycle(self.devices.with_cpuid(CpuId::Cop));
         }
+
+        Ok(())
     }
 }
 
 struct PP5020Devices {
-    pub bad_mem_access: Option<u32>,
+    pub access_violation: Option<AccessViolation>,
+    stub: devices::Stub,
 
-    pub fakeflash: WordAligned<FakeFlash>,
-    pub sdram: Ram,   // 32 MB
-    pub fastram: Ram, // 96 KB
-    pub cpuid: WordAligned<CpuId>,
-    pub cpu_controller: WordAligned<CpuController>,
-    pub cop_controller: WordAligned<CpuController>,
+    pub flash: FakeFlash, // 1 MB
+    pub sdram: Ram,       // 32 MB
+    pub fastram: Ram,     // 96 KB
+    pub syscontrol: SysControl,
 }
 
 impl PP5020Devices {
     fn new() -> PP5020Devices {
         PP5020Devices {
-            bad_mem_access: None,
+            access_violation: None,
+            stub: devices::Stub,
 
-            fakeflash: WordAligned::new(FakeFlash::new()),
+            flash: FakeFlash::new(),
             sdram: Ram::new(32 * 1024 * 1024),
             fastram: Ram::new(96 * 1024),
-            cpuid: WordAligned::new(CpuId::Cpu),
-            cpu_controller: WordAligned::new(CpuController::new()),
-            cop_controller: WordAligned::new(CpuController::new()),
+            syscontrol: SysControl::new(),
         }
     }
 
     fn with_cpuid(&mut self, cpuid: CpuId) -> &mut Self {
-        *self.cpuid = cpuid;
+        self.syscontrol.set_cpuid(cpuid);
         self
     }
 
     // TODO: explore other ways of specifying memory map, preferably _without_
-    // trait objects (or, at the very least, wihtout having to constantly remake the
-    // same trait object)
+    // trait objects (or at the very least, without having to constantly remake
+    // the exact same trait object on each call)
 
-    fn addr_to_mem(&mut self, addr: u32) -> (&mut dyn Memory, u32) {
+    fn addr_to_mem_offset(&mut self, addr: u32) -> (&mut dyn Memory, u32) {
         match addr {
-            0x0000_0000..=0x0fff_ffff => (&mut self.fakeflash, addr),
-            0x1000_0000..=0x3fff_ffff => (&mut self.sdram, addr - 0x1000_0000),
-            0x4000_0000..=0x4001_7fff => (&mut self.fastram, addr - 0x4000_0000),
-            0x6000_0000 => (&mut self.cpuid, addr - 0x6000_0000),
-            0x6000_7000 => (&mut self.cpu_controller, addr - 0x6000_7000),
-            0x6000_7004 => (&mut self.cop_controller, addr - 0x6000_7004),
-            _ => {
-                self.bad_mem_access = Some(addr);
-                // just return _something_. not like it matters, since we are
-                // gonna exit after this instruction anyways
-                (&mut self.cpuid, 0)
-            }
+            0x0000_0000..=0x000f_ffff => (&mut self.flash, 0),
+            // ???
+            0x1000_0000..=0x3fff_ffff => (&mut self.sdram, 0x1000_0000),
+            0x4000_0000..=0x4001_7fff => (&mut self.fastram, 0x4000_0000),
+            // ???
+            0x6000_0000..=0x6fff_ffff => (&mut self.syscontrol, 0x6000_0000),
+            // ???
+            _ => (&mut self.stub, 0),
         }
     }
 }
 
-impl Memory for PP5020Devices {
-    fn r8(&mut self, addr: u32) -> u8 {
-        let (mem, addr) = self.addr_to_mem(addr);
-        mem.r8(addr)
-    }
+// Because the arm7tdmi cpu expects all memory accesses to succeed, there needs
+// to be a shim between Clicky's memory interface (which is fallible), and the
+// arm7tdmi-rs Memory interface.
 
-    fn r16(&mut self, addr: u32) -> u16 {
-        let (mem, addr) = self.addr_to_mem(addr);
-        mem.r16(addr)
-    }
+macro_rules! impl_arm7tdmi_r {
+    ($fn:ident, $ret:ty) => {
+        fn $fn(&mut self, addr: u32) -> $ret {
+            let (mem, offset) = self.addr_to_mem_offset(addr);
+            mem.$fn(addr - offset)
+                .map_memerr_offset(offset)
+                .map_err(|e| self.access_violation = Some(e))
+                .unwrap_or(0x00) // contents of register undefined
+        }
+    };
+}
 
-    fn r32(&mut self, addr: u32) -> u32 {
-        let (mem, addr) = self.addr_to_mem(addr);
-        mem.r32(addr)
-    }
+macro_rules! impl_arm7tdmi_w {
+    ($fn:ident, $val:ty) => {
+        fn $fn(&mut self, addr: u32, val: $val) {
+            let (mem, offset) = self.addr_to_mem_offset(addr);
+            mem.$fn(addr - offset, val as $val)
+                .map_memerr_offset(offset)
+                .map_err(|e| self.access_violation = Some(e))
+                .unwrap_or(())
+        }
+    };
+}
 
-    fn w8(&mut self, addr: u32, val: u8) {
-        let (mem, addr) = self.addr_to_mem(addr);
-        mem.w8(addr, val)
-    }
-
-    fn w16(&mut self, addr: u32, val: u16) {
-        let (mem, addr) = self.addr_to_mem(addr);
-        mem.w16(addr, val)
-    }
-
-    fn w32(&mut self, addr: u32, val: u32) {
-        let (mem, addr) = self.addr_to_mem(addr);
-        mem.w32(addr, val)
-    }
+impl ArmMemory for PP5020Devices {
+    impl_arm7tdmi_r!(r8, u8);
+    impl_arm7tdmi_r!(r16, u16);
+    impl_arm7tdmi_r!(r32, u32);
+    impl_arm7tdmi_w!(w8, u8);
+    impl_arm7tdmi_w!(w16, u16);
+    impl_arm7tdmi_w!(w32, u32);
 }
 
 fn main() -> std::io::Result<()> {
@@ -181,7 +214,18 @@ fn main() -> std::io::Result<()> {
     loop {
         let pc = system.cpu.reg_get(0, reg::PC);
 
-        system.cycle();
+        if let Err(fatal_error) = system.cycle() {
+            eprintln!("Fatal Error Occurred!");
+            eprintln!("{:#x?}", system.cpu);
+            eprintln!("{:#010x?}", fatal_error);
+            if let Some(ref mut debugger) = debugger {
+                match debugger.lookup(pc) {
+                    Some(info) => eprintln!("{}", info),
+                    None => eprintln!("???"),
+                }
+            }
+            panic!();
+        }
 
         #[allow(clippy::single_match)]
         match pc {
@@ -205,18 +249,6 @@ fn main() -> std::io::Result<()> {
                 's' => step_through = true,
                 _ => {}
             }
-        }
-
-        if let Some(addr) = system.devices.bad_mem_access {
-            eprintln!("accessed unimplemented addr {:#010x}", addr);
-            eprintln!("{:#x?}", system.cpu);
-            if let Some(ref mut debugger) = debugger {
-                match debugger.lookup(pc) {
-                    Some(info) => eprintln!("{}", info),
-                    None => eprintln!("???"),
-                }
-            }
-            panic!();
         }
     }
 }

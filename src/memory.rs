@@ -1,98 +1,126 @@
-use arm7tdmi_rs::Memory;
-
-/// A trait for implementing memory devices that enfore word-aligned access
-pub trait WordAlignedMemory {
-    /// Read a 32-bit value from the device's base address + `offset`
-    fn r32(&mut self, offset: u32) -> u32;
-    /// Read a 32-bit `val` to the device's base address + `offset`
-    fn w32(&mut self, offset: u32, val: u32);
+#[derive(Debug, Copy, Clone)]
+pub enum AccessViolationKind {
+    Misaligned,
+    Unimplemented,
 }
 
-/// A wrapper around [`WordAlignedMemory`] objects that derives
-/// [`arm7tdmi::Memory`]. When a misaligned access happens, a `access_violation`
-/// flag is set.
-pub struct WordAligned<T: WordAlignedMemory> {
-    access_violation: bool,
-    inner: T,
+/// Denotes some sort of memory access faliure
+#[derive(Debug)]
+pub struct AccessViolation {
+    label: String,
+    addr: u32,
+    kind: AccessViolationKind,
 }
 
-use std::ops::{Deref, DerefMut};
+impl AccessViolation {
+    pub fn new(label: String, addr: u32, kind: AccessViolationKind) -> AccessViolation {
+        AccessViolation { label, addr, kind }
+    }
 
-impl<T: WordAlignedMemory> Deref for WordAligned<T> {
-    type Target = T;
+    pub fn addr(&self) -> u32 {
+        self.addr
+    }
 
-    fn deref(&self) -> &Self::Target {
-        &self.inner
+    pub fn label(&self) -> &str {
+        &self.label
+    }
+
+    pub fn kind(&self) -> AccessViolationKind {
+        self.kind
     }
 }
 
-impl<T: WordAlignedMemory> DerefMut for WordAligned<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
+pub type MemResult<T> = Result<T, AccessViolation>;
+
+/// Utility methods to make working with MemResults more ergonomic
+pub trait MemResultExt {
+    /// If the MemResult is an error, add `offset` to the underlying addr, and
+    /// prefix `label` to the address
+    fn map_memerr_ctx(self, offset: u32, label: String) -> Self;
+    /// If the MemResult is an error, add `offset` to the underlying addr
+    fn map_memerr_offset(self, offset: u32) -> Self;
+}
+
+impl<T> MemResultExt for MemResult<T> {
+    fn map_memerr_offset(self, offset: u32) -> Self {
+        self.map_err(|mut violation| {
+            violation.addr += offset;
+            violation
+        })
+    }
+
+    fn map_memerr_ctx(self, offset: u32, label: String) -> Self {
+        self.map_err(|mut violation| {
+            violation.label = label + ":" + &violation.label;
+            violation.addr += offset;
+            violation
+        })
     }
 }
 
-impl<T: WordAlignedMemory> WordAligned<T> {
-    pub fn new(inner: T) -> WordAligned<T> {
-        WordAligned {
-            access_violation: false,
-            inner,
-        }
-    }
-
-    /// Checks for an access violation, clearing the boolean once read
-    pub fn check_access_violation(&mut self) -> bool {
-        let ret = self.access_violation;
-        self.access_violation = false;
-        ret
-    }
+#[doc(hidden)]
+#[macro_export]
+macro_rules! unimplemented_offset {
+    () => {
+        Err(crate::memory::AccessViolation::new(
+            "<unimplemented offset>".to_string(),
+            0,
+            crate::memory::AccessViolationKind::Unimplemented,
+        ))
+    };
 }
 
-impl<T> Memory for WordAligned<T>
-where
-    T: WordAlignedMemory,
-{
-    /// Read a 8-bit value from `addr`
-    fn r8(&mut self, addr: u32) -> u8 {
-        if addr & 0x3 != 0 {
-            self.access_violation = true;
-            0x00 // return dummy value
+/// Common memory trait used throughout Clicky.
+/// Default implementations for 8-bit and 16-bit read/write is to return a
+/// [AccessViolation::Misaligned]
+pub trait Memory {
+    fn label(&self) -> String;
+
+    fn r32(&mut self, offset: u32) -> MemResult<u32>;
+    fn w32(&mut self, offset: u32, val: u32) -> MemResult<()>;
+
+    fn r8(&mut self, offset: u32) -> MemResult<u8> {
+        if offset & 0x3 != 0 {
+            Err(crate::memory::AccessViolation::new(
+                self.label(),
+                offset,
+                crate::memory::AccessViolationKind::Misaligned,
+            ))
         } else {
-            self.inner.r32(addr) as u8
+            Memory::r32(self, offset).map(|v| v as u8)
         }
     }
-    /// Read a 16-bit value from `addr`
-    fn r16(&mut self, addr: u32) -> u16 {
-        if addr & 0x3 != 0 {
-            self.access_violation = true;
-            0x00 // return dummy value
+    fn r16(&mut self, offset: u32) -> MemResult<u16> {
+        if offset & 0x3 != 0 {
+            Err(crate::memory::AccessViolation::new(
+                self.label(),
+                offset,
+                crate::memory::AccessViolationKind::Misaligned,
+            ))
         } else {
-            self.inner.r32(addr) as u16
+            Memory::r32(self, offset).map(|v| v as u16)
         }
     }
-    /// Read a 32-bit value from `addr`
-    fn r32(&mut self, addr: u32) -> u32 {
-        self.inner.r32(addr)
-    }
-
-    /// Write a 8-bit `val` to `addr`
-    fn w8(&mut self, addr: u32, val: u8) {
-        if addr & 0x3 != 0 {
-            self.access_violation = true;
+    fn w8(&mut self, offset: u32, val: u8) -> MemResult<()> {
+        if offset & 0x3 != 0 {
+            Err(crate::memory::AccessViolation::new(
+                self.label(),
+                offset,
+                crate::memory::AccessViolationKind::Misaligned,
+            ))
         } else {
-            self.inner.w32(addr, val as u32)
+            Memory::w32(self, offset, val as u32)
         }
     }
-    /// Write a 16-bit `val` to `addr`
-    fn w16(&mut self, addr: u32, val: u16) {
-        if addr & 0x3 != 0 {
-            self.access_violation = true;
+    fn w16(&mut self, offset: u32, val: u16) -> MemResult<()> {
+        if offset & 0x3 != 0 {
+            Err(crate::memory::AccessViolation::new(
+                self.label(),
+                offset,
+                crate::memory::AccessViolationKind::Misaligned,
+            ))
         } else {
-            self.inner.w32(addr, val as u32)
+            Memory::w32(self, offset, val as u32)
         }
-    }
-    /// Write a 32-bit `val` to `addr`
-    fn w32(&mut self, addr: u32, val: u32) {
-        self.inner.w32(addr, val)
     }
 }

@@ -3,7 +3,7 @@ use std::vec::Vec;
 use byteorder::{ByteOrder, LittleEndian};
 use serde::{Deserialize, Serialize};
 
-use arm7tdmi_rs::Memory;
+use crate::memory::{MemResult, Memory};
 
 /// Basic fixed-size RAM module.
 #[derive(Serialize, Deserialize)]
@@ -31,65 +31,40 @@ impl Ram {
 }
 
 impl Memory for Ram {
-    fn r8(&mut self, addr: u32) -> u8 {
-        let idx = addr as usize;
-        if idx < self.mem.len() {
-            self.mem[idx]
-        } else {
-            panic!("p8 from invalid address {:#010x}", addr);
-        }
+    fn label(&self) -> String {
+        "Ram".to_string()
     }
 
-    fn r16(&mut self, addr: u32) -> u16 {
-        debug_assert!(addr % 2 == 0);
-
-        let idx = addr as usize;
-        if idx < self.mem.len() - 1 {
-            LittleEndian::read_u16(&self.mem[idx..idx + 2])
-        } else {
-            panic!("p16 from invalid address {:#010x}", addr);
-        }
+    fn r8(&mut self, offset: u32) -> MemResult<u8> {
+        let offset = offset as usize;
+        Ok(self.mem[offset])
     }
 
-    fn r32(&mut self, addr: u32) -> u32 {
-        debug_assert!(addr % 4 == 0);
-
-        let idx = addr as usize;
-        if idx < self.mem.len() - 3 {
-            LittleEndian::read_u32(&self.mem[idx..idx + 4])
-        } else {
-            panic!("p32 from invalid address {:#010x}", addr);
-        }
+    fn r16(&mut self, offset: u32) -> MemResult<u16> {
+        let offset = offset as usize;
+        Ok(LittleEndian::read_u16(&self.mem[offset..offset + 2]))
     }
 
-    fn w8(&mut self, addr: u32, val: u8) {
-        let idx = addr as usize;
-        if idx < self.mem.len() {
-            self.mem[idx] = val;
-        } else {
-            panic!("w8 to invalid address {:#010x}", addr);
-        }
+    fn r32(&mut self, offset: u32) -> MemResult<u32> {
+        let offset = offset as usize;
+        Ok(LittleEndian::read_u32(&self.mem[offset..offset + 4]))
     }
 
-    fn w16(&mut self, addr: u32, val: u16) {
-        debug_assert!(addr % 2 == 0);
-
-        let idx = addr as usize;
-        if idx < self.mem.len() - 1 {
-            LittleEndian::write_u16(&mut self.mem[idx..idx + 2], val);
-        } else {
-            panic!("w16 to invalid address {:#010x}", addr);
-        }
+    fn w8(&mut self, offset: u32, val: u8) -> MemResult<()> {
+        let offset = offset as usize;
+        self.mem[offset] = val;
+        Ok(())
     }
 
-    fn w32(&mut self, addr: u32, val: u32) {
-        debug_assert!(addr % 4 == 0);
+    fn w16(&mut self, offset: u32, val: u16) -> MemResult<()> {
+        let offset = offset as usize;
+        LittleEndian::write_u16(&mut self.mem[offset..offset + 2], val);
+        Ok(())
+    }
 
-        let idx = addr as usize;
-        if idx < self.mem.len() - 3 {
-            LittleEndian::write_u32(&mut self.mem[idx..idx + 4], val);
-        } else {
-            panic!("w32 to invalid address {:#010x}", addr);
-        }
+    fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
+        let offset = offset as usize;
+        LittleEndian::write_u32(&mut self.mem[offset..offset + 4], val);
+        Ok(())
     }
 }

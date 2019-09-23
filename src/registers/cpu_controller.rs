@@ -1,4 +1,4 @@
-use crate::memory::WordAlignedMemory;
+use crate::memory::{MemResult, Memory};
 
 #[rustfmt::skip]
 pub mod flags {
@@ -46,13 +46,18 @@ impl CpuController {
     }
 }
 
-impl WordAlignedMemory for CpuController {
-    fn r32(&mut self, offset: u32) -> u32 {
-        assert!(offset == 0);
-        self.0
+impl Memory for CpuController {
+    fn label(&self) -> String {
+        "CpuController".to_string()
     }
-    fn w32(&mut self, offset: u32, val: u32) {
+
+    fn r32(&mut self, offset: u32) -> MemResult<u32> {
         assert!(offset == 0);
-        self.0 = val
+        Ok(self.0)
+    }
+    fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
+        assert!(offset == 0);
+        self.0 = val;
+        Ok(())
     }
 }
