@@ -1,7 +1,9 @@
 pub mod fakeflash;
+pub mod flash;
 pub mod syscontrol;
 
 pub use fakeflash::FakeFlash;
+pub use flash::Flash;
 pub use syscontrol::SysControl;
 
 use crate::memory::{AccessViolation, AccessViolationKind, MemResult, Memory};

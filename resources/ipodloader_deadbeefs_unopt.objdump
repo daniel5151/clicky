@@ -80,10 +80,10 @@ boot_table():
 40000298 <boot_table+0x198> .word	0x40000040
 4000029c <boot_table+0x19c> .word	0x400000fc
 400002a0 <boot_table+0x1a0> .word	0x400177fc
-400002a4 <boot_table+0x1a4> .word	0x400014e4
+400002a4 <boot_table+0x1a4> .word	0x400014e8
 400002a8 <boot_table+0x1a8> .word	0x40000078
-400002ac <boot_table+0x1ac> .word	0x40001ff8
-400002b0 <boot_table+0x1b0> .word	0x40002010
+400002ac <boot_table+0x1ac> .word	0x40001ffc
+400002b0 <boot_table+0x1b0> .word	0x40002014
 400002b4 <boot_table+0x1b4> .word	0xcf004050
 400002b8 <boot_table+0x1b8> nop			; (mov r0, r0)
 400002bc <boot_table+0x1bc> nop			; (mov r0, r0)
@@ -173,7 +173,7 @@ init_keyboard():
 4000041c <init_keyboard+0x11c> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/loader.c:63
 40000420 <init_keyboard+0x120> bx	lr
-40000424 <init_keyboard+0x124> .word	0x40001ff8
+40000424 <init_keyboard+0x124> .word	0x40001ffc
 key_pressed():
 /home/danielprilik/Github/ipodloader/loader.c:67
 40000428 <key_pressed> push	{lr}		; (str lr, [sp, #-4]!)
@@ -272,7 +272,7 @@ key_pressed():
 40000564 <key_pressed+0x13c> cmp	r3, #4
 40000568 <key_pressed+0x140> ble	400005e4 <key_pressed+0x1bc>
 /home/danielprilik/Github/ipodloader/loader.c:85
-4000056c <key_pressed+0x144> bl	4000138c <opto_keypad_read>
+4000056c <key_pressed+0x144> bl	40001390 <opto_keypad_read>
 40000570 <key_pressed+0x148> mov	r3, r0
 40000574 <key_pressed+0x14c> strb	r3, [sp, #7]
 /home/danielprilik/Github/ipodloader/loader.c:86
@@ -315,7 +315,7 @@ key_pressed():
 400005ec <key_pressed+0x1c4> add	sp, sp, #12
 400005f0 <key_pressed+0x1c8> pop	{lr}		; (ldr lr, [sp], #4)
 400005f4 <key_pressed+0x1cc> bx	lr
-400005f8 <key_pressed+0x1d0> .word	0x40001ff8
+400005f8 <key_pressed+0x1d0> .word	0x40001ffc
 memmove16():
 /home/danielprilik/Github/ipodloader/loader.c:97
 400005fc <memmove16> sub	sp, sp, #24
@@ -434,10 +434,10 @@ loader():
 /home/danielprilik/Github/ipodloader/loader.c:128
 4000076c <loader+0x3c> ldr	r0, [pc, #292]	; 40000898 <loader+0x168>
 40000770 <loader+0x40> mov	r1, #0
-40000774 <loader+0x44> bl	40000cd8 <display_image>
+40000774 <loader+0x44> bl	40000cdc <display_image>
 /home/danielprilik/Github/ipodloader/loader.c:130
 40000778 <loader+0x48> mov	r0, #300	; 0x12c
-4000077c <loader+0x4c> bl	40000a90 <wait_usec>
+4000077c <loader+0x4c> bl	40000a94 <wait_usec>
 /home/danielprilik/Github/ipodloader/loader.c:132
 40000780 <loader+0x50> bl	40000300 <init_keyboard>
 /home/danielprilik/Github/ipodloader/loader.c:134
@@ -464,13 +464,13 @@ loader():
 /home/danielprilik/Github/ipodloader/loader.c:142
 400007cc <loader+0x9c> ldr	r0, [pc, #200]	; 4000089c <loader+0x16c>
 400007d0 <loader+0xa0> mov	r1, #0
-400007d4 <loader+0xa4> bl	40000cd8 <display_image>
+400007d4 <loader+0xa4> bl	40000cdc <display_image>
 /home/danielprilik/Github/ipodloader/loader.c:143
 400007d8 <loader+0xa8> b	400007e8 <loader+0xb8>
 /home/danielprilik/Github/ipodloader/loader.c:147
 400007dc <loader+0xac> ldr	r0, [pc, #180]	; 40000898 <loader+0x168>
 400007e0 <loader+0xb0> mov	r1, #0
-400007e4 <loader+0xb4> bl	40000cd8 <display_image>
+400007e4 <loader+0xb4> bl	40000cdc <display_image>
 /home/danielprilik/Github/ipodloader/loader.c:151
 400007e8 <loader+0xb8> ldr	r2, [sp]
 400007ec <loader+0xbc> mov	r3, r2
@@ -520,972 +520,973 @@ loader():
 40000888 <loader+0x158> pop	{lr}		; (ldr lr, [sp], #4)
 4000088c <loader+0x15c> bx	lr
 40000890 <loader+0x160> .word	0x40000100
-40000894 <loader+0x164> .word	0x40001ff8
-40000898 <loader+0x168> .word	0x40001ec0
-4000089c <loader+0x16c> .word	0x40001fe0
+40000894 <loader+0x164> .word	0x40001ffc
+40000898 <loader+0x168> .word	0x40001ec4
+4000089c <loader+0x16c> .word	0x40001fe4
 get_ipod_rev():
 /home/danielprilik/Github/ipodloader/tools.c:44
 400008a0 <get_ipod_rev> sub	sp, sp, #8
 /home/danielprilik/Github/ipodloader/tools.c:47
 400008a4 <get_ipod_rev+0x4> mov	r3, #8192	; 0x2000
 400008a8 <get_ipod_rev+0x8> ldr	r2, [r3]
-400008ac <get_ipod_rev+0xc> ldr	r3, [pc, #352]	; 40000a14 <get_ipod_rev+0x174>
-400008b0 <get_ipod_rev+0x10> cmp	r2, r3
-400008b4 <get_ipod_rev+0x14> bne	400008d0 <get_ipod_rev+0x30>
+400008ac <get_ipod_rev+0xc> ldr	r3, [pc, #356]	; 40000a18 <get_ipod_rev+0x178>
+400008b0 <get_ipod_rev+0x10> ldr	r3, [r3]
+400008b4 <get_ipod_rev+0x14> cmp	r2, r3
+400008b8 <get_ipod_rev+0x18> bne	400008d4 <get_ipod_rev+0x34>
 /home/danielprilik/Github/ipodloader/tools.c:48
-400008b8 <get_ipod_rev+0x18> mov	r3, #8320	; 0x2080
-400008bc <get_ipod_rev+0x1c> add	r3, r3, #4
-400008c0 <get_ipod_rev+0x20> ldr	r3, [r3]
-400008c4 <get_ipod_rev+0x24> lsr	r3, r3, #16
-400008c8 <get_ipod_rev+0x28> str	r3, [sp, #4]
-400008cc <get_ipod_rev+0x2c> b	400008e4 <get_ipod_rev+0x44>
+400008bc <get_ipod_rev+0x1c> mov	r3, #8320	; 0x2080
+400008c0 <get_ipod_rev+0x20> add	r3, r3, #4
+400008c4 <get_ipod_rev+0x24> ldr	r3, [r3]
+400008c8 <get_ipod_rev+0x28> lsr	r3, r3, #16
+400008cc <get_ipod_rev+0x2c> str	r3, [sp, #4]
+400008d0 <get_ipod_rev+0x30> b	400008e8 <get_ipod_rev+0x48>
 /home/danielprilik/Github/ipodloader/tools.c:50
-400008d0 <get_ipod_rev+0x30> mov	r3, #16384	; 0x4000
-400008d4 <get_ipod_rev+0x34> add	r3, r3, #92	; 0x5c
-400008d8 <get_ipod_rev+0x38> ldr	r3, [r3]
-400008dc <get_ipod_rev+0x3c> lsr	r3, r3, #16
-400008e0 <get_ipod_rev+0x40> str	r3, [sp, #4]
+400008d4 <get_ipod_rev+0x34> mov	r3, #16384	; 0x4000
+400008d8 <get_ipod_rev+0x38> add	r3, r3, #92	; 0x5c
+400008dc <get_ipod_rev+0x3c> ldr	r3, [r3]
+400008e0 <get_ipod_rev+0x40> lsr	r3, r3, #16
+400008e4 <get_ipod_rev+0x44> str	r3, [sp, #4]
 /home/danielprilik/Github/ipodloader/tools.c:53
-400008e4 <get_ipod_rev+0x44> ldr	r3, [pc, #300]	; 40000a18 <get_ipod_rev+0x178>
-400008e8 <get_ipod_rev+0x48> mov	r2, #32768	; 0x8000
-400008ec <get_ipod_rev+0x4c> str	r2, [r3]
+400008e8 <get_ipod_rev+0x48> ldr	r3, [pc, #300]	; 40000a1c <get_ipod_rev+0x17c>
+400008ec <get_ipod_rev+0x4c> mov	r2, #32768	; 0x8000
+400008f0 <get_ipod_rev+0x50> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:55
-400008f0 <get_ipod_rev+0x50> ldr	r3, [pc, #292]	; 40000a1c <get_ipod_rev+0x17c>
-400008f4 <get_ipod_rev+0x54> mov	r2, #160	; 0xa0
-400008f8 <get_ipod_rev+0x58> str	r2, [r3]
+400008f4 <get_ipod_rev+0x54> ldr	r3, [pc, #292]	; 40000a20 <get_ipod_rev+0x180>
+400008f8 <get_ipod_rev+0x58> mov	r2, #160	; 0xa0
+400008fc <get_ipod_rev+0x5c> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:56
-400008fc <get_ipod_rev+0x5c> ldr	r3, [pc, #284]	; 40000a20 <get_ipod_rev+0x180>
-40000900 <get_ipod_rev+0x60> mov	r2, #128	; 0x80
-40000904 <get_ipod_rev+0x64> str	r2, [r3]
+40000900 <get_ipod_rev+0x60> ldr	r3, [pc, #284]	; 40000a24 <get_ipod_rev+0x184>
+40000904 <get_ipod_rev+0x64> mov	r2, #128	; 0x80
+40000908 <get_ipod_rev+0x68> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:58
-40000908 <get_ipod_rev+0x68> ldr	r3, [sp, #4]
-4000090c <get_ipod_rev+0x6c> cmp	r3, #3
-40000910 <get_ipod_rev+0x70> bls	4000093c <get_ipod_rev+0x9c>
+4000090c <get_ipod_rev+0x6c> ldr	r3, [sp, #4]
+40000910 <get_ipod_rev+0x70> cmp	r3, #3
+40000914 <get_ipod_rev+0x74> bls	40000940 <get_ipod_rev+0xa0>
 /home/danielprilik/Github/ipodloader/tools.c:59
-40000914 <get_ipod_rev+0x74> ldr	r2, [pc, #264]	; 40000a24 <get_ipod_rev+0x184>
-40000918 <get_ipod_rev+0x78> mov	r3, #1879048192	; 0x70000000
-4000091c <get_ipod_rev+0x7c> add	r3, r3, #12288	; 0x3000
-40000920 <get_ipod_rev+0x80> str	r3, [r2]
+40000918 <get_ipod_rev+0x78> ldr	r2, [pc, #264]	; 40000a28 <get_ipod_rev+0x188>
+4000091c <get_ipod_rev+0x7c> mov	r3, #1879048192	; 0x70000000
+40000920 <get_ipod_rev+0x80> add	r3, r3, #12288	; 0x3000
+40000924 <get_ipod_rev+0x84> str	r3, [r2]
 /home/danielprilik/Github/ipodloader/tools.c:60
-40000924 <get_ipod_rev+0x84> ldr	r2, [pc, #252]	; 40000a28 <get_ipod_rev+0x188>
-40000928 <get_ipod_rev+0x88> mov	r3, #1610612736	; 0x60000000
-4000092c <get_ipod_rev+0x8c> add	r3, r3, #20480	; 0x5000
-40000930 <get_ipod_rev+0x90> add	r3, r3, #16
-40000934 <get_ipod_rev+0x94> str	r3, [r2]
-40000938 <get_ipod_rev+0x98> b	40000960 <get_ipod_rev+0xc0>
+40000928 <get_ipod_rev+0x88> ldr	r2, [pc, #252]	; 40000a2c <get_ipod_rev+0x18c>
+4000092c <get_ipod_rev+0x8c> mov	r3, #1610612736	; 0x60000000
+40000930 <get_ipod_rev+0x90> add	r3, r3, #20480	; 0x5000
+40000934 <get_ipod_rev+0x94> add	r3, r3, #16
+40000938 <get_ipod_rev+0x98> str	r3, [r2]
+4000093c <get_ipod_rev+0x9c> b	40000964 <get_ipod_rev+0xc4>
 /home/danielprilik/Github/ipodloader/tools.c:62
-4000093c <get_ipod_rev+0x9c> ldr	r2, [pc, #224]	; 40000a24 <get_ipod_rev+0x184>
-40000940 <get_ipod_rev+0xa0> mov	r3, #-1073741824	; 0xc0000000
-40000944 <get_ipod_rev+0xa4> add	r3, r3, #4096	; 0x1000
-40000948 <get_ipod_rev+0xa8> str	r3, [r2]
+40000940 <get_ipod_rev+0xa0> ldr	r2, [pc, #224]	; 40000a28 <get_ipod_rev+0x188>
+40000944 <get_ipod_rev+0xa4> mov	r3, #-1073741824	; 0xc0000000
+40000948 <get_ipod_rev+0xa8> add	r3, r3, #4096	; 0x1000
+4000094c <get_ipod_rev+0xac> str	r3, [r2]
 /home/danielprilik/Github/ipodloader/tools.c:63
-4000094c <get_ipod_rev+0xac> ldr	r2, [pc, #212]	; 40000a28 <get_ipod_rev+0x188>
-40000950 <get_ipod_rev+0xb0> mov	r3, #-822083584	; 0xcf000000
-40000954 <get_ipod_rev+0xb4> add	r3, r3, #4352	; 0x1100
-40000958 <get_ipod_rev+0xb8> add	r3, r3, #16
-4000095c <get_ipod_rev+0xbc> str	r3, [r2]
+40000950 <get_ipod_rev+0xb0> ldr	r2, [pc, #212]	; 40000a2c <get_ipod_rev+0x18c>
+40000954 <get_ipod_rev+0xb4> mov	r3, #-822083584	; 0xcf000000
+40000958 <get_ipod_rev+0xb8> add	r3, r3, #4352	; 0x1100
+4000095c <get_ipod_rev+0xbc> add	r3, r3, #16
+40000960 <get_ipod_rev+0xc0> str	r3, [r2]
 /home/danielprilik/Github/ipodloader/tools.c:66
-40000960 <get_ipod_rev+0xc0> ldr	r3, [sp, #4]
-40000964 <get_ipod_rev+0xc4> sub	r3, r3, #4
-40000968 <get_ipod_rev+0xc8> cmp	r3, #8
-4000096c <get_ipod_rev+0xcc> ldrls	pc, [pc, r3, lsl #2]
-40000970 <get_ipod_rev+0xd0> b	40000a00 <get_ipod_rev+0x160>
-40000974 <get_ipod_rev+0xd4> .word	0x40000998
-40000978 <get_ipod_rev+0xd8> .word	0x40000a00
-4000097c <get_ipod_rev+0xdc> .word	0x400009b4
-40000980 <get_ipod_rev+0xe0> .word	0x40000998
-40000984 <get_ipod_rev+0xe4> .word	0x40000a00
-40000988 <get_ipod_rev+0xe8> .word	0x40000a00
-4000098c <get_ipod_rev+0xec> .word	0x40000a00
-40000990 <get_ipod_rev+0xf0> .word	0x40000a00
-40000994 <get_ipod_rev+0xf4> .word	0x400009dc
+40000964 <get_ipod_rev+0xc4> ldr	r3, [sp, #4]
+40000968 <get_ipod_rev+0xc8> sub	r3, r3, #4
+4000096c <get_ipod_rev+0xcc> cmp	r3, #8
+40000970 <get_ipod_rev+0xd0> ldrls	pc, [pc, r3, lsl #2]
+40000974 <get_ipod_rev+0xd4> b	40000a04 <get_ipod_rev+0x164>
+40000978 <get_ipod_rev+0xd8> .word	0x4000099c
+4000097c <get_ipod_rev+0xdc> .word	0x40000a04
+40000980 <get_ipod_rev+0xe0> .word	0x400009b8
+40000984 <get_ipod_rev+0xe4> .word	0x4000099c
+40000988 <get_ipod_rev+0xe8> .word	0x40000a04
+4000098c <get_ipod_rev+0xec> .word	0x40000a04
+40000990 <get_ipod_rev+0xf0> .word	0x40000a04
+40000994 <get_ipod_rev+0xf4> .word	0x40000a04
+40000998 <get_ipod_rev+0xf8> .word	0x400009e0
 /home/danielprilik/Github/ipodloader/tools.c:69
-40000998 <get_ipod_rev+0xf8> ldr	r3, [pc, #124]	; 40000a1c <get_ipod_rev+0x17c>
-4000099c <get_ipod_rev+0xfc> mov	r2, #138	; 0x8a
-400009a0 <get_ipod_rev+0x100> str	r2, [r3]
+4000099c <get_ipod_rev+0xfc> ldr	r3, [pc, #124]	; 40000a20 <get_ipod_rev+0x180>
+400009a0 <get_ipod_rev+0x100> mov	r2, #138	; 0x8a
+400009a4 <get_ipod_rev+0x104> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:70
-400009a4 <get_ipod_rev+0x104> ldr	r3, [pc, #116]	; 40000a20 <get_ipod_rev+0x180>
-400009a8 <get_ipod_rev+0x108> mov	r2, #110	; 0x6e
-400009ac <get_ipod_rev+0x10c> str	r2, [r3]
+400009a8 <get_ipod_rev+0x108> ldr	r3, [pc, #116]	; 40000a24 <get_ipod_rev+0x184>
+400009ac <get_ipod_rev+0x10c> mov	r2, #110	; 0x6e
+400009b0 <get_ipod_rev+0x110> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:71
-400009b0 <get_ipod_rev+0x110> b	40000a00 <get_ipod_rev+0x160>
+400009b4 <get_ipod_rev+0x114> b	40000a04 <get_ipod_rev+0x164>
 /home/danielprilik/Github/ipodloader/tools.c:75
-400009b4 <get_ipod_rev+0x114> ldr	r3, [pc, #96]	; 40000a1c <get_ipod_rev+0x17c>
-400009b8 <get_ipod_rev+0x118> mov	r2, #220	; 0xdc
-400009bc <get_ipod_rev+0x11c> str	r2, [r3]
+400009b8 <get_ipod_rev+0x118> ldr	r3, [pc, #96]	; 40000a20 <get_ipod_rev+0x180>
+400009bc <get_ipod_rev+0x11c> mov	r2, #220	; 0xdc
+400009c0 <get_ipod_rev+0x120> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:76
-400009c0 <get_ipod_rev+0x120> ldr	r3, [pc, #88]	; 40000a20 <get_ipod_rev+0x180>
-400009c4 <get_ipod_rev+0x124> mov	r2, #176	; 0xb0
-400009c8 <get_ipod_rev+0x128> str	r2, [r3]
+400009c4 <get_ipod_rev+0x124> ldr	r3, [pc, #88]	; 40000a24 <get_ipod_rev+0x184>
+400009c8 <get_ipod_rev+0x128> mov	r2, #176	; 0xb0
+400009cc <get_ipod_rev+0x12c> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:77
-400009cc <get_ipod_rev+0x12c> ldr	r3, [pc, #68]	; 40000a18 <get_ipod_rev+0x178>
-400009d0 <get_ipod_rev+0x130> mov	r2, #-2147483648	; 0x80000000
-400009d4 <get_ipod_rev+0x134> str	r2, [r3]
+400009d0 <get_ipod_rev+0x130> ldr	r3, [pc, #68]	; 40000a1c <get_ipod_rev+0x17c>
+400009d4 <get_ipod_rev+0x134> mov	r2, #-2147483648	; 0x80000000
+400009d8 <get_ipod_rev+0x138> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:78
-400009d8 <get_ipod_rev+0x138> b	40000a00 <get_ipod_rev+0x160>
+400009dc <get_ipod_rev+0x13c> b	40000a04 <get_ipod_rev+0x164>
 /home/danielprilik/Github/ipodloader/tools.c:80
-400009dc <get_ipod_rev+0x13c> ldr	r3, [pc, #56]	; 40000a1c <get_ipod_rev+0x17c>
-400009e0 <get_ipod_rev+0x140> mov	r2, #176	; 0xb0
-400009e4 <get_ipod_rev+0x144> str	r2, [r3]
+400009e0 <get_ipod_rev+0x140> ldr	r3, [pc, #56]	; 40000a20 <get_ipod_rev+0x180>
+400009e4 <get_ipod_rev+0x144> mov	r2, #176	; 0xb0
+400009e8 <get_ipod_rev+0x148> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:81
-400009e8 <get_ipod_rev+0x148> ldr	r3, [pc, #48]	; 40000a20 <get_ipod_rev+0x180>
-400009ec <get_ipod_rev+0x14c> mov	r2, #132	; 0x84
-400009f0 <get_ipod_rev+0x150> str	r2, [r3]
+400009ec <get_ipod_rev+0x14c> ldr	r3, [pc, #48]	; 40000a24 <get_ipod_rev+0x184>
+400009f0 <get_ipod_rev+0x150> mov	r2, #132	; 0x84
+400009f4 <get_ipod_rev+0x154> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:82
-400009f4 <get_ipod_rev+0x154> ldr	r3, [pc, #28]	; 40000a18 <get_ipod_rev+0x178>
-400009f8 <get_ipod_rev+0x158> mov	r2, #-2147483648	; 0x80000000
-400009fc <get_ipod_rev+0x15c> str	r2, [r3]
+400009f8 <get_ipod_rev+0x158> ldr	r3, [pc, #28]	; 40000a1c <get_ipod_rev+0x17c>
+400009fc <get_ipod_rev+0x15c> mov	r2, #-2147483648	; 0x80000000
+40000a00 <get_ipod_rev+0x160> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:86
-40000a00 <get_ipod_rev+0x160> ldr	r2, [sp, #4]
-40000a04 <get_ipod_rev+0x164> ldr	r3, [pc, #32]	; 40000a2c <get_ipod_rev+0x18c>
-40000a08 <get_ipod_rev+0x168> str	r2, [r3]
+40000a04 <get_ipod_rev+0x164> ldr	r2, [sp, #4]
+40000a08 <get_ipod_rev+0x168> ldr	r3, [pc, #32]	; 40000a30 <get_ipod_rev+0x190>
+40000a0c <get_ipod_rev+0x16c> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:87
-40000a0c <get_ipod_rev+0x16c> add	sp, sp, #8
-40000a10 <get_ipod_rev+0x170> bx	lr
-40000a14 <get_ipod_rev+0x174> .word	0x400014e4
-40000a18 <get_ipod_rev+0x178> .word	0x40002004
+40000a10 <get_ipod_rev+0x170> add	sp, sp, #8
+40000a14 <get_ipod_rev+0x174> bx	lr
+40000a18 <get_ipod_rev+0x178> .word	0x400014e8
 40000a1c <get_ipod_rev+0x17c> .word	0x40002008
 40000a20 <get_ipod_rev+0x180> .word	0x4000200c
-40000a24 <get_ipod_rev+0x184> .word	0x40002000
-40000a28 <get_ipod_rev+0x188> .word	0x40001ffc
-40000a2c <get_ipod_rev+0x18c> .word	0x40001ff8
+40000a24 <get_ipod_rev+0x184> .word	0x40002010
+40000a28 <get_ipod_rev+0x188> .word	0x40002004
+40000a2c <get_ipod_rev+0x18c> .word	0x40002000
+40000a30 <get_ipod_rev+0x190> .word	0x40001ffc
 timer_get_current():
 /home/danielprilik/Github/ipodloader/tools.c:93
-40000a30 <timer_get_current> ldr	r3, [pc, #12]	; 40000a44 <timer_get_current+0x14>
-40000a34 <timer_get_current+0x4> ldr	r3, [r3]
-40000a38 <timer_get_current+0x8> ldr	r3, [r3]
+40000a34 <timer_get_current> ldr	r3, [pc, #12]	; 40000a48 <timer_get_current+0x14>
+40000a38 <timer_get_current+0x4> ldr	r3, [r3]
+40000a3c <timer_get_current+0x8> ldr	r3, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:94
-40000a3c <timer_get_current+0xc> mov	r0, r3
-40000a40 <timer_get_current+0x10> bx	lr
-40000a44 <timer_get_current+0x14> .word	0x40001ffc
+40000a40 <timer_get_current+0xc> mov	r0, r3
+40000a44 <timer_get_current+0x10> bx	lr
+40000a48 <timer_get_current+0x14> .word	0x40002000
 timer_check():
 /home/danielprilik/Github/ipodloader/tools.c:99
-40000a48 <timer_check> sub	sp, sp, #8
-40000a4c <timer_check+0x4> str	r0, [sp, #4]
-40000a50 <timer_check+0x8> str	r1, [sp]
+40000a4c <timer_check> sub	sp, sp, #8
+40000a50 <timer_check+0x4> str	r0, [sp, #4]
+40000a54 <timer_check+0x8> str	r1, [sp]
 /home/danielprilik/Github/ipodloader/tools.c:100
-40000a54 <timer_check+0xc> ldr	r3, [pc, #48]	; 40000a8c <timer_check+0x44>
-40000a58 <timer_check+0x10> ldr	r3, [r3]
-40000a5c <timer_check+0x14> ldr	r2, [r3]
-40000a60 <timer_check+0x18> ldr	r3, [sp, #4]
-40000a64 <timer_check+0x1c> rsb	r2, r3, r2
-40000a68 <timer_check+0x20> ldr	r3, [sp]
-40000a6c <timer_check+0x24> cmp	r2, r3
-40000a70 <timer_check+0x28> bcc	40000a7c <timer_check+0x34>
+40000a58 <timer_check+0xc> ldr	r3, [pc, #48]	; 40000a90 <timer_check+0x44>
+40000a5c <timer_check+0x10> ldr	r3, [r3]
+40000a60 <timer_check+0x14> ldr	r2, [r3]
+40000a64 <timer_check+0x18> ldr	r3, [sp, #4]
+40000a68 <timer_check+0x1c> rsb	r2, r3, r2
+40000a6c <timer_check+0x20> ldr	r3, [sp]
+40000a70 <timer_check+0x24> cmp	r2, r3
+40000a74 <timer_check+0x28> bcc	40000a80 <timer_check+0x34>
 /home/danielprilik/Github/ipodloader/tools.c:101
-40000a74 <timer_check+0x2c> mov	r3, #1
-40000a78 <timer_check+0x30> b	40000a80 <timer_check+0x38>
+40000a78 <timer_check+0x2c> mov	r3, #1
+40000a7c <timer_check+0x30> b	40000a84 <timer_check+0x38>
 /home/danielprilik/Github/ipodloader/tools.c:103
-40000a7c <timer_check+0x34> mov	r3, #0
+40000a80 <timer_check+0x34> mov	r3, #0
 /home/danielprilik/Github/ipodloader/tools.c:105
-40000a80 <timer_check+0x38> mov	r0, r3
-40000a84 <timer_check+0x3c> add	sp, sp, #8
-40000a88 <timer_check+0x40> bx	lr
-40000a8c <timer_check+0x44> .word	0x40001ffc
+40000a84 <timer_check+0x38> mov	r0, r3
+40000a88 <timer_check+0x3c> add	sp, sp, #8
+40000a8c <timer_check+0x40> bx	lr
+40000a90 <timer_check+0x44> .word	0x40002000
 wait_usec():
 /home/danielprilik/Github/ipodloader/tools.c:110
-40000a90 <wait_usec> push	{lr}		; (str lr, [sp, #-4]!)
-40000a94 <wait_usec+0x4> sub	sp, sp, #20
-40000a98 <wait_usec+0x8> str	r0, [sp, #4]
+40000a94 <wait_usec> push	{lr}		; (str lr, [sp, #-4]!)
+40000a98 <wait_usec+0x4> sub	sp, sp, #20
+40000a9c <wait_usec+0x8> str	r0, [sp, #4]
 /home/danielprilik/Github/ipodloader/tools.c:111
-40000a9c <wait_usec+0xc> ldr	r3, [pc, #52]	; 40000ad8 <wait_usec+0x48>
-40000aa0 <wait_usec+0x10> ldr	r3, [r3]
-40000aa4 <wait_usec+0x14> ldr	r3, [r3]
-40000aa8 <wait_usec+0x18> str	r3, [sp, #12]
+40000aa0 <wait_usec+0xc> ldr	r3, [pc, #52]	; 40000adc <wait_usec+0x48>
+40000aa4 <wait_usec+0x10> ldr	r3, [r3]
+40000aa8 <wait_usec+0x14> ldr	r3, [r3]
+40000aac <wait_usec+0x18> str	r3, [sp, #12]
 /home/danielprilik/Github/ipodloader/tools.c:113
-40000aac <wait_usec+0x1c> ldr	r0, [sp, #12]
-40000ab0 <wait_usec+0x20> ldr	r1, [sp, #4]
-40000ab4 <wait_usec+0x24> bl	40000a48 <timer_check>
-40000ab8 <wait_usec+0x28> mov	r3, r0
-40000abc <wait_usec+0x2c> cmp	r3, #0
-40000ac0 <wait_usec+0x30> beq	40000aac <wait_usec+0x1c>
+40000ab0 <wait_usec+0x1c> ldr	r0, [sp, #12]
+40000ab4 <wait_usec+0x20> ldr	r1, [sp, #4]
+40000ab8 <wait_usec+0x24> bl	40000a4c <timer_check>
+40000abc <wait_usec+0x28> mov	r3, r0
+40000ac0 <wait_usec+0x2c> cmp	r3, #0
+40000ac4 <wait_usec+0x30> beq	40000ab0 <wait_usec+0x1c>
 /home/danielprilik/Github/ipodloader/tools.c:117
-40000ac4 <wait_usec+0x34> mov	r3, #0
+40000ac8 <wait_usec+0x34> mov	r3, #0
 /home/danielprilik/Github/ipodloader/tools.c:118
-40000ac8 <wait_usec+0x38> mov	r0, r3
-40000acc <wait_usec+0x3c> add	sp, sp, #20
-40000ad0 <wait_usec+0x40> pop	{lr}		; (ldr lr, [sp], #4)
-40000ad4 <wait_usec+0x44> bx	lr
-40000ad8 <wait_usec+0x48> .word	0x40001ffc
+40000acc <wait_usec+0x38> mov	r0, r3
+40000ad0 <wait_usec+0x3c> add	sp, sp, #20
+40000ad4 <wait_usec+0x40> pop	{lr}		; (ldr lr, [sp], #4)
+40000ad8 <wait_usec+0x44> bx	lr
+40000adc <wait_usec+0x48> .word	0x40002000
 lcd_wait_write():
 /home/danielprilik/Github/ipodloader/tools.c:124
-40000adc <lcd_wait_write> push	{lr}		; (str lr, [sp, #-4]!)
-40000ae0 <lcd_wait_write+0x4> sub	sp, sp, #12
+40000ae0 <lcd_wait_write> push	{lr}		; (str lr, [sp, #-4]!)
+40000ae4 <lcd_wait_write+0x4> sub	sp, sp, #12
 /home/danielprilik/Github/ipodloader/tools.c:125
-40000ae4 <lcd_wait_write+0x8> ldr	r3, [pc, #112]	; 40000b5c <lcd_wait_write+0x80>
-40000ae8 <lcd_wait_write+0xc> ldr	r3, [r3]
-40000aec <lcd_wait_write+0x10> ldr	r2, [r3]
-40000af0 <lcd_wait_write+0x14> ldr	r3, [pc, #104]	; 40000b60 <lcd_wait_write+0x84>
-40000af4 <lcd_wait_write+0x18> ldr	r3, [r3]
-40000af8 <lcd_wait_write+0x1c> and	r3, r2, r3
-40000afc <lcd_wait_write+0x20> cmp	r3, #0
-40000b00 <lcd_wait_write+0x24> beq	40000b50 <lcd_wait_write+0x74>
+40000ae8 <lcd_wait_write+0x8> ldr	r3, [pc, #112]	; 40000b60 <lcd_wait_write+0x80>
+40000aec <lcd_wait_write+0xc> ldr	r3, [r3]
+40000af0 <lcd_wait_write+0x10> ldr	r2, [r3]
+40000af4 <lcd_wait_write+0x14> ldr	r3, [pc, #104]	; 40000b64 <lcd_wait_write+0x84>
+40000af8 <lcd_wait_write+0x18> ldr	r3, [r3]
+40000afc <lcd_wait_write+0x1c> and	r3, r2, r3
+40000b00 <lcd_wait_write+0x20> cmp	r3, #0
+40000b04 <lcd_wait_write+0x24> beq	40000b54 <lcd_wait_write+0x74>
 /home/danielprilik/Github/ipodloader/tools.c:126
-40000b04 <lcd_wait_write+0x28> bl	40000a30 <timer_get_current>
-40000b08 <lcd_wait_write+0x2c> mov	r3, r0
-40000b0c <lcd_wait_write+0x30> str	r3, [sp, #4]
+40000b08 <lcd_wait_write+0x28> bl	40000a34 <timer_get_current>
+40000b0c <lcd_wait_write+0x2c> mov	r3, r0
+40000b10 <lcd_wait_write+0x30> str	r3, [sp, #4]
 /home/danielprilik/Github/ipodloader/tools.c:129
-40000b10 <lcd_wait_write+0x34> ldr	r3, [pc, #68]	; 40000b5c <lcd_wait_write+0x80>
-40000b14 <lcd_wait_write+0x38> ldr	r3, [r3]
-40000b18 <lcd_wait_write+0x3c> ldr	r2, [r3]
-40000b1c <lcd_wait_write+0x40> ldr	r3, [pc, #60]	; 40000b60 <lcd_wait_write+0x84>
-40000b20 <lcd_wait_write+0x44> ldr	r3, [r3]
-40000b24 <lcd_wait_write+0x48> and	r3, r2, r3
-40000b28 <lcd_wait_write+0x4c> cmp	r3, #0
-40000b2c <lcd_wait_write+0x50> beq	40000b4c <lcd_wait_write+0x70>
+40000b14 <lcd_wait_write+0x34> ldr	r3, [pc, #68]	; 40000b60 <lcd_wait_write+0x80>
+40000b18 <lcd_wait_write+0x38> ldr	r3, [r3]
+40000b1c <lcd_wait_write+0x3c> ldr	r2, [r3]
+40000b20 <lcd_wait_write+0x40> ldr	r3, [pc, #60]	; 40000b64 <lcd_wait_write+0x84>
+40000b24 <lcd_wait_write+0x44> ldr	r3, [r3]
+40000b28 <lcd_wait_write+0x48> and	r3, r2, r3
+40000b2c <lcd_wait_write+0x4c> cmp	r3, #0
+40000b30 <lcd_wait_write+0x50> beq	40000b50 <lcd_wait_write+0x70>
 /home/danielprilik/Github/ipodloader/tools.c:130
-40000b30 <lcd_wait_write+0x54> ldr	r0, [sp, #4]
-40000b34 <lcd_wait_write+0x58> mov	r1, #1000	; 0x3e8
-40000b38 <lcd_wait_write+0x5c> bl	40000a48 <timer_check>
-40000b3c <lcd_wait_write+0x60> mov	r3, r0
-40000b40 <lcd_wait_write+0x64> cmp	r3, #0
-40000b44 <lcd_wait_write+0x68> beq	40000b10 <lcd_wait_write+0x34>
-40000b48 <lcd_wait_write+0x6c> b	40000b50 <lcd_wait_write+0x74>
+40000b34 <lcd_wait_write+0x54> ldr	r0, [sp, #4]
+40000b38 <lcd_wait_write+0x58> mov	r1, #1000	; 0x3e8
+40000b3c <lcd_wait_write+0x5c> bl	40000a4c <timer_check>
+40000b40 <lcd_wait_write+0x60> mov	r3, r0
+40000b44 <lcd_wait_write+0x64> cmp	r3, #0
+40000b48 <lcd_wait_write+0x68> beq	40000b14 <lcd_wait_write+0x34>
+40000b4c <lcd_wait_write+0x6c> b	40000b54 <lcd_wait_write+0x74>
 /home/danielprilik/Github/ipodloader/tools.c:129
-40000b4c <lcd_wait_write+0x70> nop			; (mov r0, r0)
+40000b50 <lcd_wait_write+0x70> nop			; (mov r0, r0)
 /home/danielprilik/Github/ipodloader/tools.c:132
-40000b50 <lcd_wait_write+0x74> add	sp, sp, #12
-40000b54 <lcd_wait_write+0x78> pop	{lr}		; (ldr lr, [sp], #4)
-40000b58 <lcd_wait_write+0x7c> bx	lr
-40000b5c <lcd_wait_write+0x80> .word	0x40002000
-40000b60 <lcd_wait_write+0x84> .word	0x40002004
+40000b54 <lcd_wait_write+0x74> add	sp, sp, #12
+40000b58 <lcd_wait_write+0x78> pop	{lr}		; (ldr lr, [sp], #4)
+40000b5c <lcd_wait_write+0x7c> bx	lr
+40000b60 <lcd_wait_write+0x80> .word	0x40002004
+40000b64 <lcd_wait_write+0x84> .word	0x40002008
 lcd_send_data():
 /home/danielprilik/Github/ipodloader/tools.c:138
-40000b64 <lcd_send_data> push	{lr}		; (str lr, [sp, #-4]!)
-40000b68 <lcd_send_data+0x4> sub	sp, sp, #12
-40000b6c <lcd_send_data+0x8> str	r0, [sp, #4]
-40000b70 <lcd_send_data+0xc> str	r1, [sp]
+40000b68 <lcd_send_data> push	{lr}		; (str lr, [sp, #-4]!)
+40000b6c <lcd_send_data+0x4> sub	sp, sp, #12
+40000b70 <lcd_send_data+0x8> str	r0, [sp, #4]
+40000b74 <lcd_send_data+0xc> str	r1, [sp]
 /home/danielprilik/Github/ipodloader/tools.c:139
-40000b74 <lcd_send_data+0x10> bl	40000adc <lcd_wait_write>
+40000b78 <lcd_send_data+0x10> bl	40000ae0 <lcd_wait_write>
 /home/danielprilik/Github/ipodloader/tools.c:140
-40000b78 <lcd_send_data+0x14> ldr	r3, [pc, #132]	; 40000c04 <lcd_send_data+0xa0>
-40000b7c <lcd_send_data+0x18> ldr	r3, [r3]
-40000b80 <lcd_send_data+0x1c> cmp	r3, #7
-40000b84 <lcd_send_data+0x20> bne	40000bcc <lcd_send_data+0x68>
+40000b7c <lcd_send_data+0x14> ldr	r3, [pc, #132]	; 40000c08 <lcd_send_data+0xa0>
+40000b80 <lcd_send_data+0x18> ldr	r3, [r3]
+40000b84 <lcd_send_data+0x1c> cmp	r3, #7
+40000b88 <lcd_send_data+0x20> bne	40000bd0 <lcd_send_data+0x68>
 /home/danielprilik/Github/ipodloader/tools.c:141
-40000b88 <lcd_send_data+0x24> mov	r3, #1879048192	; 0x70000000
-40000b8c <lcd_send_data+0x28> add	r3, r3, #12288	; 0x3000
-40000b90 <lcd_send_data+0x2c> mov	r2, #1879048192	; 0x70000000
-40000b94 <lcd_send_data+0x30> add	r2, r2, #12288	; 0x3000
-40000b98 <lcd_send_data+0x34> ldr	r2, [r2]
-40000b9c <lcd_send_data+0x38> bic	r2, r2, #32505856	; 0x1f00000
-40000ba0 <lcd_send_data+0x3c> orr	r2, r2, #24117248	; 0x1700000
-40000ba4 <lcd_send_data+0x40> str	r2, [r3]
+40000b8c <lcd_send_data+0x24> mov	r3, #1879048192	; 0x70000000
+40000b90 <lcd_send_data+0x28> add	r3, r3, #12288	; 0x3000
+40000b94 <lcd_send_data+0x2c> mov	r2, #1879048192	; 0x70000000
+40000b98 <lcd_send_data+0x30> add	r2, r2, #12288	; 0x3000
+40000b9c <lcd_send_data+0x34> ldr	r2, [r2]
+40000ba0 <lcd_send_data+0x38> bic	r2, r2, #32505856	; 0x1f00000
+40000ba4 <lcd_send_data+0x3c> orr	r2, r2, #24117248	; 0x1700000
+40000ba8 <lcd_send_data+0x40> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:142
-40000ba8 <lcd_send_data+0x44> mov	r3, #12288	; 0x3000
-40000bac <lcd_send_data+0x48> add	r3, r3, #1879048200	; 0x70000008
-40000bb0 <lcd_send_data+0x4c> ldr	r2, [sp, #4]
-40000bb4 <lcd_send_data+0x50> lsl	r1, r2, #8
-40000bb8 <lcd_send_data+0x54> ldr	r2, [sp]
-40000bbc <lcd_send_data+0x58> orr	r2, r1, r2
-40000bc0 <lcd_send_data+0x5c> orr	r2, r2, #7733248	; 0x760000
-40000bc4 <lcd_send_data+0x60> str	r2, [r3]
-40000bc8 <lcd_send_data+0x64> b	40000bf8 <lcd_send_data+0x94>
+40000bac <lcd_send_data+0x44> mov	r3, #12288	; 0x3000
+40000bb0 <lcd_send_data+0x48> add	r3, r3, #1879048200	; 0x70000008
+40000bb4 <lcd_send_data+0x4c> ldr	r2, [sp, #4]
+40000bb8 <lcd_send_data+0x50> lsl	r1, r2, #8
+40000bbc <lcd_send_data+0x54> ldr	r2, [sp]
+40000bc0 <lcd_send_data+0x58> orr	r2, r1, r2
+40000bc4 <lcd_send_data+0x5c> orr	r2, r2, #7733248	; 0x760000
+40000bc8 <lcd_send_data+0x60> str	r2, [r3]
+40000bcc <lcd_send_data+0x64> b	40000bfc <lcd_send_data+0x94>
 /home/danielprilik/Github/ipodloader/tools.c:145
-40000bcc <lcd_send_data+0x68> ldr	r3, [pc, #52]	; 40000c08 <lcd_send_data+0xa4>
-40000bd0 <lcd_send_data+0x6c> ldr	r3, [r3]
-40000bd4 <lcd_send_data+0x70> add	r3, r3, #16
-40000bd8 <lcd_send_data+0x74> ldr	r2, [sp, #4]
-40000bdc <lcd_send_data+0x78> str	r2, [r3]
+40000bd0 <lcd_send_data+0x68> ldr	r3, [pc, #52]	; 40000c0c <lcd_send_data+0xa4>
+40000bd4 <lcd_send_data+0x6c> ldr	r3, [r3]
+40000bd8 <lcd_send_data+0x70> add	r3, r3, #16
+40000bdc <lcd_send_data+0x74> ldr	r2, [sp, #4]
+40000be0 <lcd_send_data+0x78> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:146
-40000be0 <lcd_send_data+0x7c> bl	40000adc <lcd_wait_write>
+40000be4 <lcd_send_data+0x7c> bl	40000ae0 <lcd_wait_write>
 /home/danielprilik/Github/ipodloader/tools.c:147
-40000be4 <lcd_send_data+0x80> ldr	r3, [pc, #28]	; 40000c08 <lcd_send_data+0xa4>
-40000be8 <lcd_send_data+0x84> ldr	r3, [r3]
-40000bec <lcd_send_data+0x88> add	r3, r3, #16
-40000bf0 <lcd_send_data+0x8c> ldr	r2, [sp]
-40000bf4 <lcd_send_data+0x90> str	r2, [r3]
+40000be8 <lcd_send_data+0x80> ldr	r3, [pc, #28]	; 40000c0c <lcd_send_data+0xa4>
+40000bec <lcd_send_data+0x84> ldr	r3, [r3]
+40000bf0 <lcd_send_data+0x88> add	r3, r3, #16
+40000bf4 <lcd_send_data+0x8c> ldr	r2, [sp]
+40000bf8 <lcd_send_data+0x90> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:149
-40000bf8 <lcd_send_data+0x94> add	sp, sp, #12
-40000bfc <lcd_send_data+0x98> pop	{lr}		; (ldr lr, [sp], #4)
-40000c00 <lcd_send_data+0x9c> bx	lr
-40000c04 <lcd_send_data+0xa0> .word	0x40001ff8
-40000c08 <lcd_send_data+0xa4> .word	0x40002000
+40000bfc <lcd_send_data+0x94> add	sp, sp, #12
+40000c00 <lcd_send_data+0x98> pop	{lr}		; (ldr lr, [sp], #4)
+40000c04 <lcd_send_data+0x9c> bx	lr
+40000c08 <lcd_send_data+0xa0> .word	0x40001ffc
+40000c0c <lcd_send_data+0xa4> .word	0x40002004
 lcd_prepare_cmd():
 /home/danielprilik/Github/ipodloader/tools.c:154
-40000c0c <lcd_prepare_cmd> push	{lr}		; (str lr, [sp, #-4]!)
-40000c10 <lcd_prepare_cmd+0x4> sub	sp, sp, #12
-40000c14 <lcd_prepare_cmd+0x8> str	r0, [sp, #4]
+40000c10 <lcd_prepare_cmd> push	{lr}		; (str lr, [sp, #-4]!)
+40000c14 <lcd_prepare_cmd+0x4> sub	sp, sp, #12
+40000c18 <lcd_prepare_cmd+0x8> str	r0, [sp, #4]
 /home/danielprilik/Github/ipodloader/tools.c:155
-40000c18 <lcd_prepare_cmd+0xc> bl	40000adc <lcd_wait_write>
+40000c1c <lcd_prepare_cmd+0xc> bl	40000ae0 <lcd_wait_write>
 /home/danielprilik/Github/ipodloader/tools.c:156
-40000c1c <lcd_prepare_cmd+0x10> ldr	r3, [pc, #120]	; 40000c9c <lcd_prepare_cmd+0x90>
-40000c20 <lcd_prepare_cmd+0x14> ldr	r3, [r3]
-40000c24 <lcd_prepare_cmd+0x18> cmp	r3, #7
-40000c28 <lcd_prepare_cmd+0x1c> bne	40000c64 <lcd_prepare_cmd+0x58>
+40000c20 <lcd_prepare_cmd+0x10> ldr	r3, [pc, #120]	; 40000ca0 <lcd_prepare_cmd+0x90>
+40000c24 <lcd_prepare_cmd+0x14> ldr	r3, [r3]
+40000c28 <lcd_prepare_cmd+0x18> cmp	r3, #7
+40000c2c <lcd_prepare_cmd+0x1c> bne	40000c68 <lcd_prepare_cmd+0x58>
 /home/danielprilik/Github/ipodloader/tools.c:157
-40000c2c <lcd_prepare_cmd+0x20> mov	r3, #1879048192	; 0x70000000
-40000c30 <lcd_prepare_cmd+0x24> add	r3, r3, #12288	; 0x3000
-40000c34 <lcd_prepare_cmd+0x28> mov	r2, #1879048192	; 0x70000000
-40000c38 <lcd_prepare_cmd+0x2c> add	r2, r2, #12288	; 0x3000
-40000c3c <lcd_prepare_cmd+0x30> ldr	r2, [r2]
-40000c40 <lcd_prepare_cmd+0x34> bic	r2, r2, #32505856	; 0x1f00000
-40000c44 <lcd_prepare_cmd+0x38> orr	r2, r2, #24117248	; 0x1700000
-40000c48 <lcd_prepare_cmd+0x3c> str	r2, [r3]
+40000c30 <lcd_prepare_cmd+0x20> mov	r3, #1879048192	; 0x70000000
+40000c34 <lcd_prepare_cmd+0x24> add	r3, r3, #12288	; 0x3000
+40000c38 <lcd_prepare_cmd+0x28> mov	r2, #1879048192	; 0x70000000
+40000c3c <lcd_prepare_cmd+0x2c> add	r2, r2, #12288	; 0x3000
+40000c40 <lcd_prepare_cmd+0x30> ldr	r2, [r2]
+40000c44 <lcd_prepare_cmd+0x34> bic	r2, r2, #32505856	; 0x1f00000
+40000c48 <lcd_prepare_cmd+0x38> orr	r2, r2, #24117248	; 0x1700000
+40000c4c <lcd_prepare_cmd+0x3c> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:158
-40000c4c <lcd_prepare_cmd+0x40> mov	r3, #12288	; 0x3000
-40000c50 <lcd_prepare_cmd+0x44> add	r3, r3, #1879048200	; 0x70000008
-40000c54 <lcd_prepare_cmd+0x48> ldr	r2, [sp, #4]
-40000c58 <lcd_prepare_cmd+0x4c> orr	r2, r2, #7602176	; 0x740000
-40000c5c <lcd_prepare_cmd+0x50> str	r2, [r3]
-40000c60 <lcd_prepare_cmd+0x54> b	40000c90 <lcd_prepare_cmd+0x84>
+40000c50 <lcd_prepare_cmd+0x40> mov	r3, #12288	; 0x3000
+40000c54 <lcd_prepare_cmd+0x44> add	r3, r3, #1879048200	; 0x70000008
+40000c58 <lcd_prepare_cmd+0x48> ldr	r2, [sp, #4]
+40000c5c <lcd_prepare_cmd+0x4c> orr	r2, r2, #7602176	; 0x740000
+40000c60 <lcd_prepare_cmd+0x50> str	r2, [r3]
+40000c64 <lcd_prepare_cmd+0x54> b	40000c94 <lcd_prepare_cmd+0x84>
 /home/danielprilik/Github/ipodloader/tools.c:161
-40000c64 <lcd_prepare_cmd+0x58> ldr	r3, [pc, #52]	; 40000ca0 <lcd_prepare_cmd+0x94>
-40000c68 <lcd_prepare_cmd+0x5c> ldr	r3, [r3]
-40000c6c <lcd_prepare_cmd+0x60> add	r3, r3, #8
-40000c70 <lcd_prepare_cmd+0x64> mov	r2, #0
-40000c74 <lcd_prepare_cmd+0x68> str	r2, [r3]
+40000c68 <lcd_prepare_cmd+0x58> ldr	r3, [pc, #52]	; 40000ca4 <lcd_prepare_cmd+0x94>
+40000c6c <lcd_prepare_cmd+0x5c> ldr	r3, [r3]
+40000c70 <lcd_prepare_cmd+0x60> add	r3, r3, #8
+40000c74 <lcd_prepare_cmd+0x64> mov	r2, #0
+40000c78 <lcd_prepare_cmd+0x68> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:162
-40000c78 <lcd_prepare_cmd+0x6c> bl	40000adc <lcd_wait_write>
+40000c7c <lcd_prepare_cmd+0x6c> bl	40000ae0 <lcd_wait_write>
 /home/danielprilik/Github/ipodloader/tools.c:163
-40000c7c <lcd_prepare_cmd+0x70> ldr	r3, [pc, #28]	; 40000ca0 <lcd_prepare_cmd+0x94>
-40000c80 <lcd_prepare_cmd+0x74> ldr	r3, [r3]
-40000c84 <lcd_prepare_cmd+0x78> add	r3, r3, #8
-40000c88 <lcd_prepare_cmd+0x7c> ldr	r2, [sp, #4]
-40000c8c <lcd_prepare_cmd+0x80> str	r2, [r3]
+40000c80 <lcd_prepare_cmd+0x70> ldr	r3, [pc, #28]	; 40000ca4 <lcd_prepare_cmd+0x94>
+40000c84 <lcd_prepare_cmd+0x74> ldr	r3, [r3]
+40000c88 <lcd_prepare_cmd+0x78> add	r3, r3, #8
+40000c8c <lcd_prepare_cmd+0x7c> ldr	r2, [sp, #4]
+40000c90 <lcd_prepare_cmd+0x80> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:165
-40000c90 <lcd_prepare_cmd+0x84> add	sp, sp, #12
-40000c94 <lcd_prepare_cmd+0x88> pop	{lr}		; (ldr lr, [sp], #4)
-40000c98 <lcd_prepare_cmd+0x8c> bx	lr
-40000c9c <lcd_prepare_cmd+0x90> .word	0x40001ff8
-40000ca0 <lcd_prepare_cmd+0x94> .word	0x40002000
+40000c94 <lcd_prepare_cmd+0x84> add	sp, sp, #12
+40000c98 <lcd_prepare_cmd+0x88> pop	{lr}		; (ldr lr, [sp], #4)
+40000c9c <lcd_prepare_cmd+0x8c> bx	lr
+40000ca0 <lcd_prepare_cmd+0x90> .word	0x40001ffc
+40000ca4 <lcd_prepare_cmd+0x94> .word	0x40002004
 lcd_cmd_and_data():
 /home/danielprilik/Github/ipodloader/tools.c:170
-40000ca4 <lcd_cmd_and_data> push	{lr}		; (str lr, [sp, #-4]!)
-40000ca8 <lcd_cmd_and_data+0x4> sub	sp, sp, #20
-40000cac <lcd_cmd_and_data+0x8> str	r0, [sp, #12]
-40000cb0 <lcd_cmd_and_data+0xc> str	r1, [sp, #8]
-40000cb4 <lcd_cmd_and_data+0x10> str	r2, [sp, #4]
+40000ca8 <lcd_cmd_and_data> push	{lr}		; (str lr, [sp, #-4]!)
+40000cac <lcd_cmd_and_data+0x4> sub	sp, sp, #20
+40000cb0 <lcd_cmd_and_data+0x8> str	r0, [sp, #12]
+40000cb4 <lcd_cmd_and_data+0xc> str	r1, [sp, #8]
+40000cb8 <lcd_cmd_and_data+0x10> str	r2, [sp, #4]
 /home/danielprilik/Github/ipodloader/tools.c:171
-40000cb8 <lcd_cmd_and_data+0x14> ldr	r0, [sp, #12]
-40000cbc <lcd_cmd_and_data+0x18> bl	40000c0c <lcd_prepare_cmd>
+40000cbc <lcd_cmd_and_data+0x14> ldr	r0, [sp, #12]
+40000cc0 <lcd_cmd_and_data+0x18> bl	40000c10 <lcd_prepare_cmd>
 /home/danielprilik/Github/ipodloader/tools.c:173
-40000cc0 <lcd_cmd_and_data+0x1c> ldr	r0, [sp, #8]
-40000cc4 <lcd_cmd_and_data+0x20> ldr	r1, [sp, #4]
-40000cc8 <lcd_cmd_and_data+0x24> bl	40000b64 <lcd_send_data>
+40000cc4 <lcd_cmd_and_data+0x1c> ldr	r0, [sp, #8]
+40000cc8 <lcd_cmd_and_data+0x20> ldr	r1, [sp, #4]
+40000ccc <lcd_cmd_and_data+0x24> bl	40000b68 <lcd_send_data>
 /home/danielprilik/Github/ipodloader/tools.c:174
-40000ccc <lcd_cmd_and_data+0x28> add	sp, sp, #20
-40000cd0 <lcd_cmd_and_data+0x2c> pop	{lr}		; (ldr lr, [sp], #4)
-40000cd4 <lcd_cmd_and_data+0x30> bx	lr
+40000cd0 <lcd_cmd_and_data+0x28> add	sp, sp, #20
+40000cd4 <lcd_cmd_and_data+0x2c> pop	{lr}		; (ldr lr, [sp], #4)
+40000cd8 <lcd_cmd_and_data+0x30> bx	lr
 display_image():
 /home/danielprilik/Github/ipodloader/tools.c:197
-40000cd8 <display_image> push	{lr}		; (str lr, [sp, #-4]!)
-40000cdc <display_image+0x4> sub	sp, sp, #60	; 0x3c
-40000ce0 <display_image+0x8> str	r0, [sp, #4]
-40000ce4 <display_image+0xc> str	r1, [sp]
+40000cdc <display_image> push	{lr}		; (str lr, [sp, #-4]!)
+40000ce0 <display_image+0x4> sub	sp, sp, #60	; 0x3c
+40000ce4 <display_image+0x8> str	r0, [sp, #4]
+40000ce8 <display_image+0xc> str	r1, [sp]
 /home/danielprilik/Github/ipodloader/tools.c:203
-40000ce8 <display_image+0x10> ldr	r3, [pc, #1224]	; 400011b8 <display_image+0x4e0>
-40000cec <display_image+0x14> ldr	r3, [r3]
-40000cf0 <display_image+0x18> cmp	r3, #7
-40000cf4 <display_image+0x1c> bhi	40001198 <display_image+0x4c0>
-40000cf8 <display_image+0x20> mov	r2, #1
-40000cfc <display_image+0x24> lsl	r3, r2, r3
-40000d00 <display_image+0x28> and	r3, r3, #190	; 0xbe
-40000d04 <display_image+0x2c> cmp	r3, #0
-40000d08 <display_image+0x30> beq	400011a0 <display_image+0x4c8>
+40000cec <display_image+0x10> ldr	r3, [pc, #1224]	; 400011bc <display_image+0x4e0>
+40000cf0 <display_image+0x14> ldr	r3, [r3]
+40000cf4 <display_image+0x18> cmp	r3, #7
+40000cf8 <display_image+0x1c> bhi	4000119c <display_image+0x4c0>
+40000cfc <display_image+0x20> mov	r2, #1
+40000d00 <display_image+0x24> lsl	r3, r2, r3
+40000d04 <display_image+0x28> and	r3, r3, #190	; 0xbe
+40000d08 <display_image+0x2c> cmp	r3, #0
+40000d0c <display_image+0x30> beq	400011a4 <display_image+0x4c8>
 /home/danielprilik/Github/ipodloader/tools.c:215
-40000d0c <display_image+0x34> ldr	r3, [sp, #4]
-40000d10 <display_image+0x38> cmp	r3, #0
-40000d14 <display_image+0x3c> beq	400011a8 <display_image+0x4d0>
+40000d10 <display_image+0x34> ldr	r3, [sp, #4]
+40000d14 <display_image+0x38> cmp	r3, #0
+40000d18 <display_image+0x3c> beq	400011ac <display_image+0x4d0>
 /home/danielprilik/Github/ipodloader/tools.c:217
-40000d18 <display_image+0x40> ldr	r3, [sp, #4]
-40000d1c <display_image+0x44> ldrh	r3, [r3, #4]
-40000d20 <display_image+0x48> mov	r2, r3
-40000d24 <display_image+0x4c> ldr	r3, [sp, #4]
-40000d28 <display_image+0x50> ldrh	r3, [r3]
-40000d2c <display_image+0x54> rsb	r3, r3, r2
-40000d30 <display_image+0x58> str	r3, [sp, #12]
+40000d1c <display_image+0x40> ldr	r3, [sp, #4]
+40000d20 <display_image+0x44> ldrh	r3, [r3, #4]
+40000d24 <display_image+0x48> mov	r2, r3
+40000d28 <display_image+0x4c> ldr	r3, [sp, #4]
+40000d2c <display_image+0x50> ldrh	r3, [r3]
+40000d30 <display_image+0x54> rsb	r3, r3, r2
+40000d34 <display_image+0x58> str	r3, [sp, #12]
 /home/danielprilik/Github/ipodloader/tools.c:218
-40000d34 <display_image+0x5c> ldr	r3, [sp, #4]
-40000d38 <display_image+0x60> ldrh	r3, [r3, #6]
-40000d3c <display_image+0x64> mov	r2, r3
-40000d40 <display_image+0x68> ldr	r3, [sp, #4]
-40000d44 <display_image+0x6c> ldrh	r3, [r3, #2]
-40000d48 <display_image+0x70> rsb	r3, r3, r2
-40000d4c <display_image+0x74> str	r3, [sp, #16]
+40000d38 <display_image+0x5c> ldr	r3, [sp, #4]
+40000d3c <display_image+0x60> ldrh	r3, [r3, #6]
+40000d40 <display_image+0x64> mov	r2, r3
+40000d44 <display_image+0x68> ldr	r3, [sp, #4]
+40000d48 <display_image+0x6c> ldrh	r3, [r3, #2]
+40000d4c <display_image+0x70> rsb	r3, r3, r2
+40000d50 <display_image+0x74> str	r3, [sp, #16]
 /home/danielprilik/Github/ipodloader/tools.c:221
-40000d50 <display_image+0x78> ldr	r3, [pc, #1124]	; 400011bc <display_image+0x4e4>
-40000d54 <display_image+0x7c> ldr	r3, [r3]
-40000d58 <display_image+0x80> lsr	r2, r3, #1
-40000d5c <display_image+0x84> ldr	r3, [sp, #12]
-40000d60 <display_image+0x88> lsr	r3, r3, #1
-40000d64 <display_image+0x8c> rsb	r3, r3, r2
-40000d68 <display_image+0x90> str	r3, [sp, #20]
+40000d54 <display_image+0x78> ldr	r3, [pc, #1124]	; 400011c0 <display_image+0x4e4>
+40000d58 <display_image+0x7c> ldr	r3, [r3]
+40000d5c <display_image+0x80> lsr	r2, r3, #1
+40000d60 <display_image+0x84> ldr	r3, [sp, #12]
+40000d64 <display_image+0x88> lsr	r3, r3, #1
+40000d68 <display_image+0x8c> rsb	r3, r3, r2
+40000d6c <display_image+0x90> str	r3, [sp, #20]
 /home/danielprilik/Github/ipodloader/tools.c:223
-40000d6c <display_image+0x94> mov	r3, #0
-40000d70 <display_image+0x98> strh	r3, [sp, #24]
-40000d74 <display_image+0x9c> b	40000e34 <display_image+0x15c>
+40000d70 <display_image+0x94> mov	r3, #0
+40000d74 <display_image+0x98> strh	r3, [sp, #24]
+40000d78 <display_image+0x9c> b	40000e38 <display_image+0x15c>
 /home/danielprilik/Github/ipodloader/tools.c:224
-40000d78 <display_image+0xa0> mov	r3, #0
-40000d7c <display_image+0xa4> str	r3, [sp, #28]
+40000d7c <display_image+0xa0> mov	r3, #0
+40000d80 <display_image+0xa4> str	r3, [sp, #28]
 /home/danielprilik/Github/ipodloader/tools.c:228
-40000d80 <display_image+0xa8> ldrh	r3, [sp, #24]
-40000d84 <display_image+0xac> lsl	r3, r3, #5
-40000d88 <display_image+0xb0> asr	r2, r3, #8
-40000d8c <display_image+0xb4> ldrh	r3, [sp, #24]
-40000d90 <display_image+0xb8> lsl	r3, r3, #5
-40000d94 <display_image+0xbc> and	r3, r3, #255	; 0xff
-40000d98 <display_image+0xc0> mov	r0, #17
-40000d9c <display_image+0xc4> mov	r1, r2
-40000da0 <display_image+0xc8> mov	r2, r3
-40000da4 <display_image+0xcc> bl	40000ca4 <lcd_cmd_and_data>
+40000d84 <display_image+0xa8> ldrh	r3, [sp, #24]
+40000d88 <display_image+0xac> lsl	r3, r3, #5
+40000d8c <display_image+0xb0> asr	r2, r3, #8
+40000d90 <display_image+0xb4> ldrh	r3, [sp, #24]
+40000d94 <display_image+0xb8> lsl	r3, r3, #5
+40000d98 <display_image+0xbc> and	r3, r3, #255	; 0xff
+40000d9c <display_image+0xc0> mov	r0, #17
+40000da0 <display_image+0xc4> mov	r1, r2
+40000da4 <display_image+0xc8> mov	r2, r3
+40000da8 <display_image+0xcc> bl	40000ca8 <lcd_cmd_and_data>
 /home/danielprilik/Github/ipodloader/tools.c:231
-40000da8 <display_image+0xd0> mov	r0, #18
-40000dac <display_image+0xd4> bl	40000c0c <lcd_prepare_cmd>
+40000dac <display_image+0xd0> mov	r0, #18
+40000db0 <display_image+0xd4> bl	40000c10 <lcd_prepare_cmd>
 /home/danielprilik/Github/ipodloader/tools.c:234
-40000db0 <display_image+0xd8> ldr	r3, [sp]
-40000db4 <display_image+0xdc> cmp	r3, #0
-40000db8 <display_image+0xe0> beq	40000de4 <display_image+0x10c>
+40000db4 <display_image+0xd8> ldr	r3, [sp]
+40000db8 <display_image+0xdc> cmp	r3, #0
+40000dbc <display_image+0xe0> beq	40000de8 <display_image+0x10c>
 /home/danielprilik/Github/ipodloader/tools.c:236
-40000dbc <display_image+0xe4> ldrh	r3, [sp, #24]
-40000dc0 <display_image+0xe8> and	r3, r3, #1
-40000dc4 <display_image+0xec> and	r3, r3, #255	; 0xff
-40000dc8 <display_image+0xf0> cmp	r3, #0
-40000dcc <display_image+0xf4> beq	40000ddc <display_image+0x104>
+40000dc0 <display_image+0xe4> ldrh	r3, [sp, #24]
+40000dc4 <display_image+0xe8> and	r3, r3, #1
+40000dc8 <display_image+0xec> and	r3, r3, #255	; 0xff
+40000dcc <display_image+0xf0> cmp	r3, #0
+40000dd0 <display_image+0xf4> beq	40000de0 <display_image+0x104>
 /home/danielprilik/Github/ipodloader/tools.c:237
-40000dd0 <display_image+0xf8> mov	r3, #51	; 0x33
-40000dd4 <display_image+0xfc> str	r3, [sp, #28]
-40000dd8 <display_image+0x100> b	40000de4 <display_image+0x10c>
+40000dd4 <display_image+0xf8> mov	r3, #51	; 0x33
+40000dd8 <display_image+0xfc> str	r3, [sp, #28]
+40000ddc <display_image+0x100> b	40000de8 <display_image+0x10c>
 /home/danielprilik/Github/ipodloader/tools.c:239
-40000ddc <display_image+0x104> mov	r3, #204	; 0xcc
-40000de0 <display_image+0x108> str	r3, [sp, #28]
+40000de0 <display_image+0x104> mov	r3, #204	; 0xcc
+40000de4 <display_image+0x108> str	r3, [sp, #28]
 /home/danielprilik/Github/ipodloader/tools.c:244
-40000de4 <display_image+0x10c> mov	r3, #0
-40000de8 <display_image+0x110> strb	r3, [sp, #35]	; 0x23
-40000dec <display_image+0x114> b	40000e08 <display_image+0x130>
+40000de8 <display_image+0x10c> mov	r3, #0
+40000dec <display_image+0x110> strb	r3, [sp, #35]	; 0x23
+40000df0 <display_image+0x114> b	40000e0c <display_image+0x130>
 /home/danielprilik/Github/ipodloader/tools.c:246
-40000df0 <display_image+0x118> ldr	r0, [sp, #28]
-40000df4 <display_image+0x11c> ldr	r1, [sp, #28]
-40000df8 <display_image+0x120> bl	40000b64 <lcd_send_data>
+40000df4 <display_image+0x118> ldr	r0, [sp, #28]
+40000df8 <display_image+0x11c> ldr	r1, [sp, #28]
+40000dfc <display_image+0x120> bl	40000b68 <lcd_send_data>
 /home/danielprilik/Github/ipodloader/tools.c:244
-40000dfc <display_image+0x124> ldrb	r3, [sp, #35]	; 0x23
-40000e00 <display_image+0x128> add	r3, r3, #8
-40000e04 <display_image+0x12c> strb	r3, [sp, #35]	; 0x23
-40000e08 <display_image+0x130> ldrb	r2, [sp, #35]	; 0x23
-40000e0c <display_image+0x134> ldr	r3, [pc, #940]	; 400011c0 <display_image+0x4e8>
-40000e10 <display_image+0x138> ldr	r3, [r3]
-40000e14 <display_image+0x13c> cmp	r2, r3
-40000e18 <display_image+0x140> bcc	40000df0 <display_image+0x118>
+40000e00 <display_image+0x124> ldrb	r3, [sp, #35]	; 0x23
+40000e04 <display_image+0x128> add	r3, r3, #8
+40000e08 <display_image+0x12c> strb	r3, [sp, #35]	; 0x23
+40000e0c <display_image+0x130> ldrb	r2, [sp, #35]	; 0x23
+40000e10 <display_image+0x134> ldr	r3, [pc, #940]	; 400011c4 <display_image+0x4e8>
+40000e14 <display_image+0x138> ldr	r3, [r3]
+40000e18 <display_image+0x13c> cmp	r2, r3
+40000e1c <display_image+0x140> bcc	40000df4 <display_image+0x118>
 /home/danielprilik/Github/ipodloader/tools.c:223
-40000e1c <display_image+0x144> ldrh	r3, [sp, #24]
-40000e20 <display_image+0x148> add	r3, r3, #1
-40000e24 <display_image+0x14c> lsl	r3, r3, #16
-40000e28 <display_image+0x150> lsr	r3, r3, #16
-40000e2c <display_image+0x154> and	r3, r3, #255	; 0xff
-40000e30 <display_image+0x158> strh	r3, [sp, #24]
-40000e34 <display_image+0x15c> ldrh	r2, [sp, #24]
-40000e38 <display_image+0x160> ldr	r3, [sp, #20]
-40000e3c <display_image+0x164> cmp	r2, r3
-40000e40 <display_image+0x168> bcc	40000d78 <display_image+0xa0>
+40000e20 <display_image+0x144> ldrh	r3, [sp, #24]
+40000e24 <display_image+0x148> add	r3, r3, #1
+40000e28 <display_image+0x14c> lsl	r3, r3, #16
+40000e2c <display_image+0x150> lsr	r3, r3, #16
+40000e30 <display_image+0x154> and	r3, r3, #255	; 0xff
+40000e34 <display_image+0x158> strh	r3, [sp, #24]
+40000e38 <display_image+0x15c> ldrh	r2, [sp, #24]
+40000e3c <display_image+0x160> ldr	r3, [sp, #20]
+40000e40 <display_image+0x164> cmp	r2, r3
+40000e44 <display_image+0x168> bcc	40000d7c <display_image+0xa0>
 /home/danielprilik/Github/ipodloader/tools.c:252
-40000e44 <display_image+0x16c> ldr	r3, [sp, #20]
-40000e48 <display_image+0x170> lsl	r3, r3, #16
-40000e4c <display_image+0x174> lsr	r3, r3, #16
-40000e50 <display_image+0x178> lsl	r3, r3, #5
-40000e54 <display_image+0x17c> strh	r3, [sp, #24]
+40000e48 <display_image+0x16c> ldr	r3, [sp, #20]
+40000e4c <display_image+0x170> lsl	r3, r3, #16
+40000e50 <display_image+0x174> lsr	r3, r3, #16
+40000e54 <display_image+0x178> lsl	r3, r3, #5
+40000e58 <display_image+0x17c> strh	r3, [sp, #24]
 /home/danielprilik/Github/ipodloader/tools.c:254
-40000e58 <display_image+0x180> mov	r3, #0
-40000e5c <display_image+0x184> strb	r3, [sp, #27]
-40000e60 <display_image+0x188> b	40001080 <display_image+0x3a8>
+40000e5c <display_image+0x180> mov	r3, #0
+40000e60 <display_image+0x184> strb	r3, [sp, #27]
+40000e64 <display_image+0x188> b	40001084 <display_image+0x3a8>
 /home/danielprilik/Github/ipodloader/tools.c:255
-40000e64 <display_image+0x18c> mov	r3, #0
-40000e68 <display_image+0x190> str	r3, [sp, #36]	; 0x24
+40000e68 <display_image+0x18c> mov	r3, #0
+40000e6c <display_image+0x190> str	r3, [sp, #36]	; 0x24
 /home/danielprilik/Github/ipodloader/tools.c:260
-40000e6c <display_image+0x194> ldrh	r3, [sp, #24]
-40000e70 <display_image+0x198> lsr	r3, r3, #8
-40000e74 <display_image+0x19c> lsl	r3, r3, #16
-40000e78 <display_image+0x1a0> lsr	r3, r3, #16
-40000e7c <display_image+0x1a4> mov	r2, r3
-40000e80 <display_image+0x1a8> ldrh	r3, [sp, #24]
-40000e84 <display_image+0x1ac> and	r3, r3, #255	; 0xff
-40000e88 <display_image+0x1b0> mov	r0, #17
-40000e8c <display_image+0x1b4> mov	r1, r2
-40000e90 <display_image+0x1b8> mov	r2, r3
-40000e94 <display_image+0x1bc> bl	40000ca4 <lcd_cmd_and_data>
+40000e70 <display_image+0x194> ldrh	r3, [sp, #24]
+40000e74 <display_image+0x198> lsr	r3, r3, #8
+40000e78 <display_image+0x19c> lsl	r3, r3, #16
+40000e7c <display_image+0x1a0> lsr	r3, r3, #16
+40000e80 <display_image+0x1a4> mov	r2, r3
+40000e84 <display_image+0x1a8> ldrh	r3, [sp, #24]
+40000e88 <display_image+0x1ac> and	r3, r3, #255	; 0xff
+40000e8c <display_image+0x1b0> mov	r0, #17
+40000e90 <display_image+0x1b4> mov	r1, r2
+40000e94 <display_image+0x1b8> mov	r2, r3
+40000e98 <display_image+0x1bc> bl	40000ca8 <lcd_cmd_and_data>
 /home/danielprilik/Github/ipodloader/tools.c:263
-40000e98 <display_image+0x1c0> mov	r0, #18
-40000e9c <display_image+0x1c4> bl	40000c0c <lcd_prepare_cmd>
+40000e9c <display_image+0x1c0> mov	r0, #18
+40000ea0 <display_image+0x1c4> bl	40000c10 <lcd_prepare_cmd>
 /home/danielprilik/Github/ipodloader/tools.c:266
-40000ea0 <display_image+0x1c8> ldr	r3, [sp]
-40000ea4 <display_image+0x1cc> cmp	r3, #0
-40000ea8 <display_image+0x1d0> beq	40000ed4 <display_image+0x1fc>
+40000ea4 <display_image+0x1c8> ldr	r3, [sp]
+40000ea8 <display_image+0x1cc> cmp	r3, #0
+40000eac <display_image+0x1d0> beq	40000ed8 <display_image+0x1fc>
 /home/danielprilik/Github/ipodloader/tools.c:268
-40000eac <display_image+0x1d4> ldrb	r3, [sp, #27]
-40000eb0 <display_image+0x1d8> and	r3, r3, #1
-40000eb4 <display_image+0x1dc> and	r3, r3, #255	; 0xff
-40000eb8 <display_image+0x1e0> cmp	r3, #0
-40000ebc <display_image+0x1e4> beq	40000ecc <display_image+0x1f4>
+40000eb0 <display_image+0x1d4> ldrb	r3, [sp, #27]
+40000eb4 <display_image+0x1d8> and	r3, r3, #1
+40000eb8 <display_image+0x1dc> and	r3, r3, #255	; 0xff
+40000ebc <display_image+0x1e0> cmp	r3, #0
+40000ec0 <display_image+0x1e4> beq	40000ed0 <display_image+0x1f4>
 /home/danielprilik/Github/ipodloader/tools.c:269
-40000ec0 <display_image+0x1e8> mov	r3, #51	; 0x33
-40000ec4 <display_image+0x1ec> str	r3, [sp, #36]	; 0x24
-40000ec8 <display_image+0x1f0> b	40000ed4 <display_image+0x1fc>
+40000ec4 <display_image+0x1e8> mov	r3, #51	; 0x33
+40000ec8 <display_image+0x1ec> str	r3, [sp, #36]	; 0x24
+40000ecc <display_image+0x1f0> b	40000ed8 <display_image+0x1fc>
 /home/danielprilik/Github/ipodloader/tools.c:271
-40000ecc <display_image+0x1f4> mov	r3, #204	; 0xcc
-40000ed0 <display_image+0x1f8> str	r3, [sp, #36]	; 0x24
+40000ed0 <display_image+0x1f4> mov	r3, #204	; 0xcc
+40000ed4 <display_image+0x1f8> str	r3, [sp, #36]	; 0x24
 /home/danielprilik/Github/ipodloader/tools.c:275
-40000ed4 <display_image+0x1fc> mov	r3, #0
-40000ed8 <display_image+0x200> strb	r3, [sp, #47]	; 0x2f
-40000edc <display_image+0x204> b	40000ef8 <display_image+0x220>
+40000ed8 <display_image+0x1fc> mov	r3, #0
+40000edc <display_image+0x200> strb	r3, [sp, #47]	; 0x2f
+40000ee0 <display_image+0x204> b	40000efc <display_image+0x220>
 /home/danielprilik/Github/ipodloader/tools.c:277
-40000ee0 <display_image+0x208> ldr	r0, [sp, #36]	; 0x24
-40000ee4 <display_image+0x20c> ldr	r1, [sp, #36]	; 0x24
-40000ee8 <display_image+0x210> bl	40000b64 <lcd_send_data>
+40000ee4 <display_image+0x208> ldr	r0, [sp, #36]	; 0x24
+40000ee8 <display_image+0x20c> ldr	r1, [sp, #36]	; 0x24
+40000eec <display_image+0x210> bl	40000b68 <lcd_send_data>
 /home/danielprilik/Github/ipodloader/tools.c:275
-40000eec <display_image+0x214> ldrb	r3, [sp, #47]	; 0x2f
-40000ef0 <display_image+0x218> add	r3, r3, #8
-40000ef4 <display_image+0x21c> strb	r3, [sp, #47]	; 0x2f
-40000ef8 <display_image+0x220> ldrb	r2, [sp, #47]	; 0x2f
-40000efc <display_image+0x224> ldr	r3, [pc, #700]	; 400011c0 <display_image+0x4e8>
-40000f00 <display_image+0x228> ldr	r3, [r3]
-40000f04 <display_image+0x22c> lsr	r1, r3, #1
-40000f08 <display_image+0x230> ldr	r3, [sp, #16]
-40000f0c <display_image+0x234> lsr	r3, r3, #1
-40000f10 <display_image+0x238> rsb	r3, r3, r1
-40000f14 <display_image+0x23c> cmp	r2, r3
-40000f18 <display_image+0x240> bcc	40000ee0 <display_image+0x208>
+40000ef0 <display_image+0x214> ldrb	r3, [sp, #47]	; 0x2f
+40000ef4 <display_image+0x218> add	r3, r3, #8
+40000ef8 <display_image+0x21c> strb	r3, [sp, #47]	; 0x2f
+40000efc <display_image+0x220> ldrb	r2, [sp, #47]	; 0x2f
+40000f00 <display_image+0x224> ldr	r3, [pc, #700]	; 400011c4 <display_image+0x4e8>
+40000f04 <display_image+0x228> ldr	r3, [r3]
+40000f08 <display_image+0x22c> lsr	r1, r3, #1
+40000f0c <display_image+0x230> ldr	r3, [sp, #16]
+40000f10 <display_image+0x234> lsr	r3, r3, #1
+40000f14 <display_image+0x238> rsb	r3, r3, r1
+40000f18 <display_image+0x23c> cmp	r2, r3
+40000f1c <display_image+0x240> bcc	40000ee4 <display_image+0x208>
 /home/danielprilik/Github/ipodloader/tools.c:281
-40000f1c <display_image+0x244> ldr	r3, [sp, #4]
-40000f20 <display_image+0x248> ldr	r2, [r3, #20]
-40000f24 <display_image+0x24c> ldrb	r1, [sp, #27]
-40000f28 <display_image+0x250> ldr	r3, [sp, #4]
-40000f2c <display_image+0x254> ldrh	r3, [r3, #8]
-40000f30 <display_image+0x258> mov	r0, r3
-40000f34 <display_image+0x25c> mul	r3, r0, r1
-40000f38 <display_image+0x260> add	r3, r2, r3
-40000f3c <display_image+0x264> str	r3, [sp, #40]	; 0x28
+40000f20 <display_image+0x244> ldr	r3, [sp, #4]
+40000f24 <display_image+0x248> ldr	r2, [r3, #20]
+40000f28 <display_image+0x24c> ldrb	r1, [sp, #27]
+40000f2c <display_image+0x250> ldr	r3, [sp, #4]
+40000f30 <display_image+0x254> ldrh	r3, [r3, #8]
+40000f34 <display_image+0x258> mov	r0, r3
+40000f38 <display_image+0x25c> mul	r3, r0, r1
+40000f3c <display_image+0x260> add	r3, r2, r3
+40000f40 <display_image+0x264> str	r3, [sp, #40]	; 0x28
 /home/danielprilik/Github/ipodloader/tools.c:283
-40000f40 <display_image+0x268> mov	r3, #0
-40000f44 <display_image+0x26c> strb	r3, [sp, #47]	; 0x2f
-40000f48 <display_image+0x270> b	40000ffc <display_image+0x324>
+40000f44 <display_image+0x268> mov	r3, #0
+40000f48 <display_image+0x26c> strb	r3, [sp, #47]	; 0x2f
+40000f4c <display_image+0x270> b	40001000 <display_image+0x324>
 /home/danielprilik/Github/ipodloader/tools.c:285
-40000f4c <display_image+0x274> ldr	r3, [sp, #4]
-40000f50 <display_image+0x278> ldrh	r3, [r3, #10]
-40000f54 <display_image+0x27c> cmp	r3, #1
-40000f58 <display_image+0x280> bne	40000fac <display_image+0x2d4>
+40000f50 <display_image+0x274> ldr	r3, [sp, #4]
+40000f54 <display_image+0x278> ldrh	r3, [r3, #10]
+40000f58 <display_image+0x27c> cmp	r3, #1
+40000f5c <display_image+0x280> bne	40000fb0 <display_image+0x2d4>
 /home/danielprilik/Github/ipodloader/tools.c:287
-40000f5c <display_image+0x284> ldr	r3, [sp, #40]	; 0x28
-40000f60 <display_image+0x288> ldrb	r3, [r3]
-40000f64 <display_image+0x28c> lsr	r3, r3, #4
-40000f68 <display_image+0x290> and	r3, r3, #255	; 0xff
-40000f6c <display_image+0x294> ldr	r2, [pc, #592]	; 400011c4 <display_image+0x4ec>
-40000f70 <display_image+0x298> ldrb	r3, [r2, r3]
-40000f74 <display_image+0x29c> mov	r2, r3
-40000f78 <display_image+0x2a0> ldr	r3, [sp, #40]	; 0x28
-40000f7c <display_image+0x2a4> ldrb	r3, [r3]
-40000f80 <display_image+0x2a8> and	r3, r3, #15
-40000f84 <display_image+0x2ac> ldr	r1, [pc, #568]	; 400011c4 <display_image+0x4ec>
-40000f88 <display_image+0x2b0> ldrb	r3, [r1, r3]
-40000f8c <display_image+0x2b4> mov	r0, #18
-40000f90 <display_image+0x2b8> mov	r1, r2
-40000f94 <display_image+0x2bc> mov	r2, r3
-40000f98 <display_image+0x2c0> bl	40000ca4 <lcd_cmd_and_data>
+40000f60 <display_image+0x284> ldr	r3, [sp, #40]	; 0x28
+40000f64 <display_image+0x288> ldrb	r3, [r3]
+40000f68 <display_image+0x28c> lsr	r3, r3, #4
+40000f6c <display_image+0x290> and	r3, r3, #255	; 0xff
+40000f70 <display_image+0x294> ldr	r2, [pc, #592]	; 400011c8 <display_image+0x4ec>
+40000f74 <display_image+0x298> ldrb	r3, [r2, r3]
+40000f78 <display_image+0x29c> mov	r2, r3
+40000f7c <display_image+0x2a0> ldr	r3, [sp, #40]	; 0x28
+40000f80 <display_image+0x2a4> ldrb	r3, [r3]
+40000f84 <display_image+0x2a8> and	r3, r3, #15
+40000f88 <display_image+0x2ac> ldr	r1, [pc, #568]	; 400011c8 <display_image+0x4ec>
+40000f8c <display_image+0x2b0> ldrb	r3, [r1, r3]
+40000f90 <display_image+0x2b4> mov	r0, #18
+40000f94 <display_image+0x2b8> mov	r1, r2
+40000f98 <display_image+0x2bc> mov	r2, r3
+40000f9c <display_image+0x2c0> bl	40000ca8 <lcd_cmd_and_data>
 /home/danielprilik/Github/ipodloader/tools.c:289
-40000f9c <display_image+0x2c4> ldr	r3, [sp, #40]	; 0x28
-40000fa0 <display_image+0x2c8> add	r3, r3, #1
-40000fa4 <display_image+0x2cc> str	r3, [sp, #40]	; 0x28
-40000fa8 <display_image+0x2d0> b	40000ff0 <display_image+0x318>
+40000fa0 <display_image+0x2c4> ldr	r3, [sp, #40]	; 0x28
+40000fa4 <display_image+0x2c8> add	r3, r3, #1
+40000fa8 <display_image+0x2cc> str	r3, [sp, #40]	; 0x28
+40000fac <display_image+0x2d0> b	40000ff4 <display_image+0x318>
 /home/danielprilik/Github/ipodloader/tools.c:291
-40000fac <display_image+0x2d4> ldr	r3, [sp, #4]
-40000fb0 <display_image+0x2d8> ldrh	r3, [r3, #10]
-40000fb4 <display_image+0x2dc> cmp	r3, #2
-40000fb8 <display_image+0x2e0> bne	40000ff0 <display_image+0x318>
+40000fb0 <display_image+0x2d4> ldr	r3, [sp, #4]
+40000fb4 <display_image+0x2d8> ldrh	r3, [r3, #10]
+40000fb8 <display_image+0x2dc> cmp	r3, #2
+40000fbc <display_image+0x2e0> bne	40000ff4 <display_image+0x318>
 /home/danielprilik/Github/ipodloader/tools.c:293
-40000fbc <display_image+0x2e4> ldr	r3, [sp, #40]	; 0x28
-40000fc0 <display_image+0x2e8> ldrb	r3, [r3]
-40000fc4 <display_image+0x2ec> mov	r2, r3
-40000fc8 <display_image+0x2f0> ldr	r3, [sp, #40]	; 0x28
-40000fcc <display_image+0x2f4> add	r3, r3, #1
-40000fd0 <display_image+0x2f8> ldrb	r3, [r3]
-40000fd4 <display_image+0x2fc> mov	r0, #18
-40000fd8 <display_image+0x300> mov	r1, r2
-40000fdc <display_image+0x304> mov	r2, r3
-40000fe0 <display_image+0x308> bl	40000ca4 <lcd_cmd_and_data>
+40000fc0 <display_image+0x2e4> ldr	r3, [sp, #40]	; 0x28
+40000fc4 <display_image+0x2e8> ldrb	r3, [r3]
+40000fc8 <display_image+0x2ec> mov	r2, r3
+40000fcc <display_image+0x2f0> ldr	r3, [sp, #40]	; 0x28
+40000fd0 <display_image+0x2f4> add	r3, r3, #1
+40000fd4 <display_image+0x2f8> ldrb	r3, [r3]
+40000fd8 <display_image+0x2fc> mov	r0, #18
+40000fdc <display_image+0x300> mov	r1, r2
+40000fe0 <display_image+0x304> mov	r2, r3
+40000fe4 <display_image+0x308> bl	40000ca8 <lcd_cmd_and_data>
 /home/danielprilik/Github/ipodloader/tools.c:295
-40000fe4 <display_image+0x30c> ldr	r3, [sp, #40]	; 0x28
-40000fe8 <display_image+0x310> add	r3, r3, #2
-40000fec <display_image+0x314> str	r3, [sp, #40]	; 0x28
+40000fe8 <display_image+0x30c> ldr	r3, [sp, #40]	; 0x28
+40000fec <display_image+0x310> add	r3, r3, #2
+40000ff0 <display_image+0x314> str	r3, [sp, #40]	; 0x28
 /home/danielprilik/Github/ipodloader/tools.c:283
-40000ff0 <display_image+0x318> ldrb	r3, [sp, #47]	; 0x2f
-40000ff4 <display_image+0x31c> add	r3, r3, #1
-40000ff8 <display_image+0x320> strb	r3, [sp, #47]	; 0x2f
-40000ffc <display_image+0x324> ldrb	r2, [sp, #47]	; 0x2f
-40001000 <display_image+0x328> ldr	r3, [sp, #16]
-40001004 <display_image+0x32c> add	r3, r3, #7
-40001008 <display_image+0x330> lsr	r3, r3, #3
-4000100c <display_image+0x334> cmp	r2, r3
-40001010 <display_image+0x338> bcc	40000f4c <display_image+0x274>
+40000ff4 <display_image+0x318> ldrb	r3, [sp, #47]	; 0x2f
+40000ff8 <display_image+0x31c> add	r3, r3, #1
+40000ffc <display_image+0x320> strb	r3, [sp, #47]	; 0x2f
+40001000 <display_image+0x324> ldrb	r2, [sp, #47]	; 0x2f
+40001004 <display_image+0x328> ldr	r3, [sp, #16]
+40001008 <display_image+0x32c> add	r3, r3, #7
+4000100c <display_image+0x330> lsr	r3, r3, #3
+40001010 <display_image+0x334> cmp	r2, r3
+40001014 <display_image+0x338> bcc	40000f50 <display_image+0x274>
 /home/danielprilik/Github/ipodloader/tools.c:300
-40001014 <display_image+0x33c> ldr	r3, [pc, #420]	; 400011c0 <display_image+0x4e8>
-40001018 <display_image+0x340> ldr	r3, [r3]
-4000101c <display_image+0x344> lsr	r3, r3, #1
-40001020 <display_image+0x348> and	r2, r3, #255	; 0xff
-40001024 <display_image+0x34c> ldr	r3, [sp, #16]
-40001028 <display_image+0x350> lsr	r3, r3, #1
-4000102c <display_image+0x354> and	r3, r3, #255	; 0xff
-40001030 <display_image+0x358> add	r3, r2, r3
-40001034 <display_image+0x35c> strb	r3, [sp, #47]	; 0x2f
-40001038 <display_image+0x360> b	40001054 <display_image+0x37c>
+40001018 <display_image+0x33c> ldr	r3, [pc, #420]	; 400011c4 <display_image+0x4e8>
+4000101c <display_image+0x340> ldr	r3, [r3]
+40001020 <display_image+0x344> lsr	r3, r3, #1
+40001024 <display_image+0x348> and	r2, r3, #255	; 0xff
+40001028 <display_image+0x34c> ldr	r3, [sp, #16]
+4000102c <display_image+0x350> lsr	r3, r3, #1
+40001030 <display_image+0x354> and	r3, r3, #255	; 0xff
+40001034 <display_image+0x358> add	r3, r2, r3
+40001038 <display_image+0x35c> strb	r3, [sp, #47]	; 0x2f
+4000103c <display_image+0x360> b	40001058 <display_image+0x37c>
 /home/danielprilik/Github/ipodloader/tools.c:302
-4000103c <display_image+0x364> ldr	r0, [sp, #36]	; 0x24
-40001040 <display_image+0x368> ldr	r1, [sp, #36]	; 0x24
-40001044 <display_image+0x36c> bl	40000b64 <lcd_send_data>
+40001040 <display_image+0x364> ldr	r0, [sp, #36]	; 0x24
+40001044 <display_image+0x368> ldr	r1, [sp, #36]	; 0x24
+40001048 <display_image+0x36c> bl	40000b68 <lcd_send_data>
 /home/danielprilik/Github/ipodloader/tools.c:300
-40001048 <display_image+0x370> ldrb	r3, [sp, #47]	; 0x2f
-4000104c <display_image+0x374> add	r3, r3, #8
-40001050 <display_image+0x378> strb	r3, [sp, #47]	; 0x2f
-40001054 <display_image+0x37c> ldrb	r2, [sp, #47]	; 0x2f
-40001058 <display_image+0x380> ldr	r3, [pc, #352]	; 400011c0 <display_image+0x4e8>
-4000105c <display_image+0x384> ldr	r3, [r3]
-40001060 <display_image+0x388> cmp	r2, r3
-40001064 <display_image+0x38c> bls	4000103c <display_image+0x364>
+4000104c <display_image+0x370> ldrb	r3, [sp, #47]	; 0x2f
+40001050 <display_image+0x374> add	r3, r3, #8
+40001054 <display_image+0x378> strb	r3, [sp, #47]	; 0x2f
+40001058 <display_image+0x37c> ldrb	r2, [sp, #47]	; 0x2f
+4000105c <display_image+0x380> ldr	r3, [pc, #352]	; 400011c4 <display_image+0x4e8>
+40001060 <display_image+0x384> ldr	r3, [r3]
+40001064 <display_image+0x388> cmp	r2, r3
+40001068 <display_image+0x38c> bls	40001040 <display_image+0x364>
 /home/danielprilik/Github/ipodloader/tools.c:306
-40001068 <display_image+0x390> ldrh	r3, [sp, #24]
-4000106c <display_image+0x394> add	r3, r3, #32
-40001070 <display_image+0x398> strh	r3, [sp, #24]
+4000106c <display_image+0x390> ldrh	r3, [sp, #24]
+40001070 <display_image+0x394> add	r3, r3, #32
+40001074 <display_image+0x398> strh	r3, [sp, #24]
 /home/danielprilik/Github/ipodloader/tools.c:254
-40001074 <display_image+0x39c> ldrb	r3, [sp, #27]
-40001078 <display_image+0x3a0> add	r3, r3, #1
-4000107c <display_image+0x3a4> strb	r3, [sp, #27]
-40001080 <display_image+0x3a8> ldrb	r2, [sp, #27]
-40001084 <display_image+0x3ac> ldr	r3, [sp, #12]
-40001088 <display_image+0x3b0> cmp	r2, r3
-4000108c <display_image+0x3b4> bcc	40000e64 <display_image+0x18c>
+40001078 <display_image+0x39c> ldrb	r3, [sp, #27]
+4000107c <display_image+0x3a0> add	r3, r3, #1
+40001080 <display_image+0x3a4> strb	r3, [sp, #27]
+40001084 <display_image+0x3a8> ldrb	r2, [sp, #27]
+40001088 <display_image+0x3ac> ldr	r3, [sp, #12]
+4000108c <display_image+0x3b0> cmp	r2, r3
+40001090 <display_image+0x3b4> bcc	40000e68 <display_image+0x18c>
 /home/danielprilik/Github/ipodloader/tools.c:313
-40001090 <display_image+0x3b8> ldr	r3, [sp, #12]
-40001094 <display_image+0x3bc> lsr	r3, r3, #1
-40001098 <display_image+0x3c0> lsl	r3, r3, #16
-4000109c <display_image+0x3c4> lsr	r3, r3, #16
-400010a0 <display_image+0x3c8> add	r3, r3, #64	; 0x40
-400010a4 <display_image+0x3cc> strh	r3, [sp, #24]
-400010a8 <display_image+0x3d0> b	4000115c <display_image+0x484>
+40001094 <display_image+0x3b8> ldr	r3, [sp, #12]
+40001098 <display_image+0x3bc> lsr	r3, r3, #1
+4000109c <display_image+0x3c0> lsl	r3, r3, #16
+400010a0 <display_image+0x3c4> lsr	r3, r3, #16
+400010a4 <display_image+0x3c8> add	r3, r3, #64	; 0x40
+400010a8 <display_image+0x3cc> strh	r3, [sp, #24]
+400010ac <display_image+0x3d0> b	40001160 <display_image+0x484>
 /home/danielprilik/Github/ipodloader/tools.c:314
-400010ac <display_image+0x3d4> mov	r3, #0
-400010b0 <display_image+0x3d8> str	r3, [sp, #48]	; 0x30
+400010b0 <display_image+0x3d4> mov	r3, #0
+400010b4 <display_image+0x3d8> str	r3, [sp, #48]	; 0x30
 /home/danielprilik/Github/ipodloader/tools.c:318
-400010b4 <display_image+0x3dc> ldrh	r3, [sp, #24]
-400010b8 <display_image+0x3e0> lsl	r3, r3, #5
-400010bc <display_image+0x3e4> asr	r2, r3, #8
-400010c0 <display_image+0x3e8> ldrh	r3, [sp, #24]
-400010c4 <display_image+0x3ec> lsl	r3, r3, #5
-400010c8 <display_image+0x3f0> and	r3, r3, #255	; 0xff
-400010cc <display_image+0x3f4> mov	r0, #17
-400010d0 <display_image+0x3f8> mov	r1, r2
-400010d4 <display_image+0x3fc> mov	r2, r3
-400010d8 <display_image+0x400> bl	40000ca4 <lcd_cmd_and_data>
+400010b8 <display_image+0x3dc> ldrh	r3, [sp, #24]
+400010bc <display_image+0x3e0> lsl	r3, r3, #5
+400010c0 <display_image+0x3e4> asr	r2, r3, #8
+400010c4 <display_image+0x3e8> ldrh	r3, [sp, #24]
+400010c8 <display_image+0x3ec> lsl	r3, r3, #5
+400010cc <display_image+0x3f0> and	r3, r3, #255	; 0xff
+400010d0 <display_image+0x3f4> mov	r0, #17
+400010d4 <display_image+0x3f8> mov	r1, r2
+400010d8 <display_image+0x3fc> mov	r2, r3
+400010dc <display_image+0x400> bl	40000ca8 <lcd_cmd_and_data>
 /home/danielprilik/Github/ipodloader/tools.c:321
-400010dc <display_image+0x404> mov	r0, #18
-400010e0 <display_image+0x408> bl	40000c0c <lcd_prepare_cmd>
+400010e0 <display_image+0x404> mov	r0, #18
+400010e4 <display_image+0x408> bl	40000c10 <lcd_prepare_cmd>
 /home/danielprilik/Github/ipodloader/tools.c:324
-400010e4 <display_image+0x40c> ldr	r3, [sp]
-400010e8 <display_image+0x410> cmp	r3, #0
-400010ec <display_image+0x414> beq	40001118 <display_image+0x440>
+400010e8 <display_image+0x40c> ldr	r3, [sp]
+400010ec <display_image+0x410> cmp	r3, #0
+400010f0 <display_image+0x414> beq	4000111c <display_image+0x440>
 /home/danielprilik/Github/ipodloader/tools.c:327
-400010f0 <display_image+0x418> ldrh	r3, [sp, #24]
-400010f4 <display_image+0x41c> and	r3, r3, #1
-400010f8 <display_image+0x420> and	r3, r3, #255	; 0xff
-400010fc <display_image+0x424> cmp	r3, #0
-40001100 <display_image+0x428> beq	40001110 <display_image+0x438>
+400010f4 <display_image+0x418> ldrh	r3, [sp, #24]
+400010f8 <display_image+0x41c> and	r3, r3, #1
+400010fc <display_image+0x420> and	r3, r3, #255	; 0xff
+40001100 <display_image+0x424> cmp	r3, #0
+40001104 <display_image+0x428> beq	40001114 <display_image+0x438>
 /home/danielprilik/Github/ipodloader/tools.c:328
-40001104 <display_image+0x42c> mov	r3, #51	; 0x33
-40001108 <display_image+0x430> str	r3, [sp, #48]	; 0x30
-4000110c <display_image+0x434> b	40001118 <display_image+0x440>
+40001108 <display_image+0x42c> mov	r3, #51	; 0x33
+4000110c <display_image+0x430> str	r3, [sp, #48]	; 0x30
+40001110 <display_image+0x434> b	4000111c <display_image+0x440>
 /home/danielprilik/Github/ipodloader/tools.c:330
-40001110 <display_image+0x438> mov	r3, #204	; 0xcc
-40001114 <display_image+0x43c> str	r3, [sp, #48]	; 0x30
+40001114 <display_image+0x438> mov	r3, #204	; 0xcc
+40001118 <display_image+0x43c> str	r3, [sp, #48]	; 0x30
 /home/danielprilik/Github/ipodloader/tools.c:336
-40001118 <display_image+0x440> mov	r3, #0
-4000111c <display_image+0x444> strb	r3, [sp, #55]	; 0x37
-40001120 <display_image+0x448> b	4000113c <display_image+0x464>
+4000111c <display_image+0x440> mov	r3, #0
+40001120 <display_image+0x444> strb	r3, [sp, #55]	; 0x37
+40001124 <display_image+0x448> b	40001140 <display_image+0x464>
 /home/danielprilik/Github/ipodloader/tools.c:338
-40001124 <display_image+0x44c> ldr	r0, [sp, #48]	; 0x30
-40001128 <display_image+0x450> ldr	r1, [sp, #48]	; 0x30
-4000112c <display_image+0x454> bl	40000b64 <lcd_send_data>
+40001128 <display_image+0x44c> ldr	r0, [sp, #48]	; 0x30
+4000112c <display_image+0x450> ldr	r1, [sp, #48]	; 0x30
+40001130 <display_image+0x454> bl	40000b68 <lcd_send_data>
 /home/danielprilik/Github/ipodloader/tools.c:336
-40001130 <display_image+0x458> ldrb	r3, [sp, #55]	; 0x37
-40001134 <display_image+0x45c> add	r3, r3, #8
-40001138 <display_image+0x460> strb	r3, [sp, #55]	; 0x37
-4000113c <display_image+0x464> ldrb	r2, [sp, #55]	; 0x37
-40001140 <display_image+0x468> ldr	r3, [pc, #120]	; 400011c0 <display_image+0x4e8>
-40001144 <display_image+0x46c> ldr	r3, [r3]
-40001148 <display_image+0x470> cmp	r2, r3
-4000114c <display_image+0x474> bls	40001124 <display_image+0x44c>
+40001134 <display_image+0x458> ldrb	r3, [sp, #55]	; 0x37
+40001138 <display_image+0x45c> add	r3, r3, #8
+4000113c <display_image+0x460> strb	r3, [sp, #55]	; 0x37
+40001140 <display_image+0x464> ldrb	r2, [sp, #55]	; 0x37
+40001144 <display_image+0x468> ldr	r3, [pc, #120]	; 400011c4 <display_image+0x4e8>
+40001148 <display_image+0x46c> ldr	r3, [r3]
+4000114c <display_image+0x470> cmp	r2, r3
+40001150 <display_image+0x474> bls	40001128 <display_image+0x44c>
 /home/danielprilik/Github/ipodloader/tools.c:313
-40001150 <display_image+0x478> ldrh	r3, [sp, #24]
-40001154 <display_image+0x47c> add	r3, r3, #1
-40001158 <display_image+0x480> strh	r3, [sp, #24]
-4000115c <display_image+0x484> ldrh	r2, [sp, #24]
-40001160 <display_image+0x488> ldr	r3, [pc, #84]	; 400011bc <display_image+0x4e4>
-40001164 <display_image+0x48c> ldr	r3, [r3]
-40001168 <display_image+0x490> cmp	r2, r3
-4000116c <display_image+0x494> bls	400010ac <display_image+0x3d4>
+40001154 <display_image+0x478> ldrh	r3, [sp, #24]
+40001158 <display_image+0x47c> add	r3, r3, #1
+4000115c <display_image+0x480> strh	r3, [sp, #24]
+40001160 <display_image+0x484> ldrh	r2, [sp, #24]
+40001164 <display_image+0x488> ldr	r3, [pc, #84]	; 400011c0 <display_image+0x4e4>
+40001168 <display_image+0x48c> ldr	r3, [r3]
+4000116c <display_image+0x490> cmp	r2, r3
+40001170 <display_image+0x494> bls	400010b0 <display_image+0x3d4>
 /home/danielprilik/Github/ipodloader/tools.c:341
-40001170 <display_image+0x498> mov	r0, #17
-40001174 <display_image+0x49c> mov	r1, #0
-40001178 <display_image+0x4a0> mov	r2, #0
-4000117c <display_image+0x4a4> bl	40000ca4 <lcd_cmd_and_data>
+40001174 <display_image+0x498> mov	r0, #17
+40001178 <display_image+0x49c> mov	r1, #0
+4000117c <display_image+0x4a0> mov	r2, #0
+40001180 <display_image+0x4a4> bl	40000ca8 <lcd_cmd_and_data>
 /home/danielprilik/Github/ipodloader/tools.c:342
-40001180 <display_image+0x4a8> mov	r0, #255	; 0xff
-40001184 <display_image+0x4ac> mov	r1, #255	; 0xff
-40001188 <display_image+0x4b0> bl	40000b64 <lcd_send_data>
+40001184 <display_image+0x4a8> mov	r0, #255	; 0xff
+40001188 <display_image+0x4ac> mov	r1, #255	; 0xff
+4000118c <display_image+0x4b0> bl	40000b68 <lcd_send_data>
 /home/danielprilik/Github/ipodloader/tools.c:343
-4000118c <display_image+0x4b4> mov	r0, #15
-40001190 <display_image+0x4b8> bl	40000a90 <wait_usec>
-40001194 <display_image+0x4bc> b	400011ac <display_image+0x4d4>
+40001190 <display_image+0x4b4> mov	r0, #15
+40001194 <display_image+0x4b8> bl	40000a94 <wait_usec>
+40001198 <display_image+0x4bc> b	400011b0 <display_image+0x4d4>
 /home/danielprilik/Github/ipodloader/tools.c:212
-40001198 <display_image+0x4c0> nop			; (mov r0, r0)
-4000119c <display_image+0x4c4> b	400011ac <display_image+0x4d4>
-400011a0 <display_image+0x4c8> nop			; (mov r0, r0)
-400011a4 <display_image+0x4cc> b	400011ac <display_image+0x4d4>
+4000119c <display_image+0x4c0> nop			; (mov r0, r0)
+400011a0 <display_image+0x4c4> b	400011b0 <display_image+0x4d4>
+400011a4 <display_image+0x4c8> nop			; (mov r0, r0)
+400011a8 <display_image+0x4cc> b	400011b0 <display_image+0x4d4>
 /home/danielprilik/Github/ipodloader/tools.c:215
-400011a8 <display_image+0x4d0> nop			; (mov r0, r0)
+400011ac <display_image+0x4d0> nop			; (mov r0, r0)
 /home/danielprilik/Github/ipodloader/tools.c:344
-400011ac <display_image+0x4d4> add	sp, sp, #60	; 0x3c
-400011b0 <display_image+0x4d8> pop	{lr}		; (ldr lr, [sp], #4)
-400011b4 <display_image+0x4dc> bx	lr
-400011b8 <display_image+0x4e0> .word	0x40001ff8
-400011bc <display_image+0x4e4> .word	0x4000200c
-400011c0 <display_image+0x4e8> .word	0x40002008
-400011c4 <display_image+0x4ec> .word	0x400014ec
+400011b0 <display_image+0x4d4> add	sp, sp, #60	; 0x3c
+400011b4 <display_image+0x4d8> pop	{lr}		; (ldr lr, [sp], #4)
+400011b8 <display_image+0x4dc> bx	lr
+400011bc <display_image+0x4e0> .word	0x40001ffc
+400011c0 <display_image+0x4e4> .word	0x40002010
+400011c4 <display_image+0x4e8> .word	0x4000200c
+400011c8 <display_image+0x4ec> .word	0x400014f0
 ser_opto_keypad_cfg():
 /home/danielprilik/Github/ipodloader/tools.c:348
-400011c8 <ser_opto_keypad_cfg> push	{lr}		; (str lr, [sp, #-4]!)
-400011cc <ser_opto_keypad_cfg+0x4> sub	sp, sp, #20
-400011d0 <ser_opto_keypad_cfg+0x8> str	r0, [sp, #4]
+400011cc <ser_opto_keypad_cfg> push	{lr}		; (str lr, [sp, #-4]!)
+400011d0 <ser_opto_keypad_cfg+0x4> sub	sp, sp, #20
+400011d4 <ser_opto_keypad_cfg+0x8> str	r0, [sp, #4]
 /home/danielprilik/Github/ipodloader/tools.c:351
-400011d4 <ser_opto_keypad_cfg+0xc> mov	r3, #53248	; 0xd000
-400011d8 <ser_opto_keypad_cfg+0x10> add	r3, r3, #1610612740	; 0x60000004
-400011dc <ser_opto_keypad_cfg+0x14> mov	r2, #53248	; 0xd000
-400011e0 <ser_opto_keypad_cfg+0x18> add	r2, r2, #1610612740	; 0x60000004
-400011e4 <ser_opto_keypad_cfg+0x1c> ldr	r2, [r2]
-400011e8 <ser_opto_keypad_cfg+0x20> bic	r2, r2, #128	; 0x80
-400011ec <ser_opto_keypad_cfg+0x24> str	r2, [r3]
+400011d8 <ser_opto_keypad_cfg+0xc> mov	r3, #53248	; 0xd000
+400011dc <ser_opto_keypad_cfg+0x10> add	r3, r3, #1610612740	; 0x60000004
+400011e0 <ser_opto_keypad_cfg+0x14> mov	r2, #53248	; 0xd000
+400011e4 <ser_opto_keypad_cfg+0x18> add	r2, r2, #1610612740	; 0x60000004
+400011e8 <ser_opto_keypad_cfg+0x1c> ldr	r2, [r2]
+400011ec <ser_opto_keypad_cfg+0x20> bic	r2, r2, #128	; 0x80
+400011f0 <ser_opto_keypad_cfg+0x24> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:353
-400011f0 <ser_opto_keypad_cfg+0x28> mov	r3, #49408	; 0xc100
-400011f4 <ser_opto_keypad_cfg+0x2c> add	r3, r3, #1879048196	; 0x70000004
-400011f8 <ser_opto_keypad_cfg+0x30> mov	r2, #49408	; 0xc100
-400011fc <ser_opto_keypad_cfg+0x34> add	r2, r2, #1879048196	; 0x70000004
-40001200 <ser_opto_keypad_cfg+0x38> ldr	r2, [r2]
-40001204 <ser_opto_keypad_cfg+0x3c> orr	r2, r2, #201326592	; 0xc000000
-40001208 <ser_opto_keypad_cfg+0x40> str	r2, [r3]
+400011f4 <ser_opto_keypad_cfg+0x28> mov	r3, #49408	; 0xc100
+400011f8 <ser_opto_keypad_cfg+0x2c> add	r3, r3, #1879048196	; 0x70000004
+400011fc <ser_opto_keypad_cfg+0x30> mov	r2, #49408	; 0xc100
+40001200 <ser_opto_keypad_cfg+0x34> add	r2, r2, #1879048196	; 0x70000004
+40001204 <ser_opto_keypad_cfg+0x38> ldr	r2, [r2]
+40001208 <ser_opto_keypad_cfg+0x3c> orr	r2, r2, #201326592	; 0xc000000
+4000120c <ser_opto_keypad_cfg+0x40> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:354
-4000120c <ser_opto_keypad_cfg+0x44> mov	r3, #1879048192	; 0x70000000
-40001210 <ser_opto_keypad_cfg+0x48> add	r3, r3, #49408	; 0xc100
-40001214 <ser_opto_keypad_cfg+0x4c> add	r3, r3, #32
-40001218 <ser_opto_keypad_cfg+0x50> ldr	r2, [sp, #4]
-4000121c <ser_opto_keypad_cfg+0x54> str	r2, [r3]
+40001210 <ser_opto_keypad_cfg+0x44> mov	r3, #1879048192	; 0x70000000
+40001214 <ser_opto_keypad_cfg+0x48> add	r3, r3, #49408	; 0xc100
+40001218 <ser_opto_keypad_cfg+0x4c> add	r3, r3, #32
+4000121c <ser_opto_keypad_cfg+0x50> ldr	r2, [sp, #4]
+40001220 <ser_opto_keypad_cfg+0x54> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:355
-40001220 <ser_opto_keypad_cfg+0x58> mov	r3, #1879048192	; 0x70000000
-40001224 <ser_opto_keypad_cfg+0x5c> add	r3, r3, #49408	; 0xc100
-40001228 <ser_opto_keypad_cfg+0x60> mov	r2, #1879048192	; 0x70000000
-4000122c <ser_opto_keypad_cfg+0x64> add	r2, r2, #49408	; 0xc100
-40001230 <ser_opto_keypad_cfg+0x68> ldr	r2, [r2]
-40001234 <ser_opto_keypad_cfg+0x6c> orr	r2, r2, #-2147483648	; 0x80000000
-40001238 <ser_opto_keypad_cfg+0x70> str	r2, [r3]
+40001224 <ser_opto_keypad_cfg+0x58> mov	r3, #1879048192	; 0x70000000
+40001228 <ser_opto_keypad_cfg+0x5c> add	r3, r3, #49408	; 0xc100
+4000122c <ser_opto_keypad_cfg+0x60> mov	r2, #1879048192	; 0x70000000
+40001230 <ser_opto_keypad_cfg+0x64> add	r2, r2, #49408	; 0xc100
+40001234 <ser_opto_keypad_cfg+0x68> ldr	r2, [r2]
+40001238 <ser_opto_keypad_cfg+0x6c> orr	r2, r2, #-2147483648	; 0x80000000
+4000123c <ser_opto_keypad_cfg+0x70> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:357
-4000123c <ser_opto_keypad_cfg+0x74> mov	r3, #1610612736	; 0x60000000
-40001240 <ser_opto_keypad_cfg+0x78> add	r3, r3, #53248	; 0xd000
-40001244 <ser_opto_keypad_cfg+0x7c> add	r3, r3, #36	; 0x24
-40001248 <ser_opto_keypad_cfg+0x80> mov	r2, #1610612736	; 0x60000000
-4000124c <ser_opto_keypad_cfg+0x84> add	r2, r2, #53248	; 0xd000
-40001250 <ser_opto_keypad_cfg+0x88> add	r2, r2, #36	; 0x24
-40001254 <ser_opto_keypad_cfg+0x8c> ldr	r2, [r2]
-40001258 <ser_opto_keypad_cfg+0x90> bic	r2, r2, #16
-4000125c <ser_opto_keypad_cfg+0x94> str	r2, [r3]
+40001240 <ser_opto_keypad_cfg+0x74> mov	r3, #1610612736	; 0x60000000
+40001244 <ser_opto_keypad_cfg+0x78> add	r3, r3, #53248	; 0xd000
+40001248 <ser_opto_keypad_cfg+0x7c> add	r3, r3, #36	; 0x24
+4000124c <ser_opto_keypad_cfg+0x80> mov	r2, #1610612736	; 0x60000000
+40001250 <ser_opto_keypad_cfg+0x84> add	r2, r2, #53248	; 0xd000
+40001254 <ser_opto_keypad_cfg+0x88> add	r2, r2, #36	; 0x24
+40001258 <ser_opto_keypad_cfg+0x8c> ldr	r2, [r2]
+4000125c <ser_opto_keypad_cfg+0x90> bic	r2, r2, #16
+40001260 <ser_opto_keypad_cfg+0x94> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:358
-40001260 <ser_opto_keypad_cfg+0x98> mov	r3, #1610612736	; 0x60000000
-40001264 <ser_opto_keypad_cfg+0x9c> add	r3, r3, #53248	; 0xd000
-40001268 <ser_opto_keypad_cfg+0xa0> add	r3, r3, #20
-4000126c <ser_opto_keypad_cfg+0xa4> mov	r2, #1610612736	; 0x60000000
-40001270 <ser_opto_keypad_cfg+0xa8> add	r2, r2, #53248	; 0xd000
-40001274 <ser_opto_keypad_cfg+0xac> add	r2, r2, #20
-40001278 <ser_opto_keypad_cfg+0xb0> ldr	r2, [r2]
-4000127c <ser_opto_keypad_cfg+0xb4> orr	r2, r2, #16
-40001280 <ser_opto_keypad_cfg+0xb8> str	r2, [r3]
+40001264 <ser_opto_keypad_cfg+0x98> mov	r3, #1610612736	; 0x60000000
+40001268 <ser_opto_keypad_cfg+0x9c> add	r3, r3, #53248	; 0xd000
+4000126c <ser_opto_keypad_cfg+0xa0> add	r3, r3, #20
+40001270 <ser_opto_keypad_cfg+0xa4> mov	r2, #1610612736	; 0x60000000
+40001274 <ser_opto_keypad_cfg+0xa8> add	r2, r2, #53248	; 0xd000
+40001278 <ser_opto_keypad_cfg+0xac> add	r2, r2, #20
+4000127c <ser_opto_keypad_cfg+0xb0> ldr	r2, [r2]
+40001280 <ser_opto_keypad_cfg+0xb4> orr	r2, r2, #16
+40001284 <ser_opto_keypad_cfg+0xb8> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:360
-40001284 <ser_opto_keypad_cfg+0xbc> bl	40000a30 <timer_get_current>
-40001288 <ser_opto_keypad_cfg+0xc0> mov	r3, r0
-4000128c <ser_opto_keypad_cfg+0xc4> str	r3, [sp, #12]
+40001288 <ser_opto_keypad_cfg+0xbc> bl	40000a34 <timer_get_current>
+4000128c <ser_opto_keypad_cfg+0xc0> mov	r3, r0
+40001290 <ser_opto_keypad_cfg+0xc4> str	r3, [sp, #12]
 /home/danielprilik/Github/ipodloader/tools.c:362
-40001290 <ser_opto_keypad_cfg+0xc8> mov	r3, #49408	; 0xc100
-40001294 <ser_opto_keypad_cfg+0xcc> add	r3, r3, #1879048196	; 0x70000004
-40001298 <ser_opto_keypad_cfg+0xd0> ldr	r3, [r3]
-4000129c <ser_opto_keypad_cfg+0xd4> cmp	r3, #0
-400012a0 <ser_opto_keypad_cfg+0xd8> bge	400012c4 <ser_opto_keypad_cfg+0xfc>
+40001294 <ser_opto_keypad_cfg+0xc8> mov	r3, #49408	; 0xc100
+40001298 <ser_opto_keypad_cfg+0xcc> add	r3, r3, #1879048196	; 0x70000004
+4000129c <ser_opto_keypad_cfg+0xd0> ldr	r3, [r3]
+400012a0 <ser_opto_keypad_cfg+0xd4> cmp	r3, #0
+400012a4 <ser_opto_keypad_cfg+0xd8> bge	400012c8 <ser_opto_keypad_cfg+0xfc>
 /home/danielprilik/Github/ipodloader/tools.c:365
-400012a4 <ser_opto_keypad_cfg+0xdc> ldr	r0, [sp, #12]
-400012a8 <ser_opto_keypad_cfg+0xe0> mov	r1, #1488	; 0x5d0
-400012ac <ser_opto_keypad_cfg+0xe4> add	r1, r1, #12
-400012b0 <ser_opto_keypad_cfg+0xe8> bl	40000a48 <timer_check>
-400012b4 <ser_opto_keypad_cfg+0xec> mov	r3, r0
-400012b8 <ser_opto_keypad_cfg+0xf0> cmp	r3, #0
-400012bc <ser_opto_keypad_cfg+0xf4> bne	40001290 <ser_opto_keypad_cfg+0xc8>
-400012c0 <ser_opto_keypad_cfg+0xf8> b	400012c8 <ser_opto_keypad_cfg+0x100>
+400012a8 <ser_opto_keypad_cfg+0xdc> ldr	r0, [sp, #12]
+400012ac <ser_opto_keypad_cfg+0xe0> mov	r1, #1488	; 0x5d0
+400012b0 <ser_opto_keypad_cfg+0xe4> add	r1, r1, #12
+400012b4 <ser_opto_keypad_cfg+0xe8> bl	40000a4c <timer_check>
+400012b8 <ser_opto_keypad_cfg+0xec> mov	r3, r0
+400012bc <ser_opto_keypad_cfg+0xf0> cmp	r3, #0
+400012c0 <ser_opto_keypad_cfg+0xf4> bne	40001294 <ser_opto_keypad_cfg+0xc8>
+400012c4 <ser_opto_keypad_cfg+0xf8> b	400012cc <ser_opto_keypad_cfg+0x100>
 /home/danielprilik/Github/ipodloader/tools.c:363
-400012c4 <ser_opto_keypad_cfg+0xfc> nop			; (mov r0, r0)
+400012c8 <ser_opto_keypad_cfg+0xfc> nop			; (mov r0, r0)
 /home/danielprilik/Github/ipodloader/tools.c:367
-400012c8 <ser_opto_keypad_cfg+0x100> mov	r3, #1879048192	; 0x70000000
-400012cc <ser_opto_keypad_cfg+0x104> add	r3, r3, #49408	; 0xc100
-400012d0 <ser_opto_keypad_cfg+0x108> mov	r2, #1879048192	; 0x70000000
-400012d4 <ser_opto_keypad_cfg+0x10c> add	r2, r2, #49408	; 0xc100
-400012d8 <ser_opto_keypad_cfg+0x110> ldr	r2, [r2]
-400012dc <ser_opto_keypad_cfg+0x114> bic	r2, r2, #-2147483648	; 0x80000000
-400012e0 <ser_opto_keypad_cfg+0x118> str	r2, [r3]
+400012cc <ser_opto_keypad_cfg+0x100> mov	r3, #1879048192	; 0x70000000
+400012d0 <ser_opto_keypad_cfg+0x104> add	r3, r3, #49408	; 0xc100
+400012d4 <ser_opto_keypad_cfg+0x108> mov	r2, #1879048192	; 0x70000000
+400012d8 <ser_opto_keypad_cfg+0x10c> add	r2, r2, #49408	; 0xc100
+400012dc <ser_opto_keypad_cfg+0x110> ldr	r2, [r2]
+400012e0 <ser_opto_keypad_cfg+0x114> bic	r2, r2, #-2147483648	; 0x80000000
+400012e4 <ser_opto_keypad_cfg+0x118> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:369
-400012e4 <ser_opto_keypad_cfg+0x11c> mov	r3, #53248	; 0xd000
-400012e8 <ser_opto_keypad_cfg+0x120> add	r3, r3, #1610612740	; 0x60000004
-400012ec <ser_opto_keypad_cfg+0x124> mov	r2, #53248	; 0xd000
-400012f0 <ser_opto_keypad_cfg+0x128> add	r2, r2, #1610612740	; 0x60000004
-400012f4 <ser_opto_keypad_cfg+0x12c> ldr	r2, [r2]
-400012f8 <ser_opto_keypad_cfg+0x130> orr	r2, r2, #128	; 0x80
-400012fc <ser_opto_keypad_cfg+0x134> str	r2, [r3]
+400012e8 <ser_opto_keypad_cfg+0x11c> mov	r3, #53248	; 0xd000
+400012ec <ser_opto_keypad_cfg+0x120> add	r3, r3, #1610612740	; 0x60000004
+400012f0 <ser_opto_keypad_cfg+0x124> mov	r2, #53248	; 0xd000
+400012f4 <ser_opto_keypad_cfg+0x128> add	r2, r2, #1610612740	; 0x60000004
+400012f8 <ser_opto_keypad_cfg+0x12c> ldr	r2, [r2]
+400012fc <ser_opto_keypad_cfg+0x130> orr	r2, r2, #128	; 0x80
+40001300 <ser_opto_keypad_cfg+0x134> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:370
-40001300 <ser_opto_keypad_cfg+0x138> mov	r3, #1610612736	; 0x60000000
-40001304 <ser_opto_keypad_cfg+0x13c> add	r3, r3, #53248	; 0xd000
-40001308 <ser_opto_keypad_cfg+0x140> add	r3, r3, #36	; 0x24
-4000130c <ser_opto_keypad_cfg+0x144> mov	r2, #1610612736	; 0x60000000
-40001310 <ser_opto_keypad_cfg+0x148> add	r2, r2, #53248	; 0xd000
-40001314 <ser_opto_keypad_cfg+0x14c> add	r2, r2, #36	; 0x24
-40001318 <ser_opto_keypad_cfg+0x150> ldr	r2, [r2]
-4000131c <ser_opto_keypad_cfg+0x154> orr	r2, r2, #16
-40001320 <ser_opto_keypad_cfg+0x158> str	r2, [r3]
+40001304 <ser_opto_keypad_cfg+0x138> mov	r3, #1610612736	; 0x60000000
+40001308 <ser_opto_keypad_cfg+0x13c> add	r3, r3, #53248	; 0xd000
+4000130c <ser_opto_keypad_cfg+0x140> add	r3, r3, #36	; 0x24
+40001310 <ser_opto_keypad_cfg+0x144> mov	r2, #1610612736	; 0x60000000
+40001314 <ser_opto_keypad_cfg+0x148> add	r2, r2, #53248	; 0xd000
+40001318 <ser_opto_keypad_cfg+0x14c> add	r2, r2, #36	; 0x24
+4000131c <ser_opto_keypad_cfg+0x150> ldr	r2, [r2]
+40001320 <ser_opto_keypad_cfg+0x154> orr	r2, r2, #16
+40001324 <ser_opto_keypad_cfg+0x158> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:371
-40001324 <ser_opto_keypad_cfg+0x15c> mov	r3, #1610612736	; 0x60000000
-40001328 <ser_opto_keypad_cfg+0x160> add	r3, r3, #53248	; 0xd000
-4000132c <ser_opto_keypad_cfg+0x164> add	r3, r3, #20
-40001330 <ser_opto_keypad_cfg+0x168> mov	r2, #1610612736	; 0x60000000
-40001334 <ser_opto_keypad_cfg+0x16c> add	r2, r2, #53248	; 0xd000
-40001338 <ser_opto_keypad_cfg+0x170> add	r2, r2, #20
-4000133c <ser_opto_keypad_cfg+0x174> ldr	r2, [r2]
-40001340 <ser_opto_keypad_cfg+0x178> bic	r2, r2, #16
-40001344 <ser_opto_keypad_cfg+0x17c> str	r2, [r3]
+40001328 <ser_opto_keypad_cfg+0x15c> mov	r3, #1610612736	; 0x60000000
+4000132c <ser_opto_keypad_cfg+0x160> add	r3, r3, #53248	; 0xd000
+40001330 <ser_opto_keypad_cfg+0x164> add	r3, r3, #20
+40001334 <ser_opto_keypad_cfg+0x168> mov	r2, #1610612736	; 0x60000000
+40001338 <ser_opto_keypad_cfg+0x16c> add	r2, r2, #53248	; 0xd000
+4000133c <ser_opto_keypad_cfg+0x170> add	r2, r2, #20
+40001340 <ser_opto_keypad_cfg+0x174> ldr	r2, [r2]
+40001344 <ser_opto_keypad_cfg+0x178> bic	r2, r2, #16
+40001348 <ser_opto_keypad_cfg+0x17c> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:373
-40001348 <ser_opto_keypad_cfg+0x180> mov	r3, #49408	; 0xc100
-4000134c <ser_opto_keypad_cfg+0x184> add	r3, r3, #1879048196	; 0x70000004
-40001350 <ser_opto_keypad_cfg+0x188> mov	r2, #49408	; 0xc100
-40001354 <ser_opto_keypad_cfg+0x18c> add	r2, r2, #1879048196	; 0x70000004
-40001358 <ser_opto_keypad_cfg+0x190> ldr	r2, [r2]
-4000135c <ser_opto_keypad_cfg+0x194> orr	r2, r2, #201326592	; 0xc000000
-40001360 <ser_opto_keypad_cfg+0x198> str	r2, [r3]
+4000134c <ser_opto_keypad_cfg+0x180> mov	r3, #49408	; 0xc100
+40001350 <ser_opto_keypad_cfg+0x184> add	r3, r3, #1879048196	; 0x70000004
+40001354 <ser_opto_keypad_cfg+0x188> mov	r2, #49408	; 0xc100
+40001358 <ser_opto_keypad_cfg+0x18c> add	r2, r2, #1879048196	; 0x70000004
+4000135c <ser_opto_keypad_cfg+0x190> ldr	r2, [r2]
+40001360 <ser_opto_keypad_cfg+0x194> orr	r2, r2, #201326592	; 0xc000000
+40001364 <ser_opto_keypad_cfg+0x198> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:374
-40001364 <ser_opto_keypad_cfg+0x19c> mov	r3, #1879048192	; 0x70000000
-40001368 <ser_opto_keypad_cfg+0x1a0> add	r3, r3, #49408	; 0xc100
-4000136c <ser_opto_keypad_cfg+0x1a4> mov	r2, #1879048192	; 0x70000000
-40001370 <ser_opto_keypad_cfg+0x1a8> add	r2, r2, #49408	; 0xc100
-40001374 <ser_opto_keypad_cfg+0x1ac> ldr	r2, [r2]
-40001378 <ser_opto_keypad_cfg+0x1b0> orr	r2, r2, #1610612736	; 0x60000000
-4000137c <ser_opto_keypad_cfg+0x1b4> str	r2, [r3]
+40001368 <ser_opto_keypad_cfg+0x19c> mov	r3, #1879048192	; 0x70000000
+4000136c <ser_opto_keypad_cfg+0x1a0> add	r3, r3, #49408	; 0xc100
+40001370 <ser_opto_keypad_cfg+0x1a4> mov	r2, #1879048192	; 0x70000000
+40001374 <ser_opto_keypad_cfg+0x1a8> add	r2, r2, #49408	; 0xc100
+40001378 <ser_opto_keypad_cfg+0x1ac> ldr	r2, [r2]
+4000137c <ser_opto_keypad_cfg+0x1b0> orr	r2, r2, #1610612736	; 0x60000000
+40001380 <ser_opto_keypad_cfg+0x1b4> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:375
-40001380 <ser_opto_keypad_cfg+0x1b8> add	sp, sp, #20
-40001384 <ser_opto_keypad_cfg+0x1bc> pop	{lr}		; (ldr lr, [sp], #4)
-40001388 <ser_opto_keypad_cfg+0x1c0> bx	lr
+40001384 <ser_opto_keypad_cfg+0x1b8> add	sp, sp, #20
+40001388 <ser_opto_keypad_cfg+0x1bc> pop	{lr}		; (ldr lr, [sp], #4)
+4000138c <ser_opto_keypad_cfg+0x1c0> bx	lr
 opto_keypad_read():
 /home/danielprilik/Github/ipodloader/tools.c:379
-4000138c <opto_keypad_read> push	{lr}		; (str lr, [sp, #-4]!)
-40001390 <opto_keypad_read+0x4> sub	sp, sp, #28
+40001390 <opto_keypad_read> push	{lr}		; (str lr, [sp, #-4]!)
+40001394 <opto_keypad_read+0x4> sub	sp, sp, #28
 /home/danielprilik/Github/ipodloader/tools.c:380
-40001394 <opto_keypad_read+0x8> mov	r3, #0
-40001398 <opto_keypad_read+0xc> str	r3, [sp, #8]
+40001398 <opto_keypad_read+0x8> mov	r3, #0
+4000139c <opto_keypad_read+0xc> str	r3, [sp, #8]
 /home/danielprilik/Github/ipodloader/tools.c:382
-4000139c <opto_keypad_read+0x10> mov	r3, #5
-400013a0 <opto_keypad_read+0x14> str	r3, [sp, #4]
-400013a4 <opto_keypad_read+0x18> b	400014c4 <opto_keypad_read+0x138>
+400013a0 <opto_keypad_read+0x10> mov	r3, #5
+400013a4 <opto_keypad_read+0x14> str	r3, [sp, #4]
+400013a8 <opto_keypad_read+0x18> b	400014c8 <opto_keypad_read+0x138>
 /home/danielprilik/Github/ipodloader/tools.c:384
-400013a8 <opto_keypad_read+0x1c> mov	r3, #0
-400013ac <opto_keypad_read+0x20> str	r3, [sp, #12]
+400013ac <opto_keypad_read+0x1c> mov	r3, #0
+400013b0 <opto_keypad_read+0x20> str	r3, [sp, #12]
 /home/danielprilik/Github/ipodloader/tools.c:386
-400013b0 <opto_keypad_read+0x24> mov	r0, #568	; 0x238
-400013b4 <opto_keypad_read+0x28> add	r0, r0, #-2147483646	; 0x80000002
-400013b8 <opto_keypad_read+0x2c> bl	400011c8 <ser_opto_keypad_cfg>
+400013b4 <opto_keypad_read+0x24> mov	r0, #568	; 0x238
+400013b8 <opto_keypad_read+0x28> add	r0, r0, #-2147483646	; 0x80000002
+400013bc <opto_keypad_read+0x2c> bl	400011cc <ser_opto_keypad_cfg>
 /home/danielprilik/Github/ipodloader/tools.c:388
-400013bc <opto_keypad_read+0x30> bl	40000a30 <timer_get_current>
-400013c0 <opto_keypad_read+0x34> mov	r3, r0
-400013c4 <opto_keypad_read+0x38> str	r3, [sp, #16]
+400013c0 <opto_keypad_read+0x30> bl	40000a34 <timer_get_current>
+400013c4 <opto_keypad_read+0x34> mov	r3, r0
+400013c8 <opto_keypad_read+0x38> str	r3, [sp, #16]
 /home/danielprilik/Github/ipodloader/tools.c:390
-400013c8 <opto_keypad_read+0x3c> mov	r3, #49408	; 0xc100
-400013cc <opto_keypad_read+0x40> add	r3, r3, #1879048196	; 0x70000004
-400013d0 <opto_keypad_read+0x44> ldr	r3, [r3]
-400013d4 <opto_keypad_read+0x48> and	r3, r3, #67108864	; 0x4000000
-400013d8 <opto_keypad_read+0x4c> cmp	r3, #0
-400013dc <opto_keypad_read+0x50> beq	400013ec <opto_keypad_read+0x60>
+400013cc <opto_keypad_read+0x3c> mov	r3, #49408	; 0xc100
+400013d0 <opto_keypad_read+0x40> add	r3, r3, #1879048196	; 0x70000004
+400013d4 <opto_keypad_read+0x44> ldr	r3, [r3]
+400013d8 <opto_keypad_read+0x48> and	r3, r3, #67108864	; 0x4000000
+400013dc <opto_keypad_read+0x4c> cmp	r3, #0
+400013e0 <opto_keypad_read+0x50> beq	400013f0 <opto_keypad_read+0x60>
 /home/danielprilik/Github/ipodloader/tools.c:391
-400013e0 <opto_keypad_read+0x54> mov	r3, #1
-400013e4 <opto_keypad_read+0x58> str	r3, [sp, #8]
+400013e4 <opto_keypad_read+0x54> mov	r3, #1
+400013e8 <opto_keypad_read+0x58> str	r3, [sp, #8]
 /home/danielprilik/Github/ipodloader/tools.c:392
-400013e8 <opto_keypad_read+0x5c> b	4000141c <opto_keypad_read+0x90>
+400013ec <opto_keypad_read+0x5c> b	40001420 <opto_keypad_read+0x90>
 /home/danielprilik/Github/ipodloader/tools.c:395
-400013ec <opto_keypad_read+0x60> ldr	r3, [sp, #8]
-400013f0 <opto_keypad_read+0x64> cmp	r3, #0
-400013f4 <opto_keypad_read+0x68> bne	40001418 <opto_keypad_read+0x8c>
+400013f0 <opto_keypad_read+0x60> ldr	r3, [sp, #8]
+400013f4 <opto_keypad_read+0x64> cmp	r3, #0
+400013f8 <opto_keypad_read+0x68> bne	4000141c <opto_keypad_read+0x8c>
 /home/danielprilik/Github/ipodloader/tools.c:398
-400013f8 <opto_keypad_read+0x6c> ldr	r0, [sp, #16]
-400013fc <opto_keypad_read+0x70> mov	r1, #1488	; 0x5d0
-40001400 <opto_keypad_read+0x74> add	r1, r1, #12
-40001404 <opto_keypad_read+0x78> bl	40000a48 <timer_check>
-40001408 <opto_keypad_read+0x7c> mov	r3, r0
-4000140c <opto_keypad_read+0x80> cmp	r3, #0
-40001410 <opto_keypad_read+0x84> bne	400013c8 <opto_keypad_read+0x3c>
-40001414 <opto_keypad_read+0x88> b	4000141c <opto_keypad_read+0x90>
+400013fc <opto_keypad_read+0x6c> ldr	r0, [sp, #16]
+40001400 <opto_keypad_read+0x70> mov	r1, #1488	; 0x5d0
+40001404 <opto_keypad_read+0x74> add	r1, r1, #12
+40001408 <opto_keypad_read+0x78> bl	40000a4c <timer_check>
+4000140c <opto_keypad_read+0x7c> mov	r3, r0
+40001410 <opto_keypad_read+0x80> cmp	r3, #0
+40001414 <opto_keypad_read+0x84> bne	400013cc <opto_keypad_read+0x3c>
+40001418 <opto_keypad_read+0x88> b	40001420 <opto_keypad_read+0x90>
 /home/danielprilik/Github/ipodloader/tools.c:396
-40001418 <opto_keypad_read+0x8c> nop			; (mov r0, r0)
+4000141c <opto_keypad_read+0x8c> nop			; (mov r0, r0)
 /home/danielprilik/Github/ipodloader/tools.c:400
-4000141c <opto_keypad_read+0x90> mov	r3, #1879048192	; 0x70000000
-40001420 <opto_keypad_read+0x94> add	r3, r3, #49408	; 0xc100
-40001424 <opto_keypad_read+0x98> add	r3, r3, #64	; 0x40
-40001428 <opto_keypad_read+0x9c> ldr	r3, [r3]
-4000142c <opto_keypad_read+0xa0> str	r3, [sp, #20]
+40001420 <opto_keypad_read+0x90> mov	r3, #1879048192	; 0x70000000
+40001424 <opto_keypad_read+0x94> add	r3, r3, #49408	; 0xc100
+40001428 <opto_keypad_read+0x98> add	r3, r3, #64	; 0x40
+4000142c <opto_keypad_read+0x9c> ldr	r3, [r3]
+40001430 <opto_keypad_read+0xa0> str	r3, [sp, #20]
 /home/danielprilik/Github/ipodloader/tools.c:401
-40001430 <opto_keypad_read+0xa4> ldr	r3, [sp, #20]
-40001434 <opto_keypad_read+0xa8> bic	r2, r3, #2130706432	; 0x7f000000
-40001438 <opto_keypad_read+0xac> bic	r2, r2, #16711680	; 0xff0000
-4000143c <opto_keypad_read+0xb0> mov	r3, #568	; 0x238
-40001440 <opto_keypad_read+0xb4> add	r3, r3, #-2147483646	; 0x80000002
-40001444 <opto_keypad_read+0xb8> cmp	r2, r3
-40001448 <opto_keypad_read+0xbc> beq	4000145c <opto_keypad_read+0xd0>
+40001434 <opto_keypad_read+0xa4> ldr	r3, [sp, #20]
+40001438 <opto_keypad_read+0xa8> bic	r2, r3, #2130706432	; 0x7f000000
+4000143c <opto_keypad_read+0xac> bic	r2, r2, #16711680	; 0xff0000
+40001440 <opto_keypad_read+0xb0> mov	r3, #568	; 0x238
+40001444 <opto_keypad_read+0xb4> add	r3, r3, #-2147483646	; 0x80000002
+40001448 <opto_keypad_read+0xb8> cmp	r2, r3
+4000144c <opto_keypad_read+0xbc> beq	40001460 <opto_keypad_read+0xd0>
 /home/danielprilik/Github/ipodloader/tools.c:402
-4000144c <opto_keypad_read+0xc0> ldr	r3, [sp, #4]
-40001450 <opto_keypad_read+0xc4> sub	r3, r3, #1
-40001454 <opto_keypad_read+0xc8> str	r3, [sp, #4]
-40001458 <opto_keypad_read+0xcc> b	40001474 <opto_keypad_read+0xe8>
+40001450 <opto_keypad_read+0xc0> ldr	r3, [sp, #4]
+40001454 <opto_keypad_read+0xc4> sub	r3, r3, #1
+40001458 <opto_keypad_read+0xc8> str	r3, [sp, #4]
+4000145c <opto_keypad_read+0xcc> b	40001478 <opto_keypad_read+0xe8>
 /home/danielprilik/Github/ipodloader/tools.c:404
-4000145c <opto_keypad_read+0xd0> ldr	r3, [sp, #20]
-40001460 <opto_keypad_read+0xd4> lsl	r3, r3, #11
-40001464 <opto_keypad_read+0xd8> asr	r3, r3, #27
-40001468 <opto_keypad_read+0xdc> str	r3, [sp, #20]
+40001460 <opto_keypad_read+0xd0> ldr	r3, [sp, #20]
+40001464 <opto_keypad_read+0xd4> lsl	r3, r3, #11
+40001468 <opto_keypad_read+0xd8> asr	r3, r3, #27
+4000146c <opto_keypad_read+0xdc> str	r3, [sp, #20]
 /home/danielprilik/Github/ipodloader/tools.c:405
-4000146c <opto_keypad_read+0xe0> mov	r3, #1
-40001470 <opto_keypad_read+0xe4> str	r3, [sp, #12]
+40001470 <opto_keypad_read+0xe0> mov	r3, #1
+40001474 <opto_keypad_read+0xe4> str	r3, [sp, #12]
 /home/danielprilik/Github/ipodloader/tools.c:408
-40001474 <opto_keypad_read+0xe8> mov	r3, #1879048192	; 0x70000000
-40001478 <opto_keypad_read+0xec> add	r3, r3, #49408	; 0xc100
-4000147c <opto_keypad_read+0xf0> mov	r2, #1879048192	; 0x70000000
-40001480 <opto_keypad_read+0xf4> add	r2, r2, #49408	; 0xc100
-40001484 <opto_keypad_read+0xf8> ldr	r2, [r2]
-40001488 <opto_keypad_read+0xfc> orr	r2, r2, #1610612736	; 0x60000000
-4000148c <opto_keypad_read+0x100> str	r2, [r3]
+40001478 <opto_keypad_read+0xe8> mov	r3, #1879048192	; 0x70000000
+4000147c <opto_keypad_read+0xec> add	r3, r3, #49408	; 0xc100
+40001480 <opto_keypad_read+0xf0> mov	r2, #1879048192	; 0x70000000
+40001484 <opto_keypad_read+0xf4> add	r2, r2, #49408	; 0xc100
+40001488 <opto_keypad_read+0xf8> ldr	r2, [r2]
+4000148c <opto_keypad_read+0xfc> orr	r2, r2, #1610612736	; 0x60000000
+40001490 <opto_keypad_read+0x100> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:409
-40001490 <opto_keypad_read+0x104> mov	r3, #49408	; 0xc100
-40001494 <opto_keypad_read+0x108> add	r3, r3, #1879048196	; 0x70000004
-40001498 <opto_keypad_read+0x10c> mov	r2, #49408	; 0xc100
-4000149c <opto_keypad_read+0x110> add	r2, r2, #1879048196	; 0x70000004
-400014a0 <opto_keypad_read+0x114> ldr	r2, [r2]
-400014a4 <opto_keypad_read+0x118> orr	r2, r2, #201326592	; 0xc000000
-400014a8 <opto_keypad_read+0x11c> str	r2, [r3]
+40001494 <opto_keypad_read+0x104> mov	r3, #49408	; 0xc100
+40001498 <opto_keypad_read+0x108> add	r3, r3, #1879048196	; 0x70000004
+4000149c <opto_keypad_read+0x10c> mov	r2, #49408	; 0xc100
+400014a0 <opto_keypad_read+0x110> add	r2, r2, #1879048196	; 0x70000004
+400014a4 <opto_keypad_read+0x114> ldr	r2, [r2]
+400014a8 <opto_keypad_read+0x118> orr	r2, r2, #201326592	; 0xc000000
+400014ac <opto_keypad_read+0x11c> str	r2, [r3]
 /home/danielprilik/Github/ipodloader/tools.c:411
-400014ac <opto_keypad_read+0x120> ldr	r3, [sp, #12]
-400014b0 <opto_keypad_read+0x124> cmp	r3, #0
-400014b4 <opto_keypad_read+0x128> beq	400014c4 <opto_keypad_read+0x138>
+400014b0 <opto_keypad_read+0x120> ldr	r3, [sp, #12]
+400014b4 <opto_keypad_read+0x124> cmp	r3, #0
+400014b8 <opto_keypad_read+0x128> beq	400014c8 <opto_keypad_read+0x138>
 /home/danielprilik/Github/ipodloader/tools.c:412
-400014b8 <opto_keypad_read+0x12c> ldr	r3, [sp, #20]
-400014bc <opto_keypad_read+0x130> eor	r3, r3, #31
-400014c0 <opto_keypad_read+0x134> b	400014d4 <opto_keypad_read+0x148>
+400014bc <opto_keypad_read+0x12c> ldr	r3, [sp, #20]
+400014c0 <opto_keypad_read+0x130> eor	r3, r3, #31
+400014c4 <opto_keypad_read+0x134> b	400014d8 <opto_keypad_read+0x148>
 /home/danielprilik/Github/ipodloader/tools.c:382
-400014c4 <opto_keypad_read+0x138> ldr	r3, [sp, #4]
-400014c8 <opto_keypad_read+0x13c> cmp	r3, #0
-400014cc <opto_keypad_read+0x140> bne	400013a8 <opto_keypad_read+0x1c>
+400014c8 <opto_keypad_read+0x138> ldr	r3, [sp, #4]
+400014cc <opto_keypad_read+0x13c> cmp	r3, #0
+400014d0 <opto_keypad_read+0x140> bne	400013ac <opto_keypad_read+0x1c>
 /home/danielprilik/Github/ipodloader/tools.c:416
-400014d0 <opto_keypad_read+0x144> mov	r3, #0
+400014d4 <opto_keypad_read+0x144> mov	r3, #0
 /home/danielprilik/Github/ipodloader/tools.c:417
-400014d4 <opto_keypad_read+0x148> mov	r0, r3
-400014d8 <opto_keypad_read+0x14c> add	sp, sp, #28
-400014dc <opto_keypad_read+0x150> pop	{lr}		; (ldr lr, [sp], #4)
-400014e0 <opto_keypad_read+0x154> bx	lr
+400014d8 <opto_keypad_read+0x148> mov	r0, r3
+400014dc <opto_keypad_read+0x14c> add	sp, sp, #28
+400014e0 <opto_keypad_read+0x150> pop	{lr}		; (ldr lr, [sp], #4)
+400014e4 <opto_keypad_read+0x154> bx	lr

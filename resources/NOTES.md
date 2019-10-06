@@ -37,3 +37,9 @@ https://www.rockbox.org/wiki/IpodFlash#Apple_39s_flash_code
 Looks like the rockbox devs also wanted to pull the contents of flash ROM from iPods, and wrote a utlity to do so.
 
 That's great, but unfortunately for me, _I don't have an iPod to rip the flash from!_. Guess I'll just have to keep chugging along with the HLE bootloader approach...
+
+---
+
+Guess who finally got an iPod 4g and managed to rip the flash ROM from it??? THIS GUY!
+
+It's definately nice to have, though now that I have it, I realize that it still makes sense to HLE boot (bypassing the flash ROM bootloader), as I _really_ don't want to start working on HDD emulation. On the bright side, no more guessing the contents of flash ROM on a byte-by-byte basis!

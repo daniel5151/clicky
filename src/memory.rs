@@ -124,3 +124,30 @@ pub trait Memory {
         }
     }
 }
+
+impl Memory for Box<dyn Memory> {
+    fn label(&self) -> String {
+        (**self).label()
+    }
+
+    fn r32(&mut self, offset: u32) -> MemResult<u32> {
+        (**self).r32(offset)
+    }
+
+    fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
+        (**self).w32(offset, val)
+    }
+
+    fn r8(&mut self, offset: u32) -> MemResult<u8> {
+        (**self).r8(offset)
+    }
+    fn r16(&mut self, offset: u32) -> MemResult<u16> {
+        (**self).r16(offset)
+    }
+    fn w8(&mut self, offset: u32, val: u8) -> MemResult<()> {
+        (**self).w8(offset, val)
+    }
+    fn w16(&mut self, offset: u32, val: u16) -> MemResult<()> {
+        (**self).w16(offset, val)
+    }
+}

@@ -4,20 +4,24 @@
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 
+use log::*;
+
 mod debugger;
 mod devices;
 mod firmware;
 mod memory;
 mod ram;
 mod registers;
+mod util;
 
-use arm7tdmi_rs::{reg, Cpu, Memory as ArmMemory};
+use arm7tdmi_rs::{reg, Cpu, Memory as ArmMemory, ARM_INIT};
 
-use crate::devices::{FakeFlash, SysControl};
+use crate::devices::{FakeFlash, Flash, SysControl};
 use crate::firmware::FirmwareInfo;
 use crate::memory::{AccessViolation, AccessViolationKind, MemResultExt, Memory};
 use crate::ram::Ram;
 use crate::registers::CpuId;
+use util::MemLogger;
 
 use crate::debugger::asm2line::Asm2Line;
 
@@ -35,19 +39,35 @@ enum FatalError {
 
 impl PP5020System {
     /// Returns a new PP5020System. Boots from a "cold start," running the
-    /// bootloader code present in the Flash ROM. Requires a copy of flash_rom
-    /// dumped from original hardware.
-    /// See https://www.rockbox.org/wiki/IpodFlash for details on how to obtain a dump
-    // TODO: implement this once I find an actual Flash ROM dump
-    fn new(flash_rom: impl Read, fw_file: impl Read) -> std::io::Result<PP5020System> {
-        let _ = (flash_rom, fw_file);
-        unimplemented!()
+    /// bootloader code from the Flash ROM. Requires a copy of flash_rom dumped
+    /// from iPod hardware.
+    ///
+    /// See https://www.rockbox.org/wiki/IpodFlash for details on how to obtain flash ROM dumps
+    fn new(fw_file: impl Read, mut flash_rom: impl Read) -> std::io::Result<PP5020System> {
+        // TODO: use the fw_file once HDD emulation is working
+        let _ = fw_file;
+
+        let mut data = Vec::new();
+        flash_rom.read_to_end(&mut data)?;
+
+        if data.len() != 0x10_0000 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "flash rom image must be 0x10000 bytes",
+            ));
+        }
+
+        let devices = PP5020Devices::new(&data);
+        let cpu = Cpu::new(ARM_INIT);
+        let cop = Cpu::new(ARM_INIT);
+
+        Ok(PP5020System { cpu, cop, devices })
     }
 
     /// Returns a new PP5020System using High Level Emulation (HLE) of the
     /// bootloader. Execution begins from OS code (as specified in the fw_file's
     /// structure), and the contents of Flash ROM are faked.
-    fn new_hle_boot(mut fw_file: impl Read + Seek) -> std::io::Result<PP5020System> {
+    fn new_hle(mut fw_file: impl Read + Seek) -> std::io::Result<PP5020System> {
         let fw_info = FirmwareInfo::new_from_reader(&mut fw_file)?;
 
         let os_image = fw_info.images().find(|img| img.name == *b"osos").unwrap();
@@ -58,7 +78,7 @@ impl PP5020System {
         let mut os_image_data = vec![0; os_image.len as usize];
         fw_file.read_exact(&mut os_image_data)?;
 
-        let mut devices = PP5020Devices::new();
+        let mut devices = PP5020Devices::new_hle();
         devices.sdram.bulk_write(0, &os_image_data);
 
         // fake the bootloader, load directly at the image address
@@ -72,6 +92,29 @@ impl PP5020System {
         ]);
 
         Ok(PP5020System { cpu, cop, devices })
+    }
+
+    /// Perform a HLE boot, but use an actual flash ROM image instead of a HLE
+    /// Flash ROM.
+    fn new_hle_with_flash(
+        fw_file: impl Read + Seek,
+        mut flash_rom: impl Read,
+    ) -> std::io::Result<PP5020System> {
+        let mut sys = PP5020System::new_hle(fw_file)?;
+
+        let mut data = Vec::new();
+        flash_rom.read_to_end(&mut data)?;
+
+        if data.len() != 0x10_0000 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "flash rom image must be exactly 0x10000 bytes",
+            ));
+        }
+
+        sys.devices.flash = Box::new(MemLogger::new(Flash::new(&data)));
+
+        Ok(sys)
     }
 
     fn cycle(&mut self) -> Result<(), FatalError> {
@@ -115,19 +158,31 @@ struct PP5020Devices {
     pub access_violation: Option<AccessViolation>,
     stub: devices::Stub,
 
-    pub flash: FakeFlash, // 1 MB
-    pub sdram: Ram,       // 32 MB
-    pub fastram: Ram,     // 96 KB
+    pub flash: Box<dyn Memory>, // 1 MB
+    pub sdram: Ram,             // 32 MB
+    pub fastram: Ram,           // 96 KB
     pub syscontrol: SysControl,
 }
 
 impl PP5020Devices {
-    fn new() -> PP5020Devices {
+    fn new(flash_rom: &[u8]) -> PP5020Devices {
         PP5020Devices {
             access_violation: None,
             stub: devices::Stub,
 
-            flash: FakeFlash::new(),
+            flash: Box::new(Flash::new(flash_rom)),
+            sdram: Ram::new(32 * 1024 * 1024),
+            fastram: Ram::new(96 * 1024),
+            syscontrol: SysControl::new(),
+        }
+    }
+
+    fn new_hle() -> PP5020Devices {
+        PP5020Devices {
+            access_violation: None,
+            stub: devices::Stub,
+
+            flash: Box::new(FakeFlash::new()),
             sdram: Ram::new(32 * 1024 * 1024),
             fastram: Ram::new(96 * 1024),
             syscontrol: SysControl::new(),
@@ -195,22 +250,24 @@ impl ArmMemory for PP5020Devices {
 }
 
 fn main() -> std::io::Result<()> {
-    env_logger::init();
+    pretty_env_logger::init();
 
     let args: Vec<String> = std::env::args().collect();
 
     let fw_file = File::open(&args[1])?;
+    let mut system = match args.get(2).map(|s| s.as_str()) {
+        None | Some("hle") => PP5020System::new_hle(fw_file)?,
+        Some(s) => PP5020System::new_hle_with_flash(fw_file, File::open(s)?)?,
+    };
 
     let mut debugger = None;
-    if let Some(objdump_fname) = args.get(2) {
+    if let Some(objdump_fname) = args.get(3) {
         let mut dbg = Asm2Line::new();
         dbg.load_objdump(objdump_fname)?;
         debugger = Some(dbg)
     }
 
-    let mut system = PP5020System::new_hle_boot(fw_file)?;
-
-    let mut step_through = false;
+    let mut step_through = true;
     loop {
         let pc = system.cpu.reg_get(0, reg::PC);
 
@@ -238,8 +295,8 @@ fn main() -> std::io::Result<()> {
         if step_through {
             if let Some(ref mut debugger) = debugger {
                 match debugger.lookup(pc) {
-                    Some(info) => println!("{}", info),
-                    None => println!("???"),
+                    Some(info) => debug!("{}", info),
+                    None => debug!("???"),
                 }
             }
 

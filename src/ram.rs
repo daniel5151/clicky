@@ -21,7 +21,7 @@ impl Ram {
 
     pub fn new_with_data(size: usize, data: &[u8]) -> Ram {
         let mut ram = Ram::new(size);
-        ram.mem[..data.len()].clone_from_slice(data);
+        ram.bulk_write(0, data);
         ram
     }
 

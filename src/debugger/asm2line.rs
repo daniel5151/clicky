@@ -116,10 +116,10 @@ impl Asm2Line {
                     {
                         let mut s = String::new();
                         const CONTEXT: usize = 4;
-                        for ln in (i32::max(0, *line as i32 - CONTEXT as i32) as usize)
+                        for ln in (i32::max(0, (*line - 1) as i32 - CONTEXT as i32) as usize)
                             ..usize::min(self.file_content[file].len(), line + CONTEXT)
                         {
-                            if *line == ln {
+                            if (*line - 1) == ln {
                                 s += ">"
                             } else {
                                 s += " "
