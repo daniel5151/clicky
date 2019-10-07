@@ -1,8 +1,10 @@
 # Notes
 
-A grab-bag of facts / thoughts I discover.
+A grab-bag of facts I collect / thoughts I have while working on clicky.
 
 ---
+
+Sep 15, 2019
 
 As it turns out, calling the iPodLinux / Rockbox bootloaders "bootloaders" is a little bit misleading, as they aren't actually the code which runs immediately after power-on!
 
@@ -30,6 +32,8 @@ As such, I'll likely begin by using my high-level bootloader to load the second-
 
 ---
 
+Sep 21, 2019
+
 Oh shit would you look at that.
 
 https://www.rockbox.org/wiki/IpodFlash#Apple_39s_flash_code
@@ -39,6 +43,8 @@ Looks like the rockbox devs also wanted to pull the contents of flash ROM from i
 That's great, but unfortunately for me, _I don't have an iPod to rip the flash from!_. Guess I'll just have to keep chugging along with the HLE bootloader approach...
 
 ---
+
+Oct 6, 2019
 
 Guess who finally got an iPod 4g and managed to rip the flash ROM from it??? THIS GUY!
 
