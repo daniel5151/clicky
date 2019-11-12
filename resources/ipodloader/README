@@ -1,0 +1,130 @@
+iPodLinux loader v0.3.2
+-----------------------
+
+This is a quick and dirty bootloader hack for ipodlinux. It makes it
+possible to load either the original firmware or linux without having to
+write a new firmware to the harddisk directly.
+
++---------+
+| WARNING |
++---------+
+
+This is experimental software, so it might eat your iPod. I take no
+responsibility whatever happens. But it works for me on a 40GB iPod with
+firmware 2.1. Others have tested previous versions of this code on g1/g2 
+hardware with firmware revisions 1.2x and 1.3.
+
+The only code running on the host (make_fw) is tested to be 64bit and 
+endian clean.
+
+I haven't tested the ipod updater with the modified firmware, neither you 
+would want it. Simply restore the original firmware before updating.
+
+Quick HOWTO:
+------------
+
+I assume you've already set up firewire with linux, and you know how to make
+your linux box see the ipod as a disk. I'll assume your ipod's called
+/dev/sda. Also you should have both a native and an arm-elf cross toolchain.
+
+0. Build an iPodlinux kernel. I'll assume you have a linux.bin according to
+   Bernard's docs.
+
+1. Build the loader and make_fw
+
+$ make
+
+  or if your crosscompiler, etc is not called arm-elf-x, but arm-linux-x 
+  for example (this still has to be an arm-elf cross toolchain!):
+
+$ make CROSS=arm-linux-
+
+2. Dump the original firmware and take it away to a safe place:
+
+$ sudo dd if=/dev/sda1 > firmware_backup.bin
+
+3. Extract the Apple firmware
+
+$ ./make_fw -o apple_sw.bin -e 0 firmware_backup.bin 
+
+4. Build your new firmware
+
+  To make the Apple firmware the default, and occasionally play with linux,
+  try this:
+
+$ ./make_fw -o my_sw.bin -i apple_sw.bin -l linux.bin loader.bin
+
+  To make linux the default:
+
+$ ./make_fw -o my_sw.bin -l linux.bin -i apple_sw.bin loader.bin
+
+  You can have up to 5 images in any order.
+  To have Apple the default, and try several different linux images:
+
+$ ./make_fw -o my_sw.bin -i apple_sw.bin -l lnx1.bin -l lnx2.bin loader.bin
+
+  You can specify the revision with -r rev, (for example 210 for v2.10), I
+  don't know if this is needed.
+
+5. Copy it back to the iPod. The file will be only the required size. This
+  is about 4.5 MB for the 2.1 Apple sw and one linux image.
+
+$ sudo dd if=my_sw.bin of=/dev/sda1
+
+Disconnect your iPod. If it was running the Apple firmware, it should
+reboot. If it was in forced disk mode, press and hold menu and play for
+about 5 seconds. 
+
+The first image boots by default, the 2., 3., 4. or 5. can be booted by
+holding rew, menu, play or ff.
+
+To install a new version of the kernel (or to change the preferred image to load) simply repeat the steps 4 and 5 above.
+
+If your iPod doesn't boot:
+Reset and then hold rewind and ffwd keys. The iPod should place itself into 
+forced disk mode. Now you can restore the original firmware and reset again.
+
+
+For developers:
+---------------
+
+The firmware builder creates a single boot image for the iPod. It loads all
+images into memory, with the first image loaded to 0x28000000 (the default
+load address for both linux and the Apple firmware). Then the loader 
+displays tux, decides which image to start, moves the image to its load 
+address if required, and starts it. The internal boot table and the loader 
+are at the end of the image.
+
+Bugs: the code assumes that no firmware would request itself to be loaded to
+the SRAM at 0x40000000 that would overwrite the loader. Also there may be 
+many other assumptions about some address layouts, compiler internals, etc 
+in the code.
+
+
+Copyright:
+----------
+
+This code can be distributed under the GNU GPL v2.
+
+Copyright (c) 2003, Daniel Palffy (dpalffy (at) rainstorm.org)
+Copyright (c) 2003, Bernard Leach (leachbj (at) bouncycastle.org)
+ - The basic idea and the original implementation are my work.
+   The code taken from the iPodLinux port (Keyboard initialization, I/O, 
+   original patch_fw, lcd routines), the new head.s and the tux display 
+   code is Bernard's work.
+
+There are parts taken from other code, these are also copylefted:
+
+Copyright (C) 1996-2000 Russell King
+ - inb, outb
+Copyright (C) 1991, 1992  Linus Torvalds
+ - memmove
+
+Copyright (c) 1987-2002 The Regents of the University of California.
+ getopt.c, please see the source for licence details
+
+The tux.c image is Copyright 2003 Travis Winters.
+
+-- Daniel Palffy (dpalffy <at> rainstorm.org)
+-- Bernard Leach (leachbj <at> bouncycastle.org)
+

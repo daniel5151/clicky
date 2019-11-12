@@ -6,52 +6,61 @@ A clickwheel iPod emulator.
 
 Hahaha, if only! No, no... clicky is still in it's _very_ early stages.
 
-So much so that even building it is more involved than it should be:
+### Building `clicky`
+
+So much so that even building it is more involved than it needs to be:
 
 ```bash
-# arm7tdmi-rs must be cloned locally and be using the dev branch
+# arm7tdmi-rs must be cloned locally
 git clone https://github.com/daniel5151/arm7tdmi-rs.git
 cd arm7tdmi-rs
-git checkout dev
+git checkout dev # and it must be on the dev branch
 cd ..
 git clone https://github.com/daniel5151/clicky.git
 cd clicky
+cargo build
 ```
 
-Once everything is downloaded, if you want to see _something_ happening, try running:
+### Building a test firmware
+
+At this early stage in development, `clicky` can't run anything too complex, so a good starting point for playing around with clicky is building a firmware image based off `ipodloader` + a dummy payload.
+
+I've included `ipodloader`'s source code in-tree under `./resources/ipodloader`. It's Makefile has been modified to build on modern linux systems, and the compiler flags have been modified to disable optimizations, and enable debug symbols (which makes stepping through the code a lot easier).  
+
+**NOTE:** Building `ipodloader` requires installing the gcc `arm-none-eabi` toolchain.
+On Ubuntu / Debian based distros: `sudo apt install gcc-arm-none-eabi`
 
 ```bash
-RUST_LOG=trace cargo run ./resources/ipodloader_deadbeefs_unopt.bin
+cd ./resources/ipodloader
+printf "\xDE\xAD\xBE\xEF" > deadbeef.bin # create a dummy payload
+make
+./make_fw -v -g 4g -o ipodloader_deadbeefs_unopt.bin -l deadbeef.bin -l deadbeef.bin loader.bin
 ```
 
-It's not pretty, but if you press enter, you should be able to step through some CPU instructions. 
-Typing 'r' and hitting enter will run the CPU until it hits a breakpoint / crashes. Breakpoints are currently hard-coded into the source code.
+In the future, `clicky` should be able to run more complex images (such as Rockbox, iPodLinux, or even Apple's own RetailOS), but that's a way off.
+
+### Running `clicky`
+
+Now that you have an iPod firmware image, you can finally run clicky:
+
+```bash
+RUST_LOG=trace cargo run ./resources/ipodloader/ipodloader_deadbeefs_unopt.bin hle ./resources/ipodloader/loader.objdump
+```
+
+It's not pretty, but if you press enter a couple time, you should be able to step through some CPU instructions. My hacky objdump parser will even map the `ipodloader` source code to the current PC, which should aid in debugging / development.
+
+Typing 'r' and hitting enter will run the CPU until it hits a breakpoint / crashes. 
+Breakpoints are currently hard-coded into the source code.
 
 ## Critical TODOs
 
-- Running `armwrestler.gba` in [my fork of gba-rs](https://github.com/daniel5151/gba-rs/tree/cpu-from-crate) reveals that arm7tdmi-rs has quite a few bugs! These needs to be fixed ASAP, since having a unreliable CPU is really bad.
-
-## Why emulate the iPod?
-
-I enjoy a good technical challenge, plain and simple! 
-
-Compared to my last emulation project ([ANESE](https://prilik.com/ANESE), a NES emulator that [automatically maps out NES games](https://prilik.com/blog/wideNES)), the iPod presents a totally different set of technical challenges to overcome.
-
-First of all, the iPod is a fairly modern system. Unlike the esoteric and custom-made chips used in many game consoles, the iPod uses many off-the-shelf commodity hardware and technologies. As such, this project should be a good way to explore and learn more about the low level details of tech such as ARM assembly, I2S, I2C, USB, IDE HDDs, etc...
-
-Second of all, the iPod isn't very well documented! While this is probably going to be annoying in the long run, I'm excited to do my own research, discover new information, and consolidate information on the iPod myself (as opposed to already having a well organized and complete reference at my disposal \*cough\* the nesdev wiki \*cough\*). As it turns out, there's already quite a amount of documentation about the iPod that's floating around (thanks to the iPodLinux and RockBox projects), but I'm sure there will still be plenty of stuff left for me to discover.
-
-Lastly, the iPod is a system that's never been emulated before! That means there usually won't be any sort of "escape hatch" when I get stuck, since there's no one else's code I can peek at. Whatever challenges I run in to will be challenges I'm going to have to solve myself! How exciting!
-
-...there is one last reason I want to emulate the iPod though:
-
-**It's got _Brick Breaker!_**
-
-> _ooooooh Brick Breaker baybeeeeee! This game has won game of the year, I don't know how many times!_
-
-But seriously, aside from brick breaker, there were actually a whole bunch of [iPod Games](https://en.wikipedia.org/wiki/IPod_game) released for late-gen iPod models \~2006. While these games aren't necessarily _masterpieces_, they're still pretty neat, and aught to be preserved. 
-
-in fact, my initial inspiration for starting this project was actually hearing about these old games, and how no one has ever looked into preserving them. While getting these games working will probably take quite a while, it's a neat long-term goal to aim for.
+- `arm7tdmi-rs` needs (significantly) more work.
+    - Running `armwrestler.gba` in [my fork of gba-rs](https://github.com/daniel5151/gba-rs/tree/cpu-from-crate) reveals that arm7tdmi-rs has quite a few bugs! These needs to be fixed ASAP, since having a unreliable CPU is really bad.
+    - Maybe the arm7tdmi-rs CPU _should_ take ownership of it's memory mapper? It's definitely more "natural" feeling, but results in some complicated ownership problems stemming from having two CPUs sharing almost\* the same memory map (\*i.e: the cpuid register).
+    - `clicky`'s `Cargo.toml` currently requires `arm7tdmi-rs` to be cloned locally (for faster co-development of the two crates). This isn't ideal, and it really aught to pull it from github / crates.io directly at some point.
+- `clicky`'s memory mapping architecture needs a lot more work
+    - It uses dynamic dispatch in some places (yuck?)
+    - I haven't even through about how to handle the PP5020 mmap capabilities yet!
 
 ## The Development Gameplan
 
@@ -121,7 +130,7 @@ Once things seem stable, it shouldn't be _too_ difficult to get the iPod 5g up a
 - Funky iPod hardware that _hasn't_ been reverse engineered
     - ...this will suck, and unfortunately, It's probably something I'll encounter once I start messing around with RetailOS.
 
-## Things I won't be tackling off the bat
+## Things probably best left for later
 
 - USB
     - This seems like a huge rabbit hole of complexity, and is something that probably isn't critical to the iPod's core functions. Stubbing things out will probably be fine...
@@ -134,6 +143,29 @@ Once things seem stable, it shouldn't be _too_ difficult to get the iPod 5g up a
 - Assembler & C source maps (for Debugging)
     - This would likely be implemented as part of [arm7tdmi-rs](https://github.com/daniel5151/arm7tdmi-rs), as it isn't something iPod specific.
     - **update:** I've thrown _something_ together (see `src/debugger/asm2line.rs`) but it really should be rewritten / totally thrown out. it's _really_ bad code. A better approach would be to write a gdb stub.
+
+
+## Fluff: Why emulate the iPod?
+
+I enjoy a good technical challenge, plain and simple! 
+
+Compared to my last emulation project ([ANESE](https://prilik.com/ANESE), a NES emulator that [automatically maps out NES games](https://prilik.com/blog/wideNES)), the iPod presents a totally different set of technical challenges to overcome.
+
+First of all, the iPod is a fairly modern system. Unlike the esoteric and custom-made chips used in many game consoles, the iPod uses many off-the-shelf commodity hardware and technologies. As such, this project should be a good way to explore and learn more about the low level details of tech such as ARM assembly, I2S, I2C, USB, IDE HDDs, etc...
+
+Second of all, the iPod isn't very well documented! While this is probably going to be annoying in the long run, I'm excited to do my own research, discover new information, and consolidate information on the iPod myself (as opposed to already having a well organized and complete reference at my disposal \*cough\* the nesdev wiki \*cough\*). As it turns out, there's already quite a amount of documentation about the iPod that's floating around (thanks to the iPodLinux and RockBox projects), but I'm sure there will still be plenty of stuff left for me to discover.
+
+Lastly, the iPod is a system that's never been emulated before! That means there usually won't be any sort of "escape hatch" when I get stuck, since there's no one else's code I can peek at. Whatever challenges I run in to will be challenges I'm going to have to solve myself! How exciting!
+
+...there is one last reason I want to emulate the iPod though:
+
+**It's got _Brick Breaker!_**
+
+> _ooooooh Brick Breaker baybeeeeee! This game has won game of the year, I don't know how many times!_
+
+But seriously, aside from brick breaker, there were actually a whole bunch of [iPod Games](https://en.wikipedia.org/wiki/IPod_game) released for late-gen iPod models \~2006. While these games aren't necessarily _masterpieces_, they're still pretty neat, and aught to be preserved. 
+
+in fact, my initial inspiration for starting this project was actually hearing about these old games, and how no one has ever looked into preserving them. While getting these games working will probably take quite a while, it's a neat long-term goal to aim for.
 
 ## Thanks and Acknowledgments
 

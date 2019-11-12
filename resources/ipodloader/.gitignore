@@ -1,0 +1,7 @@
+*.o
+loader
+loader.bin
+loader.objdump
+make_fw
+
+ipodloader_deadbeefs_unopt.bin

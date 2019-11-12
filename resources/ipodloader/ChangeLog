@@ -1,0 +1,35 @@
+
+Mon Nov 22 12:53:21 CET 2004
+ - Make sure the COP is asleep before we try & wake it up
+
+Wed May 12 21:57:59 CEST 2004
+ - Added windows support patch from Phyntos
+
+Sat May  8 21:02:09 CEST 2004
+ - use new tux.c (our logo) thanks mikey
+
+ipodloader-0.3.1, Wed Nov 19 12:58:42 UTC 2003
+
+ - big-endian fix for the extract code
+
+ipodloader-0.3
+
+ - first official release
+ - code relocates itself to SRAM
+ - cop handling fixed
+ - C code no longer needs to be PIC
+ - tux added
+
+ipodloader-0.1
+
+ - boot table moved into the loader
+ - loads from 0x4400 to avoid memmove'ing the first image
+ - optimized memmove
+ - patch_fw replaced with make_fw, generating everything except boot sector
+ - supports up to 5 images
+
+ipodloader-0.0
+
+ - first brute-force working code
+ - two images supported.
+

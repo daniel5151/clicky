@@ -67,8 +67,15 @@ impl Asm2Line {
                         // file + line number
                         let file_lnnum = ln.split(':').collect::<Vec<_>>();
 
+                        eprintln!("{:?}", file_lnnum);
+
                         let file = file_lnnum[0].to_string();
-                        let lnnum = file_lnnum[1].parse().unwrap();
+                        let lnnum = file_lnnum[1]
+                            .splitn(2, ' ') // ignore (discriminator X) directives
+                            .next()
+                            .unwrap()
+                            .parse()
+                            .unwrap();
 
                         self.file_content.insert(file.clone(), Vec::new());
                         *cur_file_ln = Some((file, lnnum));
