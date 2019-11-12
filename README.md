@@ -1,14 +1,12 @@
 # clicky
 
-A clickwheel iPod emulator.
+A _very WIP_ clickwheel iPod emulator.
 
-## Usage
+**This project is not ready for end users,** but is _very_ open to contributors!
 
-Hahaha, if only! No, no... clicky is still in it's _very_ early stages.
+## Building `clicky`
 
-### Building `clicky`
-
-So much so that even building it is more involved than it needs to be:
+`clicky` uses the standard `cargo` build flow, with one small caveat: `clicky` currently requires having a local copy of the `arm7tdmi-rs` crate in it's parent directory.
 
 ```bash
 # arm7tdmi-rs must be cloned locally
@@ -21,11 +19,11 @@ cd clicky
 cargo build
 ```
 
-### Building a test firmware
+## Building a test firmware
 
-At this early stage in development, `clicky` can't run anything too complex, so a good starting point for playing around with clicky is building a firmware image based off `ipodloader` + a dummy payload.
+At this stage in development, `clicky` can't run anything too complex, so a good jumping off point is building a firmware image based off `ipodloader`.
 
-I've included `ipodloader`'s source code in-tree under `./resources/ipodloader`. It's Makefile has been modified to build on modern linux systems, and the compiler flags have been modified to disable optimizations, and enable debug symbols (which makes stepping through the code a lot easier).  
+I've included `ipodloader`'s source code in-tree under `./resources/ipodloader`. It's Makefile has been modified to work on modern linux distros, and I've toggled some compiler flags to disable optimizations and enable debug symbols (which should make stepping through the code a lot easier).  
 
 **NOTE:** Building `ipodloader` requires installing the gcc `arm-none-eabi` toolchain.
 On Ubuntu / Debian based distros: `sudo apt install gcc-arm-none-eabi`
@@ -37,9 +35,9 @@ make
 ./make_fw -v -g 4g -o ipodloader_deadbeefs_unopt.bin -l deadbeef.bin -l deadbeef.bin loader.bin
 ```
 
-In the future, `clicky` should be able to run more complex images (such as Rockbox, iPodLinux, or even Apple's own RetailOS), but that's a way off.
+In the future, `clicky` should be able to run more complex images (such as Rockbox, iPodLinux, or even Apple's own RetailOS), but that's a ways off.
 
-### Running `clicky`
+## Running `clicky`
 
 Now that you have an iPod firmware image, you can finally run clicky:
 
@@ -47,20 +45,69 @@ Now that you have an iPod firmware image, you can finally run clicky:
 RUST_LOG=trace cargo run ./resources/ipodloader/ipodloader_deadbeefs_unopt.bin hle ./resources/ipodloader/loader.objdump
 ```
 
-It's not pretty, but if you press enter a couple time, you should be able to step through some CPU instructions. My hacky objdump parser will even map the `ipodloader` source code to the current PC, which should aid in debugging / development.
+It's not pretty, but if you press enter a couple time, you should be able to step through some CPU instructions. My hacky objdump-based addr2line implementation will even show you the `ipodloader` source code associated with the current PC! 
 
 Typing 'r' and hitting enter will run the CPU until it hits a breakpoint / crashes. 
 Breakpoints are currently hard-coded into the source code.
 
-## Critical TODOs
+### (OPTIONAL) Using `clicky` with an Apple flash ROM dump
 
-- `arm7tdmi-rs` needs (significantly) more work.
-    - Running `armwrestler.gba` in [my fork of gba-rs](https://github.com/daniel5151/gba-rs/tree/cpu-from-crate) reveals that arm7tdmi-rs has quite a few bugs! These needs to be fixed ASAP, since having a unreliable CPU is really bad.
-    - Maybe the arm7tdmi-rs CPU _should_ take ownership of it's memory mapper? It's definitely more "natural" feeling, but results in some complicated ownership problems stemming from having two CPUs sharing almost\* the same memory map (\*i.e: the cpuid register).
-    - `clicky`'s `Cargo.toml` currently requires `arm7tdmi-rs` to be cloned locally (for faster co-development of the two crates). This isn't ideal, and it really aught to pull it from github / crates.io directly at some point.
-- `clicky`'s memory mapping architecture needs a lot more work
-    - It uses dynamic dispatch in some places (yuck?)
-    - I haven't even through about how to handle the PP5020 mmap capabilities yet!
+A proper Low Level Emulation (LLE) boot process would involve booting the CPU from address 0 and having it execute whatever bootloader code is present in Flash ROM. This code most likely performs several different functions, including setting up devices, toggling certain interrupts, and of course, loading the actual firmware image from the emulated HDD into executable memory.
+
+The code contained in Flash ROM is copyrighted by Apple, and as such, `clicky` cannot legally redistribute copies of it. Instead, `clicky` currently uses a High Level Emulation (HLE) approach to boot firmware images, where `clicky` "fakes" the real bootleader by loading the firmware image into memory, and starting execution from whatever address the firmware image specifies. Once the CPU is running, any code that accesses the (nonexistent) flash ROM is redirected to a `fakeflash` device, which implements the _bare minimum_ amount of code required to continue execution. 
+
+At this stage in development, it is _not_ required to have a Flash ROM image to run `clicky`, since any attempts at performing a LLE boot will most likely fail catastrophically (given the plethora of missing devices).
+
+That said, if you're interested in helping out with `clicky`'s development, you might want to try to get your hands on a flash ROM image. If you happen to still have an old iPod lying around, you can dump the contents of it's flash ROM using Rockbox, as described [here](https://www.rockbox.org/wiki/IpodFlash#Apple_39s_flash_code).
+
+## Contributors Welcome!
+
+If you're interested in helping preserve a piece of iconic hardware from the early 2000s, you're more than welcome to help out!
+
+### Diving in
+
+For concrete things that need fixing, check out the issue tracker.
+
+Alternatively, if you're a more "gung-ho" kinda person, and want to get your hands dirty, your best bet would be to load up a firmware image, hit run, and implement whatever unimplemented hardware you come across!
+
+E.g: Say you run `clicky`, and it crashes with something like this:
+
+```
+FatalAccessViolation(
+    AccessViolation {
+        label: "<unmapped memory>",
+        addr: 0x70003000,
+        kind: Unimplemented,
+    },
+)
+```
+
+Poking around the PP2050 documentation indicates that address `0x70003000` has something to do with the LCD controller.
+
+If you're lucky, and the crash happens somewhere with debug symbols, you might even get the line of code that performed the invalid access!
+
+```
+0x40000a58:  ldr r2, [r3]                                     
+.../clicky/resources/ipodloader/tools.c:125
+<lcd_wait_write+0x10>
+ /* wait for LCD with timeout */
+ void
+ lcd_wait_write()
+ {
+>   if ((inl(lcd_base) & lcd_busy_mask) != 0) {
+        int start = timer_get_current();
+ 
+        do {
+            if ((inl(lcd_base) & lcd_busy_mask) == 0) break;
+```
+
+This should give you the info you need to start augmenting / implementing the associated device. Take a peek at how other devices are implemented in the repo for an idea of how to structure your new device.
+
+That said, `clicky`'s core architecture is still very-much in flux, with the current traits, structs, and overall code-layout likely to change and evolve as more devices get implemented, and more requirements are uncovered.
+
+### Resources
+
+Documentation on the iPod can be pretty scarce, so I've collected a handful of helpful resources and documentation under the `./resources/` folder. The README.md has links to additional online resources. If you happen to stumble across a resource that you think is helpful to the project don't hesitate to add it to the folder!
 
 ## The Development Gameplan
 
@@ -123,14 +170,14 @@ Devices and hardware will be implemented "just in time" as the software tries to
 
 Once things seem stable, it shouldn't be _too_ difficult to get the iPod 5g up and running, since it's mostly the same hardware, mod the color screen.
 
-## Unknowns that might make things tricky
+### Unknowns that might make things tricky
 
 - Funky cache effects
     - I _really_ don't want to deal with implementing proper caching if I don't have to. I'm gonna cross my fingers, and hope that having both CPUs see memory writes at the same time will be _fiiiiine_
 - Funky iPod hardware that _hasn't_ been reverse engineered
     - ...this will suck, and unfortunately, It's probably something I'll encounter once I start messing around with RetailOS.
 
-## Things probably best left for later
+### Things probably best left for later
 
 - USB
     - This seems like a huge rabbit hole of complexity, and is something that probably isn't critical to the iPod's core functions. Stubbing things out will probably be fine...
@@ -138,12 +185,13 @@ Once things seem stable, it shouldn't be _too_ difficult to get the iPod 5g up a
     - inb4 "but it's an iPod, it's literally an _audio player_"
     - yeah, I know, but Audio is hard and finicky to get right, so I'll be leaving it for _waaaaaay_ later
 
-## Things that might be worth looking into
+### Things that might be worth looking into
 
 - Assembler & C source maps (for Debugging)
     - This would likely be implemented as part of [arm7tdmi-rs](https://github.com/daniel5151/arm7tdmi-rs), as it isn't something iPod specific.
     - **update:** I've thrown _something_ together (see `src/debugger/asm2line.rs`) but it really should be rewritten / totally thrown out. it's _really_ bad code. A better approach would be to write a gdb stub.
 
+---
 
 ## Fluff: Why emulate the iPod?
 
