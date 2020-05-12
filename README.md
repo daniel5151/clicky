@@ -23,7 +23,7 @@ cargo build
 
 At this stage in development, `clicky` can't run anything too complex, so a good jumping off point is building a firmware image based off `ipodloader`.
 
-I've included `ipodloader`'s source code in-tree under `./resources/ipodloader`. It's Makefile has been modified to work on modern linux distros, and I've toggled some compiler flags to disable optimizations and enable debug symbols (which should make stepping through the code a lot easier).  
+I've included `ipodloader`'s source code in-tree under `./resources/ipodloader`. It's Makefile has been modified to work on modern linux distros, and I've toggled some compiler flags to disable optimizations and enable debug symbols (which should make stepping through the code a lot easier).
 
 **NOTE:** Building `ipodloader` requires installing the gcc `arm-none-eabi` toolchain.
 On Ubuntu / Debian based distros: `sudo apt install gcc-arm-none-eabi`
@@ -45,16 +45,16 @@ Now that you have an iPod firmware image, you can finally run clicky:
 RUST_LOG=trace cargo run ./resources/ipodloader/ipodloader_deadbeefs_unopt.bin hle ./resources/ipodloader/loader.objdump
 ```
 
-It's not pretty, but if you press enter a couple time, you should be able to step through some CPU instructions. My hacky objdump-based addr2line implementation will even show you the `ipodloader` source code associated with the current PC! 
+It's not pretty, but if you press enter a couple time, you should be able to step through some CPU instructions. My hacky objdump-based addr2line implementation will even show you the `ipodloader` source code associated with the current PC!
 
-Typing 'r' and hitting enter will run the CPU until it hits a breakpoint / crashes. 
+Typing 'r' and hitting enter will run the CPU until it hits a breakpoint / crashes.
 Breakpoints are currently hard-coded into the source code.
 
 ### (OPTIONAL) Using `clicky` with an Apple flash ROM dump
 
 A proper Low Level Emulation (LLE) boot process would involve booting the CPU from address 0 and having it execute whatever bootloader code is present in Flash ROM. This code most likely performs several different functions, including setting up devices, toggling certain interrupts, and of course, loading the actual firmware image from the emulated HDD into executable memory.
 
-The code contained in Flash ROM is copyrighted by Apple, and as such, `clicky` cannot legally redistribute copies of it. Instead, `clicky` currently uses a High Level Emulation (HLE) approach to boot firmware images, where `clicky` "fakes" the real bootleader by loading the firmware image into memory, and starting execution from whatever address the firmware image specifies. Once the CPU is running, any code that accesses the (nonexistent) flash ROM is redirected to a `fakeflash` device, which implements the _bare minimum_ amount of code required to continue execution. 
+The code contained in Flash ROM is copyrighted by Apple, and as such, `clicky` cannot legally redistribute copies of it. Instead, `clicky` currently uses a High Level Emulation (HLE) approach to boot firmware images, where `clicky` "fakes" the real bootleader by loading the firmware image into memory, and starting execution from whatever address the firmware image specifies. Once the CPU is running, any code that accesses the (nonexistent) flash ROM is redirected to a `fakeflash` device, which implements the _bare minimum_ amount of code required to continue execution.
 
 At this stage in development, it is _not_ required to have a Flash ROM image to run `clicky`, since any attempts at performing a LLE boot will most likely fail catastrophically (given the plethora of missing devices).
 
@@ -87,7 +87,7 @@ Poking around the PP2050 documentation indicates that address `0x70003000` has s
 If you're lucky, and the crash happens somewhere with debug symbols, you might even get the line of code that performed the invalid access!
 
 ```
-0x40000a58:  ldr r2, [r3]                                     
+0x40000a58:  ldr r2, [r3]
 .../clicky/resources/ipodloader/tools.c:125
 <lcd_wait_write+0x10>
  /* wait for LCD with timeout */
@@ -96,7 +96,7 @@ If you're lucky, and the crash happens somewhere with debug symbols, you might e
  {
 >   if ((inl(lcd_base) & lcd_busy_mask) != 0) {
         int start = timer_get_current();
- 
+
         do {
             if ((inl(lcd_base) & lcd_busy_mask) == 0) break;
 ```
@@ -124,7 +124,7 @@ The 5g is the first iPod model to support those aforementioned [iPod Games](http
 
 ### Development Roadmap
 
-The Rockbox source code is proving incredibly useful in getting things up and running. [pp5020.h](https://github.com/Rockbox/rockbox/blob/master/firmware/export/pp5020.h) and [ipod4g.h](https://github.com/Rockbox/rockbox/blob/master/firmware/export/config/ipod4g.h) are invaluable in providing a high level overview of the hardware, and by grepping the codebase for specific defines, it's easy to find code that describes how the hardware is supposed to work. 
+The Rockbox source code is proving incredibly useful in getting things up and running. [pp5020.h](https://github.com/Rockbox/rockbox/blob/master/firmware/export/pp5020.h) and [ipod4g.h](https://github.com/Rockbox/rockbox/blob/master/firmware/export/config/ipod4g.h) are invaluable in providing a high level overview of the hardware, and by grepping the codebase for specific defines, it's easy to find code that describes how the hardware is supposed to work.
 
 Devices and hardware will be implemented "just in time" as the software tries to access them (instead of attempting to one-shot the entire SOC right off the bat). As such, the idea will be to gradually test more and more complex software in the emulator as more hardware is implemented.
 
@@ -146,7 +146,7 @@ Devices and hardware will be implemented "just in time" as the software tries to
         - Expand on the system architecture + implemented devices
 - [ ] Boot / pass the Apple Diagnostics program
     - If you press and hold the Select+Prev while an iPod is booting up, a diagnostics program built directly into the Flash ROM is executed!
-    - This would likely be the first closed source software the emulator runs. 
+    - This would likely be the first closed source software the emulator runs.
     - Makes for a great playground to poke at the various hardware features that exist on the iPod, without worrying too much about an OS scheduler getting in the way.
     - **Goals:**
         - Implement even more devices
@@ -195,7 +195,7 @@ Once things seem stable, it shouldn't be _too_ difficult to get the iPod 5g up a
 
 ## Fluff: Why emulate the iPod?
 
-I enjoy a good technical challenge, plain and simple! 
+I enjoy a good technical challenge, plain and simple!
 
 Compared to my last emulation project ([ANESE](https://prilik.com/ANESE), a NES emulator that [automatically maps out NES games](https://prilik.com/blog/wideNES)), the iPod presents a totally different set of technical challenges to overcome.
 
@@ -211,7 +211,7 @@ Lastly, the iPod is a system that's never been emulated before! That means there
 
 > _ooooooh Brick Breaker baybeeeeee! This game has won game of the year, I don't know how many times!_
 
-But seriously, aside from brick breaker, there were actually a whole bunch of [iPod Games](https://en.wikipedia.org/wiki/IPod_game) released for late-gen iPod models \~2006. While these games aren't necessarily _masterpieces_, they're still pretty neat, and aught to be preserved. 
+But seriously, aside from brick breaker, there were actually a whole bunch of [iPod Games](https://en.wikipedia.org/wiki/IPod_game) released for late-gen iPod models \~2006. While these games aren't necessarily _masterpieces_, they're still pretty neat, and aught to be preserved.
 
 in fact, my initial inspiration for starting this project was actually hearing about these old games, and how no one has ever looked into preserving them. While getting these games working will probably take quite a while, it's a neat long-term goal to aim for.
 

@@ -5,12 +5,12 @@ authors = ["Daniel Prilik <danielprilik@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-arm7tdmi-rs = { path = "../arm7tdmi-rs", features = ["advanced_disasm", "serde"] }
-
+armv4t_emu = "0.1"
 byteorder = "1.3"
-derivative = "1.0"
-lazy_static = "1.4"
+crossbeam-channel = "0.4"
+gdbstub = { version = "0.1", features = ["std"] }
 log = "0.4"
 pretty_env_logger = "0.3"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+structopt = "0.3"
+termion = "1.5"
+thiserror = "1.0"
