@@ -4,6 +4,7 @@
 )]
 
 pub mod asanram;
+pub mod hd66753;
 pub mod hle_flash;
 pub mod syscon;
 

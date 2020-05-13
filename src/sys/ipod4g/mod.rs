@@ -15,6 +15,7 @@ mod gdb;
 
 mod devices {
     pub use crate::devices::asanram::{self, AsanRam};
+    pub use crate::devices::hd66753::{self, Hd66753};
     pub use crate::devices::hle_flash::{self, HLEFlash};
     pub use crate::devices::syscon::{self, SysCon};
 }
@@ -222,9 +223,10 @@ impl Ipod4g {
 #[derive(Debug)]
 pub struct Ipod4gBus {
     pub sdram: devices::AsanRam,   // 32 MB
-    pub fastram: devices::AsanRam, // 32 MB
+    pub fastram: devices::AsanRam, // 96 KB
     pub flash: devices::HLEFlash,
     pub syscon: devices::SysCon,
+    pub hd66753: devices::Hd66753,
 }
 
 impl Ipod4gBus {
@@ -236,6 +238,7 @@ impl Ipod4gBus {
             fastram: AsanRam::new(96 * 1024),      // 96 KB
             flash: HLEFlash::new_hle(),
             syscon: SysCon::new_hle(),
+            hd66753: Hd66753::new_hle(),
         }
     }
 }
@@ -300,4 +303,5 @@ mmap! {
     0x4000_0000..=0x4001_7fff => fastram,
     // ???
     0x6000_0000..=0x6fff_ffff => syscon,
+    0x7000_3000..=0x7000_3fff => hd66753,
 }
