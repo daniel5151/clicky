@@ -43,6 +43,7 @@ pub enum BlockMode {
 #[derive(Debug)]
 pub struct Ipod4g {
     hle: bool,
+    frozen: bool,
     cpu: Cpu,
     cop: Cpu,
     devices: Ipod4gBus,
@@ -55,12 +56,13 @@ impl Ipod4g {
     pub fn new_hle(mut fw_file: impl Read + Seek) -> Result<Ipod4g, Box<dyn std::error::Error>> {
         let fw_info = firmware::FirmwareMeta::parse(&mut fw_file)?;
 
+        println!("Parsed firmware meta: {:#x?}", fw_info);
+
         let os_image = fw_info
             .images
             .iter()
             .find(|img| img.name == *b"osos")
-            .unwrap();
-        println!("Found OS Image: {:#x?}", os_image);
+            .ok_or("could not find OS image")?;
 
         // fake the bootloader, load directly at the image address
         let mut cpu = Cpu::new();
@@ -87,6 +89,7 @@ impl Ipod4g {
 
         Ok(Ipod4g {
             hle: true,
+            frozen: false,
             cpu,
             cop,
             devices: bus,
@@ -163,6 +166,10 @@ impl Ipod4g {
         _log_memory_access: impl FnMut(MemAccess),
         _halt_block_mode: BlockMode,
     ) -> Result<bool, FatalError> {
+        if self.frozen {
+            return Ok(true);
+        }
+
         let run_cpu = self.devices.syscon.is_cpu_running();
         let run_cop = self.devices.syscon.is_cop_running();
 
@@ -198,8 +205,12 @@ impl Ipod4g {
         Ok(())
     }
 
-    pub fn devices_mut(&mut self) -> &mut Ipod4gBus {
-        &mut self.devices
+    /// Freeze the system such that `step` becomes a noop. Called prior to
+    /// spawning a "post-mortem" GDB session.
+    ///
+    /// WARNING - THERE IS NO WAY TO "THAW" A FROZEN SYSTEM!
+    pub fn freeze(&mut self) {
+        self.frozen = true;
     }
 }
 

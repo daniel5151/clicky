@@ -24,8 +24,12 @@ struct Args {
     firmware: PathBuf,
 
     /// spawn a gdb server listening on the specified port
-    #[structopt(short, long)]
+    #[structopt(short)]
     gdbport: Option<u16>,
+
+    /// spawn a gdb server if the guest triggers a fatal error
+    #[structopt(long, requires("gdbport"))]
+    gdb_fatal_err: bool,
 }
 
 fn new_tcp_gdbstub<T: gdbstub::Target>(
@@ -54,10 +58,10 @@ fn main() -> Result<(), Box<dyn StdError>> {
     let file = fs::File::open(args.firmware)?;
     let mut system = Ipod4g::new_hle(file)?;
 
-    // (potentially) spin up the debugger
-    let debugger = match args.gdbport {
-        Some(port) => Some(new_tcp_gdbstub(port)?),
-        None => None,
+    // check if a debugger should be connected at boot
+    let debugger = match (args.gdb_fatal_err, args.gdbport) {
+        (false, Some(port)) => Some(new_tcp_gdbstub(port)?),
+        _ => None,
     };
 
     let system_result = match debugger {
@@ -65,9 +69,12 @@ fn main() -> Result<(), Box<dyn StdError>> {
         Some(mut debugger) => match debugger.run(&mut system) {
             Ok(state) => {
                 eprintln!("Disconnected from GDB. Target state: {:?}", state);
-                // TODO: if the debugging session is closed, but the system isn't halted,
-                // execution should continue.
-                Ok(())
+                if state == gdbstub::TargetState::Running {
+                    eprintln!("Target is still running. Resuming execution...");
+                    system.run()
+                } else {
+                    Ok(())
+                }
             }
             Err(gdbstub::Error::TargetError(e)) => Err(e),
             Err(e) => return Err(e.into()),
@@ -77,12 +84,30 @@ fn main() -> Result<(), Box<dyn StdError>> {
     };
 
     if let Err(fatal_error) = system_result {
-        eprintln!("Fatal Error! Dumping system state...");
-        eprintln!("============");
-        eprintln!("{:#010x?}", system);
-        eprintln!("Cause: {:#010x?}", fatal_error);
-        eprintln!("============");
-        return Err("Fatal Error!".into());
+        eprintln!("Fatal Error! Caused by: {:#010x?}", fatal_error);
+
+        if args.gdb_fatal_err {
+            let port = args
+                .gdbport
+                .expect("gbdport guaranteed to be present by structopt");
+            let mut debugger = new_tcp_gdbstub(port)?;
+
+            system.freeze();
+            match debugger.run(&mut system) {
+                Ok(_) => {
+                    eprintln!("Disconnected from post-mortem GDB session.");
+                    return Ok(());
+                }
+                Err(e) => return Err(e.into()),
+            }
+        } else {
+            eprintln!("Dumping system state:");
+            eprintln!("============");
+            eprintln!("{:#010x?}", system);
+            eprintln!("============");
+        }
+
+        return Err("fatal error".into());
     }
 
     Ok(())
