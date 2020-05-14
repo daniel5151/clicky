@@ -238,7 +238,7 @@ impl Ipod4gBus {
             fastram: AsanRam::new(96 * 1024),      // 96 KB
             flash: HLEFlash::new_hle(),
             syscon: SysCon::new_hle(),
-            hd66753: Hd66753::new_hle(),
+            hd66753: Hd66753::new_hle(160, 128),
         }
     }
 }
