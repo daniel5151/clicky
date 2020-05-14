@@ -37,6 +37,7 @@ const EMU_CGRAM_WIDTH: usize = 256;
 const EMU_CGRAM_BYTES: usize = (EMU_CGRAM_WIDTH * CGRAM_HEIGHT) * 2 / 8;
 const EMU_CGRAM_LEN: usize = EMU_CGRAM_BYTES / 2; // addressed as 16-bit words
 
+#[allow(clippy::unreadable_literal)]
 const PALETTE: [u32; 4] = [0x000000, 0x686868, 0xb8b8b9, 0xffffff];
 
 #[derive(Debug)]
@@ -304,18 +305,14 @@ impl Memory for Hd66753 {
             0x8 => {
                 if val > 0x12 {
                     return Err(ContractViolation {
-                        msg: format!("set invalid LCD index register: {}", val),
+                        msg: format!("Trying to set invalid LCD Command: {}", val),
                         severity: log::Level::Error,
                         stub_val: None,
                     });
                 }
-                log::trace!("LCD Command {:#06x?}", val);
                 self.ir = val;
             }
-            0x10 => {
-                log::trace!("LCD Data {:#06x?}", val);
-                self.handle_data(val)?;
-            }
+            0x10 => self.handle_data(val)?,
             _ => return Err(Unexpected),
         }
 

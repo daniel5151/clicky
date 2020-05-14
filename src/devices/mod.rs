@@ -7,6 +7,10 @@ pub mod asanram;
 pub mod hd66753;
 pub mod hle_flash;
 pub mod syscon;
+pub mod timers;
+
+/// Vocabulary type denoting a type which is sent over the interrupt bus
+pub trait Interrupt: 'static + Send + Copy {}
 
 /// Common trait implemented by all emulated devices.
 pub trait Device {
@@ -56,6 +60,16 @@ pub enum Probe<'a> {
     Register(&'a str),
     /// Unmapped memory.
     Unmapped,
+}
+
+impl<'a> Probe<'a> {
+    // Convenience method to construct a `Probe::Device`
+    pub fn from_device(device: &'a dyn Device, offset: u32) -> Probe<'a> {
+        Probe::Device {
+            device,
+            next: Box::new(device.probe(offset)),
+        }
+    }
 }
 
 impl<'a> std::fmt::Display for Probe<'a> {

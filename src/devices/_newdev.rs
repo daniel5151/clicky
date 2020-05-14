@@ -13,7 +13,7 @@ impl NewDevice {
 
 impl Device for NewDevice {
     fn kind(&self) -> &'static str {
-        "New Device"
+        "NewDevice"
     }
 
     fn probe(&self, offset: u32) -> Probe<'_> {

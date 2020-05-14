@@ -18,6 +18,7 @@ mod devices {
     pub use crate::devices::hd66753::{self, Hd66753};
     pub use crate::devices::hle_flash::{self, HLEFlash};
     pub use crate::devices::syscon::{self, SysCon};
+    pub use crate::devices::timers::{self, Timers};
 }
 
 use crate::devices::syscon::Interrupt;
@@ -157,7 +158,11 @@ impl Ipod4g {
 
     fn check_device_interrupts(&mut self, _blocking: BlockMode) {
         // use armv4t_emu::Exception;
+
         // TODO
+        if !self.interrupt_bus.is_empty() {
+            panic!("IRQ handling isn't implemented yet!");
+        }
     }
 
     /// Run the system for a single CPU instruction, returning `true` if the
@@ -222,16 +227,17 @@ impl Ipod4g {
 /// devices.
 #[derive(Debug)]
 pub struct Ipod4gBus {
-    pub sdram: devices::AsanRam,   // 32 MB
-    pub fastram: devices::AsanRam, // 96 KB
+    pub sdram: devices::AsanRam,
+    pub fastram: devices::AsanRam,
     pub flash: devices::HLEFlash,
     pub syscon: devices::SysCon,
     pub hd66753: devices::Hd66753,
+    pub timers: devices::Timers<Interrupt>,
 }
 
 impl Ipod4gBus {
     #[allow(clippy::redundant_clone)] // Makes the code cleaner in this case
-    fn new_hle(_interrupt_bus: chan::Sender<(Interrupt, bool)>) -> Ipod4gBus {
+    fn new_hle(interrupt_bus: chan::Sender<(Interrupt, bool)>) -> Ipod4gBus {
         use devices::*;
         Ipod4gBus {
             sdram: AsanRam::new(32 * 1024 * 1024), // 32 MB
@@ -239,6 +245,7 @@ impl Ipod4gBus {
             flash: HLEFlash::new_hle(),
             syscon: SysCon::new_hle(),
             hd66753: Hd66753::new_hle(160, 128),
+            timers: Timers::new_hle(interrupt_bus, Interrupt::Timer1, Interrupt::Timer2),
         }
     }
 }
@@ -302,6 +309,7 @@ mmap! {
     0x1000_0000..=0x3fff_ffff => sdram,
     0x4000_0000..=0x4001_7fff => fastram,
     // ???
-    0x6000_0000..=0x6fff_ffff => syscon,
+    0x6000_5000..=0x6000_5fff => timers,
+    0x6000_0000..=0x6fff_ffff => syscon, // XXX: overlaps with timers
     0x7000_3000..=0x7000_3fff => hd66753,
 }

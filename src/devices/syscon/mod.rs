@@ -1,7 +1,13 @@
-use crate::devices::{Device, Probe};
+use crate::devices::{Device, Interrupt as InterruptMarker, Probe};
 use crate::memory::{MemException::*, MemResult, Memory};
 
-pub enum Interrupt {}
+#[derive(Debug, Clone, Copy)]
+pub enum Interrupt {
+    Timer1 = 0,
+    Timer2 = 1,
+}
+
+impl InterruptMarker for Interrupt {}
 
 #[derive(Debug)]
 pub enum CpuId {
