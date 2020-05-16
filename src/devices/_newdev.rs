@@ -29,6 +29,7 @@ impl Device for NewDevice {
 impl Memory for NewDevice {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
+            0x0 => Err(Unimplemented),
             _ => Err(Unexpected),
         }
     }
@@ -37,7 +38,10 @@ impl Memory for NewDevice {
         let _ = val;
 
         match offset {
-            _ => Err(Unexpected),
+            0x0 => return Err(Unimplemented),
+            _ => return Err(Unexpected),
         }
+
+        Ok(())
     }
 }

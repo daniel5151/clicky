@@ -19,6 +19,7 @@ mod devices {
     pub use dev::asanram::{self, AsanRam};
     pub use dev::cpucon::{self, CpuCon};
     pub use dev::cpuid::{self, CpuId};
+    pub use dev::gpio::{self, GpioBlock};
     pub use dev::hd66753::{self, Hd66753};
     pub use dev::hle_flash::{self, HLEFlash};
     pub use dev::timers::{self, Timers};
@@ -244,6 +245,9 @@ pub struct Ipod4gBus {
     pub cpucon: devices::CpuCon,
     pub hd66753: devices::Hd66753,
     pub timers: devices::Timers<PP5020Irq>,
+    pub gpio_abcd: devices::GpioBlock,
+    pub gpio_efgh: devices::GpioBlock,
+    pub gpio_ijkl: devices::GpioBlock,
 }
 
 impl Ipod4gBus {
@@ -258,6 +262,9 @@ impl Ipod4gBus {
             cpucon: CpuCon::new_hle(),
             hd66753: Hd66753::new_hle(160, 128),
             timers: Timers::new_hle(interrupt_bus, PP5020Irq::Timer1, PP5020Irq::Timer2),
+            gpio_abcd: GpioBlock::new(["A", "B", "C", "D"]),
+            gpio_efgh: GpioBlock::new(["E", "F", "G", "H"]),
+            gpio_ijkl: GpioBlock::new(["I", "J", "K", "L"]),
         }
     }
 }
@@ -324,5 +331,8 @@ mmap! {
     0x6000_0000..=0x6000_0fff => cpuid,
     0x6000_5000..=0x6000_5fff => timers,
     0x6000_7000..=0x6000_7fff => cpucon,
+    0x6000_d000..=0x6000_d07f => gpio_abcd,
+    0x6000_d080..=0x6000_d0ff => gpio_efgh,
+    0x6000_d100..=0x6000_d17f => gpio_ijkl,
     0x7000_3000..=0x7000_3fff => hd66753,
 }
