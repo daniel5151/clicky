@@ -22,6 +22,7 @@ mod devices {
     pub use dev::gpio::{self, GpioBlock};
     pub use dev::hd66753::{self, Hd66753};
     pub use dev::hle_flash::{self, HLEFlash};
+    pub use dev::i2c::{self, I2CCon};
     pub use dev::timers::{self, Timers};
 }
 
@@ -248,6 +249,7 @@ pub struct Ipod4gBus {
     pub gpio_abcd: devices::GpioBlock,
     pub gpio_efgh: devices::GpioBlock,
     pub gpio_ijkl: devices::GpioBlock,
+    pub i2c: devices::I2CCon,
 }
 
 impl Ipod4gBus {
@@ -265,6 +267,7 @@ impl Ipod4gBus {
             gpio_abcd: GpioBlock::new(["A", "B", "C", "D"]),
             gpio_efgh: GpioBlock::new(["E", "F", "G", "H"]),
             gpio_ijkl: GpioBlock::new(["I", "J", "K", "L"]),
+            i2c: I2CCon::new_hle(),
         }
     }
 }
@@ -335,4 +338,5 @@ mmap! {
     0x6000_d080..=0x6000_d0ff => gpio_efgh,
     0x6000_d100..=0x6000_d17f => gpio_ijkl,
     0x7000_3000..=0x7000_3fff => hd66753,
+    0x7000_c000..=0x7000_cfff => i2c,
 }
