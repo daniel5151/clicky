@@ -12,7 +12,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
- 
+
 #include "tools.h"
 
 typedef struct _image {
@@ -38,7 +38,7 @@ extern img happymac_hdr;
 int ipod_ver = 0;
 
 /* black magic */
-static void 
+static void
 init_keyboard(void)
 {
 	if (ipod_ver < 4) {
@@ -62,7 +62,7 @@ init_keyboard(void)
 	}
 }
 
-static int 
+static int
 key_pressed(void)
 {
 	unsigned char state;
@@ -112,9 +112,9 @@ memmove16(void *dest, const void *src, unsigned count)
 	while (count--)
 	    *--d = *--s;
     }
-}	
+}
 
-void * 
+void *
 loader(void)
 {
     int imageno = 0;
@@ -125,7 +125,7 @@ loader(void)
     get_ipod_rev();
     if (ipod_ver > 3) padding = 0x4600;
 
-    display_image(&tux_hdr, 0x0);
+    display_image(&happymac_hdr, 0x0);
 
     wait_usec(300);
 

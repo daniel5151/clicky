@@ -30,9 +30,9 @@ On Ubuntu / Debian based distros: `sudo apt install gcc-arm-none-eabi`
 
 ```bash
 cd ./resources/ipodloader
-printf "\xDE\xAD\xBE\xEF" > deadbeef.bin # create a dummy payload
+printf "\xfe\xff\xff\xea" > loop.bin # create a dummy payload
 make
-./make_fw -v -g 4g -o ipodloader_deadbeefs_unopt.bin -l deadbeef.bin -l deadbeef.bin loader.bin
+./make_fw -v -g 4g -o ipodloader_loops_unopt.bin -l loop.bin -l loop.bin loader.bin
 ```
 
 In the future, `clicky` should be able to run more complex images (such as Rockbox, iPodLinux, or even Apple's own RetailOS), but that's a ways off.
@@ -42,7 +42,7 @@ In the future, `clicky` should be able to run more complex images (such as Rockb
 Now that you have an iPod firmware image, you can finally run clicky:
 
 ```bash
-RUST_LOG=trace cargo run ./resources/ipodloader/ipodloader_deadbeefs_unopt.bin hle ./resources/ipodloader/loader.objdump
+RUST_LOG=trace cargo run ./resources/ipodloader/ipodloader_loops_unopt.bin hle ./resources/ipodloader/loader.objdump
 ```
 
 It's not pretty, but if you press enter a couple time, you should be able to step through some CPU instructions. My hacky objdump-based addr2line implementation will even show you the `ipodloader` source code associated with the current PC!
