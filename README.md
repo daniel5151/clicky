@@ -23,16 +23,23 @@ cargo build
 
 At this stage in development, `clicky` can't run anything too complex, so a good jumping off point is building a firmware image based off `ipodloader`.
 
-I've included `ipodloader`'s source code in-tree under `./resources/ipodloader`. It's Makefile has been modified to work on modern linux distros, and I've toggled some compiler flags to disable optimizations and enable debug symbols (which should make stepping through the code a lot easier).
+I've copied the source of `ipodloader` and `ipodloader2` in-tree under `./resources/`, and fixed-up their makefiles / sources to compile under more recent toolchains. I've also toggled some compiler flags to disable optimizations and enable debug symbols, which makes debugging a lot easier.
 
 **NOTE:** Building `ipodloader` requires installing the gcc `arm-none-eabi` toolchain.
 On Ubuntu / Debian based distros: `sudo apt install gcc-arm-none-eabi`
 
+Here are the series of commands I use to get up and running:
+
 ```bash
+# ipodloader test firmware
 cd ./resources/ipodloader
-printf "\xfe\xff\xff\xea" > loop.bin # create a dummy payload
 make
-./make_fw -v -g 4g -o ipodloader_loops_unopt.bin -l loop.bin -l loop.bin loader.bin
+./make_fw -v -g 4g -o ipodloader_loops_unopt.bin -l ../loop.bin -l ../loop.bin loader.bin
+cd ../../
+# ipodloader2 test firmware. uses the `make_fw` utility from ipodloader
+cd ./resources/ipodloader2
+make
+../ipodloader/make_fw -v -g 4g -o ipodloader2_loop.bin -l ../loop.bin loader.bin
 ```
 
 In the future, `clicky` should be able to run more complex images (such as Rockbox, iPodLinux, or even Apple's own RetailOS), but that's a ways off.

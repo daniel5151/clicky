@@ -1,0 +1,9 @@
+TODO:
+* Make FAT32 use DOS-convention filenames instead of on-disk encoding
+* add support for piezo on PP5002 models (ipod_beep)
+
+Notes about TODOs:
+* Make FAT32 use DOS.....
+  Replace ' ' with 0x0, and do two strncmp() on each dirent, and
+  is should pretty much work already. Make case-insensitive for
+  niceness
