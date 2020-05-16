@@ -4,7 +4,7 @@ use armv4t_emu::{reg, Cpu, Mode as ArmMode};
 use crossbeam_channel as chan;
 use log::*;
 
-use crate::devices::{Device, Probe};
+use crate::devices::{Device, Interrupt, Probe};
 use crate::memory::{
     armv4t_adaptor::{MemoryAdapter, MemoryAdapterException},
     MemAccess, MemAccessKind, MemException, MemResult, Memory,
@@ -14,14 +14,24 @@ mod firmware;
 mod gdb;
 
 mod devices {
-    pub use crate::devices::asanram::{self, AsanRam};
-    pub use crate::devices::hd66753::{self, Hd66753};
-    pub use crate::devices::hle_flash::{self, HLEFlash};
-    pub use crate::devices::syscon::{self, SysCon};
-    pub use crate::devices::timers::{self, Timers};
+    use crate::devices as dev;
+
+    pub use dev::asanram::{self, AsanRam};
+    pub use dev::cpucon::{self, CpuCon};
+    pub use dev::cpuid::{self, CpuId};
+    pub use dev::hd66753::{self, Hd66753};
+    pub use dev::hle_flash::{self, HLEFlash};
+    pub use dev::timers::{self, Timers};
 }
 
-use crate::devices::syscon::Interrupt;
+// TODO: move interrupt enum to interrupt controller
+#[derive(Debug, Clone, Copy)]
+pub enum PP5020Irq {
+    Timer1 = 0,
+    Timer2 = 1,
+}
+
+impl Interrupt for PP5020Irq {}
 
 #[derive(Debug)]
 pub enum FatalError {
@@ -49,7 +59,7 @@ pub struct Ipod4g {
     cpu: Cpu,
     cop: Cpu,
     devices: Ipod4gBus,
-    interrupt_bus: chan::Receiver<(Interrupt, bool)>,
+    interrupt_bus: chan::Receiver<(PP5020Irq, bool)>,
 }
 
 impl Ipod4g {
@@ -176,11 +186,11 @@ impl Ipod4g {
             return Ok(true);
         }
 
-        let run_cpu = self.devices.syscon.is_cpu_running();
-        let run_cop = self.devices.syscon.is_cop_running();
+        let run_cpu = self.devices.cpucon.is_cpu_running();
+        let run_cop = self.devices.cpucon.is_cop_running();
 
         if run_cpu {
-            self.devices.syscon.set_cpuid(devices::syscon::CpuId::Cpu);
+            self.devices.cpuid.set_cpuid(devices::cpuid::CpuIdKind::Cpu);
             let mut mem = MemoryAdapter::new(&mut self.devices);
             self.cpu.step(&mut mem);
             if let Some(e) = mem.exception.take() {
@@ -189,7 +199,7 @@ impl Ipod4g {
         }
 
         if run_cop {
-            self.devices.syscon.set_cpuid(devices::syscon::CpuId::Cop);
+            self.devices.cpuid.set_cpuid(devices::cpuid::CpuIdKind::Cop);
             let mut mem = MemoryAdapter::new(&mut self.devices);
             self.cop.step(&mut mem);
             if let Some(e) = mem.exception.take() {
@@ -229,23 +239,25 @@ impl Ipod4g {
 pub struct Ipod4gBus {
     pub sdram: devices::AsanRam,
     pub fastram: devices::AsanRam,
+    pub cpuid: devices::CpuId,
     pub flash: devices::HLEFlash,
-    pub syscon: devices::SysCon,
+    pub cpucon: devices::CpuCon,
     pub hd66753: devices::Hd66753,
-    pub timers: devices::Timers<Interrupt>,
+    pub timers: devices::Timers<PP5020Irq>,
 }
 
 impl Ipod4gBus {
     #[allow(clippy::redundant_clone)] // Makes the code cleaner in this case
-    fn new_hle(interrupt_bus: chan::Sender<(Interrupt, bool)>) -> Ipod4gBus {
+    fn new_hle(interrupt_bus: chan::Sender<(PP5020Irq, bool)>) -> Ipod4gBus {
         use devices::*;
         Ipod4gBus {
             sdram: AsanRam::new(32 * 1024 * 1024), // 32 MB
             fastram: AsanRam::new(96 * 1024),      // 96 KB
+            cpuid: CpuId::new(),
             flash: HLEFlash::new_hle(),
-            syscon: SysCon::new_hle(),
+            cpucon: CpuCon::new_hle(),
             hd66753: Hd66753::new_hle(160, 128),
-            timers: Timers::new_hle(interrupt_bus, Interrupt::Timer1, Interrupt::Timer2),
+            timers: Timers::new_hle(interrupt_bus, PP5020Irq::Timer1, PP5020Irq::Timer2),
         }
     }
 }
@@ -309,7 +321,8 @@ mmap! {
     0x1000_0000..=0x3fff_ffff => sdram,
     0x4000_0000..=0x4001_7fff => fastram,
     // ???
+    0x6000_0000..=0x6000_0fff => cpuid,
     0x6000_5000..=0x6000_5fff => timers,
-    0x6000_0000..=0x6fff_ffff => syscon, // XXX: overlaps with timers
+    0x6000_7000..=0x6000_7fff => cpucon,
     0x7000_3000..=0x7000_3fff => hd66753,
 }

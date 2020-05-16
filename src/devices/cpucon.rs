@@ -1,23 +1,9 @@
-use crate::devices::{Device, Interrupt as InterruptMarker, Probe};
+use crate::devices::{Device, Probe};
 use crate::memory::{MemException::*, MemResult, Memory};
 
-#[derive(Debug, Clone, Copy)]
-pub enum Interrupt {
-    Timer1 = 0,
-    Timer2 = 1,
-}
-
-impl InterruptMarker for Interrupt {}
-
+/// PP5020 CPU controller
 #[derive(Debug)]
-pub enum CpuId {
-    Cpu,
-    Cop,
-}
-
-#[derive(Debug)]
-pub struct SysCon {
-    cpuid: CpuId,
+pub struct CpuCon {
     cpuctl: u32,
     copctl: u32,
 }
@@ -47,17 +33,12 @@ mod cpuctl_flags {
     pub const PROC_CNT_SEC: u32 = 0x0080_0000;
 }
 
-impl SysCon {
-    pub fn new_hle() -> SysCon {
-        SysCon {
-            cpuid: CpuId::Cpu,
+impl CpuCon {
+    pub fn new_hle() -> CpuCon {
+        CpuCon {
             cpuctl: 0x0000_0000,
             copctl: 0x0000_0000,
         }
-    }
-
-    pub fn set_cpuid(&mut self, cpuid: CpuId) {
-        self.cpuid = cpuid
     }
 
     pub fn is_cpu_running(&self) -> bool {
@@ -73,16 +54,15 @@ impl SysCon {
     }
 }
 
-impl Device for SysCon {
+impl Device for CpuCon {
     fn kind(&self) -> &'static str {
         "System Controller Block"
     }
 
     fn probe(&self, offset: u32) -> Probe<'_> {
         let reg = match offset {
-            0x0 => "CPU ID",
-            0x7000 => "CPU Control",
-            0x7004 => "COP Control",
+            0x0 => "CPU Control",
+            0x4 => "COP Control",
             _ => return Probe::Unmapped,
         };
 
@@ -90,27 +70,23 @@ impl Device for SysCon {
     }
 }
 
-impl Memory for SysCon {
+impl Memory for CpuCon {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
-            0x0 => match self.cpuid {
-                CpuId::Cpu => Ok(0x55),
-                CpuId::Cop => Ok(0xaa),
-            },
-            0x7000 => Ok(self.cpuctl),
-            0x7004 => Ok(self.copctl),
+            0x0 => Ok(self.cpuctl),
+            0x4 => Ok(self.copctl),
             _ => Err(Unexpected),
         }
     }
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         match offset {
-            0x7000 => {
+            0x0 => {
                 log::debug!("updated CPU Control: {:#010x?}", val);
                 self.cpuctl = val;
                 self.update_cpuctl();
             }
-            0x7004 => {
+            0x4 => {
                 log::debug!("updated COP Control: {:#010x?}", val);
                 self.copctl = val;
                 self.update_cpuctl();

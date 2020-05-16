@@ -4,9 +4,10 @@
 )]
 
 pub mod asanram;
+pub mod cpucon;
+pub mod cpuid;
 pub mod hd66753;
 pub mod hle_flash;
-pub mod syscon;
 pub mod timers;
 
 /// Vocabulary type denoting a type which is sent over the interrupt bus
