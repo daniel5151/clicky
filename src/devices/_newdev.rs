@@ -38,10 +38,8 @@ impl Memory for NewDevice {
         let _ = val;
 
         match offset {
-            0x0 => return Err(Unimplemented),
-            _ => return Err(Unexpected),
+            0x0 => Err(Unimplemented),
+            _ => Err(Unexpected),
         }
-
-        Ok(())
     }
 }

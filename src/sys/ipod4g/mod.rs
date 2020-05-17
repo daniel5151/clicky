@@ -12,6 +12,7 @@ use crate::memory::{
 
 mod firmware;
 mod gdb;
+mod hle_bootloader;
 
 mod devices {
     use crate::devices as dev;
@@ -23,6 +24,7 @@ mod devices {
     pub use dev::hd66753::{self, Hd66753};
     pub use dev::hle_flash::{self, HLEFlash};
     pub use dev::i2c::{self, I2CCon};
+    pub use dev::ppcon::{self, PPCon};
     pub use dev::timers::{self, Timers};
 }
 
@@ -100,6 +102,37 @@ impl Ipod4g {
         fw_file.read_exact(&mut os_image_data)?;
 
         bus.sdram.bulk_write(0, &os_image_data);
+
+        // inject fake sysinfo into fastram.
+        //
+        // I threw my copy of the iPod 4g flashROM into Ghidra, and as far as I can
+        // tell, the bootloader does indeed set this structure up somewhere in memory.
+        // I don't _fully_ understand where ipodloader got this magic pointer address
+        // from, because perusing the flashROM disassembly didn't reveal any immedately
+        // obvious writes to that address.
+        //
+        // Anyhoo, I kinda gave up on doing it "correctly," and kinda just futzed around
+        // with the addresses until the code managed to progress further. I _hope_ this
+        // structure isn't used past the init stage, since I picked the memory location
+        // to write it into somwhat arbitrarily, and there's no reason some other code
+        // might not come in and trash it...
+        //
+        // TODO: add some sort of signaling system if the sysinfo struct is overwritten
+        use hle_bootloader::sysinfo_t;
+        const SYSINFO_PTR: u32 = 0x4001_7f1c;
+        // SYSINFO_LOC is pulled out of my ass lol
+        const SYSINFO_LOC: u32 = 0x4001_7f00 - std::mem::size_of::<sysinfo_t>() as u32;
+        bus.w32(SYSINFO_PTR, SYSINFO_LOC).unwrap(); // pointer to sysinfo
+        bus.fastram.bulk_write(
+            SYSINFO_LOC - 0x4000_0000,
+            sysinfo_t {
+                IsyS: u32::from_le_bytes(*b"IsyS"),
+                len: 0x184,
+                boardHwSwInterfaceRev: 0x50000,
+                ..Default::default()
+            }
+            .as_slice(),
+        );
 
         Ok(Ipod4g {
             hle: true,
@@ -250,6 +283,7 @@ pub struct Ipod4gBus {
     pub gpio_efgh: devices::GpioBlock,
     pub gpio_ijkl: devices::GpioBlock,
     pub i2c: devices::I2CCon,
+    pub ppcon: devices::PPCon,
 }
 
 impl Ipod4gBus {
@@ -268,6 +302,7 @@ impl Ipod4gBus {
             gpio_efgh: GpioBlock::new(["E", "F", "G", "H"]),
             gpio_ijkl: GpioBlock::new(["I", "J", "K", "L"]),
             i2c: I2CCon::new_hle(),
+            ppcon: PPCon::new_hle(),
         }
     }
 }
@@ -328,7 +363,7 @@ macro_rules! mmap {
 mmap! {
     0x0000_0000..=0x000f_ffff => flash,
     // ???
-    0x1000_0000..=0x3fff_ffff => sdram,
+    0x1000_0000..=0x11ff_ffff => sdram,
     0x4000_0000..=0x4001_7fff => fastram,
     // ???
     0x6000_0000..=0x6000_0fff => cpuid,
@@ -337,6 +372,7 @@ mmap! {
     0x6000_d000..=0x6000_d07f => gpio_abcd,
     0x6000_d080..=0x6000_d0ff => gpio_efgh,
     0x6000_d100..=0x6000_d17f => gpio_ijkl,
+    0x7000_0000..=0x7000_1fff => ppcon,
     0x7000_3000..=0x7000_3fff => hd66753,
     0x7000_c000..=0x7000_cfff => i2c,
 }

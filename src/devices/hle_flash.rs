@@ -19,8 +19,8 @@ impl Device for HLEFlash {
 
     fn probe(&self, offset: u32) -> Probe<'_> {
         let reg = match offset {
-            0x2000 => "b\"gfCS\" on some iPod revisions?",
-            0x405c => "hw revision magic number",
+            0x2000 => "b\"gfCS\" on some iPod revisions",
+            0x2084 => "hw revision magic number",
             _ => return Probe::Unmapped,
         };
 
@@ -32,10 +32,10 @@ impl Memory for HLEFlash {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
             // idk what ipodloader/tools.c:get_ipod_rev() is doing lol
-            0x2000 => Ok(0xDEAD_BEEF),
+            0x2000 => Ok(u32::from_le_bytes(*b"gfCS")),
             // hardware revision magic number
             // see: https://www.rockbox.org/wiki/IpodHardwareInfo
-            0x405c => Ok(0x50000), // iPod 4th Gen
+            0x2084 => Ok(0x0005_0014), // iPod 4th Gen
             _ => Err(Unexpected),
         }
     }

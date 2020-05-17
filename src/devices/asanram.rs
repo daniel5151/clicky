@@ -39,7 +39,8 @@ impl AsanRam {
         ram
     }
 
-    pub fn bulk_write(&mut self, offset: usize, data: &[u8]) {
+    pub fn bulk_write(&mut self, offset: u32, data: &[u8]) {
+        let offset = offset as usize;
         self.mem[offset..offset + data.len()].copy_from_slice(data);
         self.initialized[offset..offset + data.len()]
             .iter_mut()

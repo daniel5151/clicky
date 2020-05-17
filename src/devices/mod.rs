@@ -10,6 +10,7 @@ pub mod gpio;
 pub mod hd66753;
 pub mod hle_flash;
 pub mod i2c;
+pub mod ppcon;
 pub mod timers;
 
 /// Vocabulary type denoting a type which is sent over the interrupt bus
