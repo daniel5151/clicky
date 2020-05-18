@@ -1,7 +1,7 @@
 use log::*;
 
 use crate::devices::{Device, Probe};
-use crate::memory::{MemAccess, MemResult, Memory};
+use crate::memory::{MemAccessKind, MemResult, Memory, ToMemAccess};
 
 /// A transparent wrapper around memory objects that logs any reads / writes.
 ///
@@ -25,7 +25,7 @@ macro_rules! impl_memlogger_r {
                     device: self,
                     next: Box::new(self.probe(offset))
                 },
-                MemAccess::$fn(offset, val)
+                val.to_memaccess(offset, MemAccessKind::Read)
             );
             Ok(val)
         }
@@ -41,7 +41,7 @@ macro_rules! impl_memlogger_w {
                     device: self,
                     next: Box::new(self.probe(offset))
                 },
-                MemAccess::$fn(offset, val)
+                val.to_memaccess(offset, MemAccessKind::Write)
             );
             (self.0).$fn(offset, val)?;
             Ok(())

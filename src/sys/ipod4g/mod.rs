@@ -41,15 +41,17 @@ pub enum PP5020Irq {
 impl Interrupt for PP5020Irq {}
 
 #[derive(Debug)]
+pub struct MemExceptionCtx {
+    pc: u32,
+    addr: u32,
+    in_device: String,
+}
+
+#[derive(Debug)]
 pub enum FatalError {
     FatalMemException {
-        addr: u32,
-        in_mem_space_of: String,
+        context: MemExceptionCtx,
         reason: MemException,
-    },
-    ContractViolation {
-        in_mem_space_of: String,
-        msg: String,
     },
 }
 
@@ -152,51 +154,59 @@ impl Ipod4g {
         mem: &impl Device,
         exception: MemoryAdapterException,
     ) -> Result<(), FatalError> {
-        let MemoryAdapterException {
-            addr,
-            kind,
-            mem_except,
-        } = exception;
+        let MemoryAdapterException { access, mem_except } = exception;
 
         let pc = cpu.reg_get(ArmMode::User, reg::PC);
-        let in_mem_space_of = format!("{}", mem.probe(addr));
+        let in_mem_space_of = format!("{}", mem.probe(access.offset));
 
-        let ctx = format!(
+        let ctx = MemExceptionCtx {
+            pc,
+            addr: access.offset,
+            in_device: in_mem_space_of,
+        };
+
+        let ctx_str = format!(
             "[pc {:#010x?}][addr {:#010x?}][{}]",
-            pc, addr, in_mem_space_of
+            ctx.pc, ctx.addr, ctx.in_device
         );
 
         use MemException::*;
         match mem_except {
             Unimplemented | Unexpected => {
                 return Err(FatalError::FatalMemException {
-                    addr,
-                    in_mem_space_of,
+                    context: ctx,
                     reason: mem_except,
                 })
             }
-            StubRead(_) => warn!("{} stubbed read", ctx),
-            StubWrite => warn!("{} stubbed write", ctx),
+            StubRead(_) => warn!("{} stubbed read ({})", ctx_str, access.val),
+            StubWrite => warn!("{} stubbed write ({})", ctx_str, access.val),
             Misaligned => {
                 // FIXME: Misaligned access (i.e: Data Abort) should be a CPU exception.
                 return Err(FatalError::FatalMemException {
-                    addr,
-                    in_mem_space_of,
+                    context: ctx,
                     reason: mem_except,
                 });
             }
-            InvalidAccess => match kind {
-                MemAccessKind::Read => error!("{} read from write-only register", ctx),
-                MemAccessKind::Write => error!("{} write to read-only register", ctx),
+            InvalidAccess => match access.kind {
+                MemAccessKind::Read => error!("{} read from write-only register", ctx_str),
+                MemAccessKind::Write => error!("{} write to read-only register", ctx_str),
             },
-            ContractViolation { msg, severity, .. } => {
+            ContractViolation {
+                msg,
+                severity,
+                stub_val,
+            } => {
                 if severity == log::Level::Error {
-                    return Err(FatalError::ContractViolation {
-                        in_mem_space_of,
-                        msg,
+                    return Err(FatalError::FatalMemException {
+                        context: ctx,
+                        reason: ContractViolation {
+                            msg,
+                            severity,
+                            stub_val,
+                        },
                     });
                 } else {
-                    log!(severity, "{} {}", ctx, msg)
+                    log!(severity, "{} {}", ctx_str, msg)
                 }
             }
         }

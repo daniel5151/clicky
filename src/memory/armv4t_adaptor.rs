@@ -3,8 +3,7 @@ use armv4t_emu::Memory as ArmMemory;
 use super::*;
 
 pub struct MemoryAdapterException {
-    pub addr: u32,
-    pub kind: MemAccessKind,
+    pub access: MemAccess,
     pub mem_except: MemException,
 }
 
@@ -50,8 +49,7 @@ macro_rules! impl_memadapter_r {
                     };
                     // stash the exception
                     self.exception = Some(MemoryAdapterException {
-                        addr,
-                        kind: MemAccessKind::Read,
+                        access: ret.to_memaccess(addr, MemAccessKind::Read),
                         mem_except: e,
                     });
                     ret
@@ -70,8 +68,7 @@ macro_rules! impl_memadapter_w {
                 Err(e) => {
                     // stash the exception
                     self.exception = Some(MemoryAdapterException {
-                        addr,
-                        kind: MemAccessKind::Write,
+                        access: val.to_memaccess(addr, MemAccessKind::Write),
                         mem_except: e,
                     });
                 }

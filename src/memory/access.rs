@@ -21,25 +21,31 @@ pub struct MemAccess {
     pub val: MemAccessVal,
 }
 
+/// Utility trait for converting a uX into the corresponding MemAccess
+pub trait ToMemAccess: Sized {
+    fn to_memaccess(self, offset: u32, kind: MemAccessKind) -> MemAccess;
+}
+
 macro_rules! impl_memaccess {
-    ($kind:ident, $fn:ident, $val:ty, $size:ident) => {
-        pub fn $fn(offset: u32, val: $val) -> MemAccess {
-            MemAccess {
-                kind: MemAccessKind::$kind,
-                offset,
-                val: MemAccessVal::$size(val),
+    ($(($val:ty, $size:ident)),*) => {
+        $(
+            impl ToMemAccess for $val {
+                fn to_memaccess(self, offset: u32, kind: MemAccessKind) -> MemAccess {
+                    MemAccess {
+                        kind,
+                        offset,
+                        val: MemAccessVal::$size(self),
+                    }
+                }
             }
-        }
+        )*
     };
 }
 
-impl MemAccess {
-    impl_memaccess!(Read, r8, u8, U8);
-    impl_memaccess!(Read, r16, u16, U16);
-    impl_memaccess!(Read, r32, u32, U32);
-    impl_memaccess!(Write, w8, u8, U8);
-    impl_memaccess!(Write, w16, u16, U16);
-    impl_memaccess!(Write, w32, u32, U32);
+impl_memaccess! {
+    (u8, U8),
+    (u16, U16),
+    (u32, U32)
 }
 
 impl std::fmt::Display for MemAccessVal {

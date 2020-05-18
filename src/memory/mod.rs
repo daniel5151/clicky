@@ -3,7 +3,7 @@ pub mod armv4t_adaptor;
 mod access;
 mod exception;
 
-pub use access::{MemAccess, MemAccessKind, MemAccessVal};
+pub use access::{MemAccess, MemAccessKind, MemAccessVal, ToMemAccess};
 pub use exception::{MemException, MemResult};
 
 /// Common memory trait used throughout the emulator.

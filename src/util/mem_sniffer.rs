@@ -1,5 +1,5 @@
 use crate::devices::{Device, Probe};
-use crate::memory::{MemAccess, MemResult, Memory};
+use crate::memory::{MemAccess, MemAccessKind, MemResult, Memory, ToMemAccess};
 
 /// [MemSniffer] wraps a [Memory] object, forwarding requests to the underlying
 /// memory object, while also recording accesses to the provided callback.
@@ -19,7 +19,7 @@ macro_rules! impl_memsniff_r {
     ($fn:ident, $ret:ty) => {
         fn $fn(&mut self, addr: u32) -> MemResult<$ret> {
             let ret = self.mem.$fn(addr)?;
-            (self.on_access)(MemAccess::$fn(addr, ret));
+            (self.on_access)(ret.to_memaccess(addr, MemAccessKind::Read));
             Ok(ret)
         }
     };
@@ -29,7 +29,7 @@ macro_rules! impl_memsniff_w {
     ($fn:ident, $val:ty) => {
         fn $fn(&mut self, addr: u32, val: $val) -> MemResult<()> {
             self.mem.$fn(addr, val)?;
-            (self.on_access)(MemAccess::$fn(addr, val));
+            (self.on_access)(val.to_memaccess(addr, MemAccessKind::Write));
             Ok(())
         }
     };
