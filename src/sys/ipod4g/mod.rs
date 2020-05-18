@@ -17,15 +17,17 @@ mod hle_bootloader;
 mod devices {
     use crate::devices as dev;
 
-    pub use dev::asanram::{self, AsanRam};
-    pub use dev::cpucon::{self, CpuCon};
+    pub use dev::generic::asanram::AsanRam;
+    pub use dev::generic::stub::Stub;
+
+    pub use dev::cpucon::CpuCon;
     pub use dev::cpuid::{self, CpuId};
-    pub use dev::gpio::{self, GpioBlock};
-    pub use dev::hd66753::{self, Hd66753};
-    pub use dev::hle_flash::{self, HLEFlash};
-    pub use dev::i2c::{self, I2CCon};
-    pub use dev::ppcon::{self, PPCon};
-    pub use dev::timers::{self, Timers};
+    pub use dev::gpio::GpioBlock;
+    pub use dev::hd66753::Hd66753;
+    pub use dev::hle_flash::HLEFlash;
+    pub use dev::i2c::I2CCon;
+    pub use dev::ppcon::PPCon;
+    pub use dev::timers::Timers;
 }
 
 // TODO: move interrupt enum to interrupt controller
@@ -284,6 +286,7 @@ pub struct Ipod4gBus {
     pub gpio_ijkl: devices::GpioBlock,
     pub i2c: devices::I2CCon,
     pub ppcon: devices::PPCon,
+    pub mystery_irq_dev: devices::Stub, // ???
 }
 
 impl Ipod4gBus {
@@ -303,6 +306,7 @@ impl Ipod4gBus {
             gpio_ijkl: GpioBlock::new(["I", "J", "K", "L"]),
             i2c: I2CCon::new_hle(),
             ppcon: PPCon::new_hle(),
+            mystery_irq_dev: Stub::new("Mystery IRQ Device".into()),
         }
     }
 }
@@ -367,6 +371,7 @@ mmap! {
     0x4000_0000..=0x4001_7fff => fastram,
     // ???
     0x6000_0000..=0x6000_0fff => cpuid,
+    0x6000_1010..=0x6000_1fff => mystery_irq_dev,
     0x6000_5000..=0x6000_5fff => timers,
     0x6000_7000..=0x6000_7fff => cpucon,
     0x6000_d000..=0x6000_d07f => gpio_abcd,

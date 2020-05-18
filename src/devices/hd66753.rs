@@ -232,8 +232,20 @@ impl Hd66753 {
                 // increment the ac appropriately
                 let dx_ac = match self.ireg.am {
                     0b00 => 1,
-                    0b01 => todo!("implement vertical CGRAM write"),
-                    0b10 => todo!("implement two-word vertical CGRAM write"),
+                    0b01 => {
+                        return Err(ContractViolation {
+                            msg: "unimplemented: vertical CGRAM write".into(),
+                            severity: log::Level::Error,
+                            stub_val: None,
+                        })
+                    }
+                    0b10 => {
+                        return Err(ContractViolation {
+                            msg: "unimplemented: two-word vertical CGRAM write".into(),
+                            severity: log::Level::Error,
+                            stub_val: None,
+                        })
+                    }
                     _ => unreachable!(),
                 };
 
@@ -256,7 +268,13 @@ impl Hd66753 {
 
                 self.ac %= 0x1080;
             }
-            x if x < 0x12 => unimplemented!("LCD command {} isn't implemented", x),
+            x if x < 0x12 => {
+                return Err(ContractViolation {
+                    msg: format!("unimplemented: LCD command {}", x),
+                    severity: log::Level::Error,
+                    stub_val: None,
+                })
+            }
             _ => unreachable!(),
         }
 

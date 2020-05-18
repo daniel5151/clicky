@@ -3,9 +3,9 @@
     clippy::match_bool // can make things more clear at times
 )]
 
-pub mod asanram;
 pub mod cpucon;
 pub mod cpuid;
+pub mod generic;
 pub mod gpio;
 pub mod hd66753;
 pub mod hle_flash;
