@@ -1,6 +1,7 @@
 use std::sync::{Arc, RwLock};
 use std::thread;
 
+use bit_field::BitField;
 use crossbeam_channel as chan;
 use minifb::{Key, Window, WindowOptions};
 
@@ -86,7 +87,7 @@ impl Hd66753Renderer {
 
                 let new_buf = cgram_window.flat_map(|w| {
                     // every 16 bits = 8 pixels
-                    (0..8).rev().map(move |i| {
+                    (0..8).map(move |i| {
                         let idx = ((w >> (i * 2)) & 0b11) as usize;
                         // TODO: invert-screen functionality
                         PALETTE[3 - idx]
@@ -124,12 +125,19 @@ impl Drop for Hd66753Renderer {
 
 #[derive(Default, Debug)]
 struct InternalRegs {
-    // Entry / Rotation mode (page 32)
+    // Driver Output Control (R01)
+    cms: bool,
+    sgs: bool,
+    nl: u8, // 5 bits
+    // Contrast Control (R04)
+    vr: u8, // 3 bits
+    ct: u8, // 7 bits
+    // Entry / Rotation mode (R05/R06)
     i_d: bool,
     am: u8, // 2 bits
     lg: u8, // 2 bits
     rt: u8, // 3 bits
-    // RAM Write Data Mask (page 36)
+    // RAM Write Data Mask (R10)
     wm: u16,
 }
 
@@ -138,7 +146,8 @@ pub struct Hd66753 {
     renderer: Hd66753Renderer,
 
     // FIXME: not sure if there are separate latches for the command and data registers...
-    byte_latch: Option<u8>,
+    write_byte_latch: Option<u8>,
+    read_byte_latch: Option<u8>,
 
     /// Index Register
     ir: u16,
@@ -154,7 +163,8 @@ impl std::fmt::Debug for Hd66753 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         f.debug_struct("Hd66753")
             .field("renderer", &self.renderer)
-            .field("byte_latch", &self.byte_latch)
+            .field("write_byte_latch", &self.write_byte_latch)
+            .field("read_byte_latch", &self.read_byte_latch)
             .field("ir", &self.ir)
             .field("ac", &self.ac)
             .field("cgram", &"[...]")
@@ -172,10 +182,9 @@ impl Hd66753 {
             ir: 0,
             ac: 0,
             cgram,
-            byte_latch: None,
+            write_byte_latch: None,
+            read_byte_latch: None,
             ireg: InternalRegs {
-                // FIXME: not sure if this is supposed to be set or not, but it works
-                i_d: true,
                 ..InternalRegs::default()
             },
         }
@@ -183,11 +192,24 @@ impl Hd66753 {
 
     fn handle_data(&mut self, val: u16) -> MemResult<()> {
         match self.ir {
+            // Driver output control
+            0x01 => {
+                self.ireg.cms = val.get_bit(9);
+                self.ireg.sgs = val.get_bit(8);
+                self.ireg.nl = val.get_bits(0..=4) as u8;
+                // TODO?: use Driver Output control bits to control window size
+            }
+            // Contrast Control
+            0x04 => {
+                self.ireg.vr = val.get_bits(8..=10) as u8;
+                self.ireg.ct = val.get_bits(0..=6) as u8;
+                // TODO?: use Contrast Control bits to control rendered contrast
+            }
             // Entry Mode
             0x05 => {
-                self.ireg.i_d = val & 0b10000 != 0;
-                self.ireg.am = ((val & 0b1100) >> 2) as u8;
-                self.ireg.lg = ((val & 0b0011) >> 0) as u8;
+                self.ireg.i_d = val.get_bit(4);
+                self.ireg.am = val.get_bits(2..=3) as u8;
+                self.ireg.lg = val.get_bits(0..=1) as u8;
 
                 if self.ireg.am == 0b11 {
                     return Err(ContractViolation {
@@ -198,7 +220,7 @@ impl Hd66753 {
                 }
             }
             // Rotation
-            0x06 => self.ireg.rt = (val & 0b111) as u8,
+            0x06 => self.ireg.rt = val.get_bits(0..=2) as u8,
             // RAM Write Data Mask
             0x10 => self.ireg.wm = val,
             // RAM Address Set
@@ -301,19 +323,26 @@ impl Device for Hd66753 {
 
 impl Memory for Hd66753 {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
-        // FIXME: reads should probably be latched?
-        match offset {
-            0x0 => Ok(0), // HACK: Emulated LCD is never busy
-            _ => Err(Unexpected),
+        if let Some(val) = self.read_byte_latch.take() {
+            return Ok(val as u32);
         }
+
+        let val: u16 = match offset {
+            0x0 => 0,                   // HACK: Emulated LCD is never busy
+            0x8 => self.ireg.ct as u16, // XXX: not currently tracking driving raster-row position
+            _ => return Err(Unexpected),
+        };
+
+        self.read_byte_latch = Some(val as u8); // latch lower 8 bits
+        Ok((val >> 8) as u32) // returning the higher 8 bits first
     }
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         let val = val as u8; // the iPod uses the controller using it's 8-bit interface
 
-        let val = match self.byte_latch.take() {
+        let val = match self.write_byte_latch.take() {
             None => {
-                self.byte_latch = Some(val as u8);
+                self.write_byte_latch = Some(val as u8);
                 return Ok(());
             }
             Some(hi) => (hi as u16) << 8 | (val as u16),

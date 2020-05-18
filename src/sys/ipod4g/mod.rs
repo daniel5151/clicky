@@ -22,6 +22,7 @@ mod devices {
 
     pub use dev::cpucon::CpuCon;
     pub use dev::cpuid::{self, CpuId};
+    pub use dev::devcon::DevCon;
     pub use dev::gpio::GpioBlock;
     pub use dev::hd66753::Hd66753;
     pub use dev::hle_flash::HLEFlash;
@@ -287,6 +288,7 @@ pub struct Ipod4gBus {
     pub i2c: devices::I2CCon,
     pub ppcon: devices::PPCon,
     pub mystery_irq_dev: devices::Stub, // ???
+    pub devcon: devices::DevCon,
 }
 
 impl Ipod4gBus {
@@ -307,6 +309,7 @@ impl Ipod4gBus {
             i2c: I2CCon::new_hle(),
             ppcon: PPCon::new_hle(),
             mystery_irq_dev: Stub::new("Mystery IRQ Device".into()),
+            devcon: DevCon::new_hle(),
         }
     }
 }
@@ -366,13 +369,12 @@ macro_rules! mmap {
 
 mmap! {
     0x0000_0000..=0x000f_ffff => flash,
-    // ???
     0x1000_0000..=0x11ff_ffff => sdram,
     0x4000_0000..=0x4001_7fff => fastram,
-    // ???
     0x6000_0000..=0x6000_0fff => cpuid,
     0x6000_1010..=0x6000_1fff => mystery_irq_dev,
     0x6000_5000..=0x6000_5fff => timers,
+    0x6000_6000..=0x6000_6fff => devcon,
     0x6000_7000..=0x6000_7fff => cpucon,
     0x6000_d000..=0x6000_d07f => gpio_abcd,
     0x6000_d080..=0x6000_d0ff => gpio_efgh,

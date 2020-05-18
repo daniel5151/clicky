@@ -24,6 +24,7 @@ impl Device for I2CCon {
             0x100 => "?",
             0x104 => "?",
             0x120 => "?",
+            0x124 => "?",
             0x140 => "Scroll Wheel + Keypad Buttons",
             _ => return Probe::Unmapped,
         };
@@ -39,6 +40,7 @@ impl Memory for I2CCon {
             0x100 => Err(StubRead(0x00000000)),
             0x104 => Err(StubRead(0x00000000)),
             0x120 => Err(StubRead(0x00000000)),
+            0x124 => Err(StubRead(0x00000000)),
             0x140 => Err(StubRead(0x00000000)),
             _ => Err(Unexpected),
         }
@@ -48,14 +50,13 @@ impl Memory for I2CCon {
         let _ = val;
 
         match offset {
-            0x00c => Err(StubWrite)?,
-            0x100 => Err(StubWrite)?,
-            0x104 => Err(StubWrite)?,
-            0x120 => Err(StubWrite)?,
-            0x140 => Err(StubWrite)?,
-            _ => return Err(Unexpected),
+            0x00c => Err(StubWrite),
+            0x100 => Err(StubWrite),
+            0x104 => Err(StubWrite),
+            0x120 => Err(StubWrite),
+            0x124 => Err(StubWrite),
+            0x140 => Err(StubWrite),
+            _ => Err(Unexpected),
         }
-
-        Ok(())
     }
 }

@@ -35,8 +35,6 @@ impl Memory for NewDevice {
     }
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
-        let _ = val;
-
         match offset {
             0x0 => Err(Unimplemented),
             _ => Err(Unexpected),

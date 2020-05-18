@@ -5,6 +5,7 @@
 
 pub mod cpucon;
 pub mod cpuid;
+pub mod devcon;
 pub mod generic;
 pub mod gpio;
 pub mod hd66753;
