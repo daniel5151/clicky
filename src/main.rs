@@ -13,6 +13,8 @@ pub mod util;
 
 use crate::sys::ipod4g::Ipod4g;
 
+const SYSDUMP_FILENAME: &str = "sysdump.log";
+
 #[derive(StructOpt)]
 #[structopt(name = "clicky")]
 #[structopt(about = r#"
@@ -85,6 +87,8 @@ fn main() -> Result<(), Box<dyn StdError>> {
 
     if let Err(fatal_error) = system_result {
         eprintln!("Fatal Error! Caused by: {:#010x?}", fatal_error);
+        eprintln!("Dumping system state to {}", SYSDUMP_FILENAME);
+        std::fs::write(SYSDUMP_FILENAME, format!("{:#x?}", system))?;
 
         if args.gdb_fatal_err {
             let port = args
@@ -94,20 +98,10 @@ fn main() -> Result<(), Box<dyn StdError>> {
 
             system.freeze();
             match debugger.run(&mut system) {
-                Ok(_) => {
-                    eprintln!("Disconnected from post-mortem GDB session.");
-                    return Ok(());
-                }
+                Ok(_) => eprintln!("Disconnected from post-mortem GDB session."),
                 Err(e) => return Err(e.into()),
             }
-        } else {
-            eprintln!("Dumping system state:");
-            eprintln!("============");
-            eprintln!("{:#010x?}", system);
-            eprintln!("============");
         }
-
-        return Err("fatal error".into());
     }
 
     Ok(())
