@@ -1,3 +1,5 @@
+use log::Level::*;
+
 use crate::devices::{Device, Probe};
 use crate::memory::{MemException::*, MemResult, Memory};
 
@@ -58,19 +60,19 @@ impl Memory for PPCon {
             0x4 => Err(InvalidAccess),
             0x10 => {
                 self.dev_init[0] = val;
-                Err(StubWrite)
+                Err(StubWrite(Warn))
             }
             0x20 => {
                 self.dev_init[1] = val;
-                Err(StubWrite)
+                Err(StubWrite(Warn))
             }
             0x80 => {
                 self.gpo_val = val;
-                Err(StubWrite)
+                Err(StubWrite(Warn))
             }
             0x84 => {
                 self.gpo_enable = val;
-                Err(StubWrite)
+                Err(StubWrite(Warn))
             }
             _ => Err(Unexpected),
         }

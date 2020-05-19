@@ -1,8 +1,10 @@
+use log::Level::*;
+
 use crate::devices::{Device, Probe};
 use crate::memory::{MemException::*, MemResult, Memory};
 
-/// Generic stub device. Reads/Writes result in StubRead/StubWrite MemResults.
-/// THIS DEVICE SHOULD BE USED SPARINGLY!
+/// Generic stub device. Reads/Writes result in Error-level StubRead/StubWrites.
+/// THIS DEVICE SHOULD BE USED SPARINGLY AS A WAY TO MAKE FORWARD PROGRESS!
 #[derive(Debug)]
 pub struct Stub {
     label: String,
@@ -30,10 +32,10 @@ impl Device for Stub {
 
 impl Memory for Stub {
     fn r32(&mut self, _offset: u32) -> MemResult<u32> {
-        Err(StubRead(0x00))
+        Err(StubRead(Error, 0))
     }
 
     fn w32(&mut self, _offset: u32, _val: u32) -> MemResult<()> {
-        Err(StubWrite)
+        Err(StubWrite(Error))
     }
 }

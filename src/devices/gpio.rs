@@ -1,3 +1,5 @@
+use log::Level::*;
+
 use crate::devices::{Device, Probe};
 use crate::memory::{MemException::*, MemResult, Memory};
 
@@ -61,8 +63,8 @@ impl Memory for GpioPort {
             0x00 => Ok(self.enable as u32),
             0x10 => Ok(self.output_enable as u32),
             0x20 => Ok(self.output_val as u32),
-            0x30 => Err(StubRead(0x00)),
-            0x40 => Err(StubRead(0x00)),
+            0x30 => Err(StubRead(Warn, 0x00)),
+            0x40 => Err(StubRead(Warn, 0x00)),
             0x50 => Ok(self.interrupt_enable as u32),
             0x60 => Ok(self.interrupt_level as u32),
             0x70 => Err(InvalidAccess),

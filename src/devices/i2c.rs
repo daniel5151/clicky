@@ -1,3 +1,5 @@
+use log::Level::*;
+
 use crate::devices::{Device, Probe};
 use crate::memory::{MemException::*, MemResult, Memory};
 
@@ -42,12 +44,12 @@ impl Device for I2CCon {
 impl Memory for I2CCon {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
-            0x00c => Err(StubRead(0x00000000)),
-            0x100 => Err(StubRead(0x00000000)),
-            0x104 => Err(StubRead(0x00000000)),
-            0x120 => Err(StubRead(0x00000000)),
-            0x124 => Err(StubRead(0x00000000)),
-            0x140 => Err(StubRead(0x00000000)),
+            0x00c => Err(StubRead(Warn, 0x0000_0000)),
+            0x100 => Err(StubRead(Warn, 0x0000_0000)),
+            0x104 => Err(StubRead(Warn, 0x0000_0000)),
+            0x120 => Err(StubRead(Warn, 0x0000_0000)),
+            0x124 => Err(StubRead(Warn, 0x0000_0000)),
+            0x140 => Err(StubRead(Warn, 0x0000_0000)),
             _ => Err(Unexpected),
         }
     }
@@ -56,12 +58,12 @@ impl Memory for I2CCon {
         let _ = val;
 
         match offset {
-            0x00c => Err(StubWrite),
-            0x100 => Err(StubWrite),
-            0x104 => Err(StubWrite),
-            0x120 => Err(StubWrite),
-            0x124 => Err(StubWrite),
-            0x140 => Err(StubWrite),
+            0x00c => Err(StubWrite(Warn)),
+            0x100 => Err(StubWrite(Warn)),
+            0x104 => Err(StubWrite(Warn)),
+            0x120 => Err(StubWrite(Warn)),
+            0x124 => Err(StubWrite(Warn)),
+            0x140 => Err(StubWrite(Warn)),
             _ => Err(Unexpected),
         }
     }

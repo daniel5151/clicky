@@ -40,7 +40,7 @@ macro_rules! impl_memadapter_r {
                 Err(e) => {
                     let ret = match e {
                         // If it's a stubbed-read, pass through the stubbed value
-                        MemException::StubRead(v) => v as $ret,
+                        MemException::StubRead(_, v) => v as $ret,
                         MemException::ContractViolation {
                             stub_val: Some(v), ..
                         } => v as $ret,

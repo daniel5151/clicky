@@ -178,8 +178,8 @@ impl Ipod4g {
                     reason: mem_except,
                 })
             }
-            StubRead(_) => warn!("{} stubbed read ({})", ctx_str, access.val),
-            StubWrite => warn!("{} stubbed write ({})", ctx_str, access.val),
+            StubRead(level, _) => log!(level, "{} stubbed read ({})", ctx_str, access.val),
+            StubWrite(level) => log!(level, "{} stubbed write ({})", ctx_str, access.val),
             Misaligned => {
                 // FIXME: Misaligned access (i.e: Data Abort) should be a CPU exception.
                 return Err(FatalError::FatalMemException {

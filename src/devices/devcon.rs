@@ -1,3 +1,5 @@
+use log::Level::*;
+
 use crate::devices::{Device, Probe};
 use crate::memory::{MemException::*, MemResult, Memory};
 
@@ -50,19 +52,19 @@ impl Memory for DevCon {
         match offset {
             0x04 => {
                 self.reset[0] = val;
-                Err(StubWrite)
+                Err(StubWrite(Warn))
             }
             0x08 => {
                 self.reset[1] = val;
-                Err(StubWrite)
+                Err(StubWrite(Warn))
             }
             0x0c => {
                 self.enable[0] = val;
-                Err(StubWrite)
+                Err(StubWrite(Warn))
             }
             0x10 => {
                 self.enable[1] = val;
-                Err(StubWrite)
+                Err(StubWrite(Warn))
             }
             _ => Err(Unexpected),
         }

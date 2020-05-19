@@ -9,9 +9,9 @@ pub enum MemException {
     /// Memory location hasn't been implemented
     Unimplemented,
     /// Memory location is using a stubbed read implementation
-    StubRead(u32),
+    StubRead(log::Level, u32),
     /// Memory location is using a stubbed write implementation
-    StubWrite,
+    StubWrite(log::Level),
 
     // -- Guest Access Violations -- //
     /// Attempted to access a device at an invalid offset
