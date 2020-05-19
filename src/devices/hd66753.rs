@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::thread;
 
@@ -10,6 +11,7 @@ use crate::memory::{MemException::*, MemResult, Memory};
 
 const CGRAM_WIDTH: usize = 168;
 const CGRAM_HEIGHT: usize = 132;
+#[allow(dead_code)]
 const CGRAM_BYTES: usize = (CGRAM_WIDTH * CGRAM_HEIGHT) * 2 / 8; // 168 * 132 at 2bpp
 
 // While the Hd66753 contains 5544 bytes of RAM (just enough to render 168 x 132
@@ -51,8 +53,9 @@ impl Hd66753Renderer {
         width: usize,
         height: usize,
         cgram: Arc<RwLock<[u16; EMU_CGRAM_LEN]>>,
+        invert: Arc<AtomicBool>,
     ) -> Hd66753Renderer {
-        let _ = CGRAM_BYTES;
+        let width = width + 8; // HACK
 
         let (kill_tx, kill_rx) = chan::bounded(1);
 
@@ -76,21 +79,25 @@ impl Hd66753Renderer {
 
             while window.is_open() && kill_rx.is_empty() && !window.is_key_down(Key::Escape) {
                 let cgram = cgram.read().unwrap().clone(); // avoid holding a lock
+                let invert = invert.load(Ordering::Relaxed);
 
-                // Only translate the chunk of CGRAM corresponding to visible pixels (given by
-                // the connected display's width / height
+                // Only translate the chunk of CGRAM corresponding to visible pixels
+                // (as set by the connected display's width / height)
 
                 let cgram_window = cgram
                     .chunks_exact(EMU_CGRAM_WIDTH * 2 / 8 / 2)
                     .take(height)
-                    .flat_map(|row| row.iter().take(width * 2 / 8 / 2));
+                    .flat_map(|row| row.iter().take(width * 2 / 8 / 2).rev());
 
                 let new_buf = cgram_window.flat_map(|w| {
                     // every 16 bits = 8 pixels
-                    (0..8).map(move |i| {
+                    (0..8).rev().map(move |i| {
                         let idx = ((w >> (i * 2)) & 0b11) as usize;
-                        // TODO: invert-screen functionality
-                        PALETTE[3 - idx]
+                        if invert {
+                            PALETTE[idx]
+                        } else {
+                            PALETTE[3 - idx]
+                        }
                     })
                 });
 
@@ -137,6 +144,12 @@ struct InternalRegs {
     am: u8, // 2 bits
     lg: u8, // 2 bits
     rt: u8, // 3 bits
+    // Display Control (R07)
+    spt: bool,
+    gsh: u8, // 2 bits
+    gsl: u8, // 2 bits
+    rev: Arc<AtomicBool>,
+    d: bool,
     // RAM Write Data Mask (R10)
     wm: u16,
 }
@@ -176,15 +189,17 @@ impl std::fmt::Debug for Hd66753 {
 impl Hd66753 {
     pub fn new_hle(width: usize, height: usize) -> Hd66753 {
         let cgram = Arc::new(RwLock::new([0; EMU_CGRAM_LEN]));
+        let rev = Arc::new(AtomicBool::new(false));
 
         Hd66753 {
-            renderer: Hd66753Renderer::new(width, height, Arc::clone(&cgram)),
+            renderer: Hd66753Renderer::new(width, height, Arc::clone(&cgram), Arc::clone(&rev)),
             ir: 0,
             ac: 0,
             cgram,
             write_byte_latch: None,
             read_byte_latch: None,
             ireg: InternalRegs {
+                rev,
                 ..InternalRegs::default()
             },
         }
@@ -221,6 +236,15 @@ impl Hd66753 {
             }
             // Rotation
             0x06 => self.ireg.rt = val.get_bits(0..=2) as u8,
+            // Display Control
+            0x07 => {
+                self.ireg.spt = val.get_bit(8);
+                self.ireg.gsh = val.get_bits(4..=5) as u8;
+                self.ireg.gsl = val.get_bits(2..=3) as u8;
+                self.ireg.rev.store(val.get_bit(1), Ordering::Relaxed);
+                self.ireg.d = val.get_bit(0);
+                // TODO: expose more LCD config data to renderer
+            }
             // RAM Write Data Mask
             0x10 => self.ireg.wm = val,
             // RAM Address Set
@@ -292,7 +316,7 @@ impl Hd66753 {
             }
             x if x < 0x12 => {
                 return Err(ContractViolation {
-                    msg: format!("unimplemented: LCD command {}", x),
+                    msg: format!("unimplemented: LCD command {:#x?}", x),
                     severity: log::Level::Error,
                     stub_val: None,
                 })

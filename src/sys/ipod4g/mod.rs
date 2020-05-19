@@ -297,8 +297,13 @@ pub struct Ipod4gBus {
     pub gpio_ijkl: devices::GpioBlock,
     pub i2c: devices::I2CCon,
     pub ppcon: devices::PPCon,
-    pub mystery_irq_dev: devices::Stub, // ???
     pub devcon: devices::DevCon,
+
+    pub mystery_irq_con: devices::Stub,
+    pub mystery_lcd_con: devices::Stub,
+    // this mysterio GPIO _might_ actually be the result of address-mirroring of the GPIO block.
+    // This is a total guess, and is something I'll explore later if need be...
+    pub mystery_gpio: devices::Stub,
 }
 
 impl Ipod4gBus {
@@ -318,8 +323,11 @@ impl Ipod4gBus {
             gpio_ijkl: GpioBlock::new(["I", "J", "K", "L"]),
             i2c: I2CCon::new_hle(),
             ppcon: PPCon::new_hle(),
-            mystery_irq_dev: Stub::new("Mystery IRQ Device".into()),
             devcon: DevCon::new_hle(),
+
+            mystery_irq_con: Stub::new("Mystery IRQ Con?".into()),
+            mystery_lcd_con: Stub::new("Mystery LCD Con?".into()),
+            mystery_gpio: Stub::new("Mystery GPIO?".into()),
         }
     }
 }
@@ -382,14 +390,16 @@ mmap! {
     0x1000_0000..=0x11ff_ffff => sdram,
     0x4000_0000..=0x4001_7fff => fastram,
     0x6000_0000..=0x6000_0fff => cpuid,
-    0x6000_1010..=0x6000_1fff => mystery_irq_dev,
+    0x6000_1010..=0x6000_1fff => mystery_irq_con,
     0x6000_5000..=0x6000_5fff => timers,
     0x6000_6000..=0x6000_6fff => devcon,
     0x6000_7000..=0x6000_7fff => cpucon,
     0x6000_d000..=0x6000_d07f => gpio_abcd,
     0x6000_d080..=0x6000_d0ff => gpio_efgh,
     0x6000_d100..=0x6000_d17f => gpio_ijkl,
+    0x6000_d824..=0x6000_d827 => mystery_gpio,
     0x7000_0000..=0x7000_1fff => ppcon,
     0x7000_3000..=0x7000_3fff => hd66753,
+    0x7000_a010..=0x7000_a014 => mystery_lcd_con,
     0x7000_c000..=0x7000_cfff => i2c,
 }
