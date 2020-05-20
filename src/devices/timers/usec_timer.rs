@@ -24,7 +24,7 @@ impl Device for UsecTimer {
         "UsecTimer"
     }
 
-    fn probe(&self, offset: u32) -> Probe<'_> {
+    fn probe(&self, offset: u32) -> Probe {
         let reg = match offset {
             0x0 => "Val",
             _ => return Probe::Unmapped,

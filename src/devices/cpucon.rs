@@ -59,7 +59,7 @@ impl Device for CpuCon {
         "System Controller Block"
     }
 
-    fn probe(&self, offset: u32) -> Probe<'_> {
+    fn probe(&self, offset: u32) -> Probe {
         let reg = match offset {
             0x0 => "CPU Control",
             0x4 => "COP Control",

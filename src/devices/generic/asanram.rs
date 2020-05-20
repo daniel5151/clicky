@@ -81,7 +81,7 @@ impl Device for AsanRam {
         "AsanRam"
     }
 
-    fn probe(&self, offset: u32) -> Probe<'_> {
+    fn probe(&self, offset: u32) -> Probe {
         assert!((offset as usize) < self.mem.len());
 
         Probe::Register("<data>")

@@ -333,7 +333,7 @@ impl Device for Hd66753 {
         "HD 66753"
     }
 
-    fn probe(&self, offset: u32) -> Probe<'_> {
+    fn probe(&self, offset: u32) -> Probe {
         let reg = match offset {
             0x0 => "LCD Control",
             0x8 => "LCD Command",

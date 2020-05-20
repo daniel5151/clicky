@@ -7,11 +7,11 @@ use crate::memory::{MemException::*, MemResult, Memory};
 /// THIS DEVICE SHOULD BE USED SPARINGLY AS A WAY TO MAKE FORWARD PROGRESS!
 #[derive(Debug)]
 pub struct Stub {
-    label: String,
+    label: &'static str,
 }
 
 impl Stub {
-    pub fn new(label: String) -> Stub {
+    pub fn new(label: &'static str) -> Stub {
         Stub { label }
     }
 }
@@ -21,11 +21,11 @@ impl Device for Stub {
         "Stub"
     }
 
-    fn label(&self) -> Option<&str> {
+    fn label(&self) -> Option<&'static str> {
         Some(&self.label)
     }
 
-    fn probe(&self, _offset: u32) -> Probe<'_> {
+    fn probe(&self, _offset: u32) -> Probe {
         Probe::Register("<stub>")
     }
 }

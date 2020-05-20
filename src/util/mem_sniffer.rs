@@ -40,11 +40,11 @@ impl<'a, M: Device, F: FnMut(MemAccess)> Device for MemSniffer<'a, M, F> {
         self.mem.kind()
     }
 
-    fn label(&self) -> Option<&str> {
+    fn label(&self) -> Option<&'static str> {
         self.mem.label()
     }
 
-    fn probe(&self, offset: u32) -> Probe<'_> {
+    fn probe(&self, offset: u32) -> Probe {
         self.mem.probe(offset)
     }
 }

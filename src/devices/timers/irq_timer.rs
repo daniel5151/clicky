@@ -164,11 +164,11 @@ impl<I: Interrupt> Device for IrqTimer<I> {
         "IrqTimer"
     }
 
-    fn label(&self) -> Option<&str> {
+    fn label(&self) -> Option<&'static str> {
         Some(self.label)
     }
 
-    fn probe(&self, offset: u32) -> Probe<'_> {
+    fn probe(&self, offset: u32) -> Probe {
         let reg = match offset {
             0x00 => "Config",
             0x04 => "Value",

@@ -20,7 +20,7 @@ impl Device for I2CCon {
         "I2CCon"
     }
 
-    fn probe(&self, offset: u32) -> Probe<'_> {
+    fn probe(&self, offset: u32) -> Probe {
         let reg = match offset {
             0x000 => "Control",
             0x004 => "Addr",

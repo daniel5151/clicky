@@ -4,30 +4,30 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use crate::devices::{Device, Probe};
 use crate::memory::{MemResult, Memory};
 
-/// Wrapper around Arc<Mutex<impl Device + Memory>>
+/// Wrapper around Arc<Mutex<_>> which implements the `Device` and `Memory`
+/// traits without having to explicity deref + lock the underlying device.
 #[derive(Debug)]
 pub struct ArcMutexDevice<D> {
-    label: Option<String>,
-    pub device: Arc<Mutex<D>>,
+    device: Arc<Mutex<D>>,
 }
 
 impl<D> Clone for ArcMutexDevice<D> {
     fn clone(&self) -> Self {
         ArcMutexDevice {
-            label: self.label.clone(),
             device: Arc::clone(&self.device),
         }
     }
 }
 
-impl<D: Device> ArcMutexDevice<D> {
+impl<D> ArcMutexDevice<D> {
+    /// Wrap the provided device in an Arc<Mutex<_>>
     pub fn new(device: D) -> ArcMutexDevice<D> {
         ArcMutexDevice {
-            label: device.label().map(|s| s.to_owned()),
             device: Arc::new(Mutex::new(device)),
         }
     }
 
+    /// Lock the underlying device
     pub fn lock(&self) -> Result<MutexGuard<'_, D>, PoisonError<MutexGuard<'_, D>>> {
         self.device.lock()
     }
@@ -38,12 +38,12 @@ impl<D: Device> Device for ArcMutexDevice<D> {
         self.device.lock().unwrap().kind()
     }
 
-    fn label(&self) -> Option<&str> {
-        self.label.as_ref().map(|s| s.as_str())
+    fn label(&self) -> Option<&'static str> {
+        self.device.lock().unwrap().label()
     }
 
-    fn probe(&self, _offset: u32) -> Probe<'_> {
-        Probe::Register("unimplemented")
+    fn probe(&self, offset: u32) -> Probe {
+        Probe::from_device(&*self.device.lock().unwrap(), offset)
     }
 }
 

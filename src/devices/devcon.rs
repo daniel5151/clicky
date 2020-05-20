@@ -24,7 +24,7 @@ impl Device for DevCon {
         "DevCon"
     }
 
-    fn probe(&self, offset: u32) -> Probe<'_> {
+    fn probe(&self, offset: u32) -> Probe {
         let reg = match offset {
             0x04 => "Device Reset 1",
             0x08 => "Device Reset 2",

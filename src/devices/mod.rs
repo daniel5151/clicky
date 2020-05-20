@@ -25,12 +25,12 @@ pub trait Device {
 
     /// A descriptive label for a particular instance of the device
     /// (if applicable).
-    fn label(&self) -> Option<&str> {
+    fn label(&self) -> Option<&'static str> {
         None
     }
 
     /// Query what devices exist at a particular memory offset.
-    fn probe(&self, offset: u32) -> Probe<'_>;
+    fn probe(&self, offset: u32) -> Probe;
 }
 
 macro_rules! impl_devfwd {
@@ -40,11 +40,11 @@ macro_rules! impl_devfwd {
                 (**self).kind()
             }
 
-            fn label(&self) -> Option<&str> {
+            fn label(&self) -> Option<&'static str> {
                 (**self).label()
             }
 
-            fn probe(&self, offset: u32) -> Probe<'_> {
+            fn probe(&self, offset: u32) -> Probe {
                 (**self).probe(offset)
             }
         }
@@ -56,35 +56,37 @@ impl_devfwd!(&dyn Device);
 impl_devfwd!(&mut dyn Device);
 
 /// A link in a chain of devices corresponding to a particular memory offset.
-pub enum Probe<'a> {
+pub enum Probe {
     /// Branch node representing a device.
     Device {
-        device: &'a dyn Device,
-        next: Box<Probe<'a>>,
+        kind: &'static str,
+        label: Option<&'static str>,
+        next: Box<Probe>,
     },
     /// Leaf node representing a register.
-    Register(&'a str),
+    Register(&'static str),
     /// Unmapped memory.
     Unmapped,
 }
 
-impl<'a> Probe<'a> {
+impl Probe {
     // Convenience method to construct a `Probe::Device`
-    pub fn from_device(device: &'a dyn Device, offset: u32) -> Probe<'a> {
+    pub fn from_device(device: &impl Device, offset: u32) -> Probe {
         Probe::Device {
-            device,
+            kind: device.kind(),
+            label: device.label(),
             next: Box::new(device.probe(offset)),
         }
     }
 }
 
-impl<'a> std::fmt::Display for Probe<'a> {
+impl std::fmt::Display for Probe {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self {
-            Probe::Device { device, next } => {
-                match device.label() {
-                    Some(label) => write!(f, "{}:{}", device.kind(), label)?,
-                    None => write!(f, "{}", device.kind())?,
+            Probe::Device { kind, label, next } => {
+                match label {
+                    Some(label) => write!(f, "{}:{}", kind, label)?,
+                    None => write!(f, "{}", kind)?,
                 };
 
                 match &**next {

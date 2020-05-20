@@ -38,7 +38,7 @@ impl<I: Interrupt> Device for Timers<I> {
         "Timers"
     }
 
-    fn probe(&self, offset: u32) -> Probe<'_> {
+    fn probe(&self, offset: u32) -> Probe {
         match offset {
             0x00..=0x07 => Probe::from_device(&self.timer1, offset),
             0x08..=0x0f => Probe::from_device(&self.timer2, offset - 0x8),

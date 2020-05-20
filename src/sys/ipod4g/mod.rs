@@ -1,5 +1,4 @@
 use std::io::{Read, Seek, SeekFrom};
-use std::sync::Arc;
 
 use armv4t_emu::{reg, Cpu, Mode as ArmMode};
 use crossbeam_channel as chan;

@@ -39,11 +39,11 @@ impl Device for GpioPort {
         "GPIO Port"
     }
 
-    fn label(&self) -> Option<&str> {
+    fn label(&self) -> Option<&'static str> {
         Some(&self.label)
     }
 
-    fn probe(&self, offset: u32) -> Probe<'_> {
+    fn probe(&self, offset: u32) -> Probe {
         let reg = match offset {
             0x00 => "Enable",
             0x10 => "OutputEnable",
@@ -131,7 +131,7 @@ impl Device for GpioBlock {
         "4xGPIO Port Block"
     }
 
-    fn probe(&self, offset: u32) -> Probe<'_> {
+    fn probe(&self, offset: u32) -> Probe {
         let port = (offset / 4) % 4;
         Probe::from_device(&self.port[port as usize], offset - 4 * port)
     }
@@ -169,10 +169,11 @@ impl Device for GpioBlockAtomicMirror {
         "GPIO Port Atomic-Access Mirror"
     }
 
-    fn probe(&self, _offset: u32) -> Probe<'_> {
+    fn probe(&self, offset: u32) -> Probe {
+        let block = self.block.lock().unwrap();
         // XXX: There doesn't seem to be a good way to implement this using the current
         // probe system...
-        Probe::Register("<mirrored GPIO Port>")
+        Probe::from_device(&*block, offset)
     }
 }
 

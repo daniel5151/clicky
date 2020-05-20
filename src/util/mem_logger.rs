@@ -21,10 +21,7 @@ macro_rules! impl_memlogger_r {
             let val = (self.0).$fn(offset)?;
             info!(
                 "[{}] {}",
-                Probe::Device {
-                    device: self,
-                    next: Box::new(self.probe(offset))
-                },
+                Probe::from_device(self, offset),
                 val.to_memaccess(offset, MemAccessKind::Read)
             );
             Ok(val)
@@ -37,10 +34,7 @@ macro_rules! impl_memlogger_w {
         fn $fn(&mut self, offset: u32, val: $val) -> MemResult<()> {
             info!(
                 "[{}] {}",
-                Probe::Device {
-                    device: self,
-                    next: Box::new(self.probe(offset))
-                },
+                Probe::from_device(self, offset),
                 val.to_memaccess(offset, MemAccessKind::Write)
             );
             (self.0).$fn(offset, val)?;
@@ -54,11 +48,11 @@ impl<M: Device> Device for MemLogger<M> {
         self.0.kind()
     }
 
-    fn label(&self) -> Option<&str> {
+    fn label(&self) -> Option<&'static str> {
         self.0.label()
     }
 
-    fn probe(&self, offset: u32) -> Probe<'_> {
+    fn probe(&self, offset: u32) -> Probe {
         self.0.probe(offset)
     }
 }

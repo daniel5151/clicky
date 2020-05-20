@@ -30,7 +30,7 @@ impl Device for CpuId {
         "CPU ID"
     }
 
-    fn probe(&self, offset: u32) -> Probe<'_> {
+    fn probe(&self, offset: u32) -> Probe {
         let reg = match offset {
             0x0 => "CPU ID",
             _ => return Probe::Unmapped,

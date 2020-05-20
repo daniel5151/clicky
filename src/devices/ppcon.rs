@@ -26,7 +26,7 @@ impl Device for PPCon {
         "PP Controller (?)"
     }
 
-    fn probe(&self, offset: u32) -> Probe<'_> {
+    fn probe(&self, offset: u32) -> Probe {
         let reg = match offset {
             0x0 => "ID Reg 1",
             0x4 => "ID Reg 2",

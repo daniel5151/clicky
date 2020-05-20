@@ -17,7 +17,7 @@ impl Device for HLEFlash {
         "Flash Rom (HLE)"
     }
 
-    fn probe(&self, offset: u32) -> Probe<'_> {
+    fn probe(&self, offset: u32) -> Probe {
         let reg = match offset {
             0x2000 => "b\"gfCS\" on some iPod revisions",
             0x2084 => "hw revision magic number",

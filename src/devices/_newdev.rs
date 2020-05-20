@@ -16,7 +16,7 @@ impl Device for NewDevice {
         "NewDevice"
     }
 
-    fn probe(&self, offset: u32) -> Probe<'_> {
+    fn probe(&self, offset: u32) -> Probe {
         let reg = match offset {
             0x0 => "_",
             _ => return Probe::Unmapped,
