@@ -1,5 +1,7 @@
+use bit_field::BitField;
 use log::Level::*;
 
+use crate::devices::util::arcmutex::ArcMutexDevice;
 use crate::devices::{Device, Probe};
 use crate::memory::{MemException::*, MemResult, Memory};
 
@@ -77,13 +79,28 @@ impl Memory for GpioPort {
         let val = val as u8;
 
         match offset {
-            0x00 => Ok(self.enable = val),
-            0x10 => Ok(self.output_enable = val),
-            0x20 => Ok(self.output_val = val),
+            0x00 => {
+                self.enable = val;
+                Err(StubWrite(Warn))
+            }
+            0x10 => {
+                self.output_enable = val;
+                Err(StubWrite(Warn))
+            }
+            0x20 => {
+                self.output_val = val;
+                Err(StubWrite(Warn))
+            }
             0x30 => Err(InvalidAccess),
             0x40 => Err(InvalidAccess),
-            0x50 => Ok(self.interrupt_enable = val),
-            0x60 => Ok(self.interrupt_level = val),
+            0x50 => {
+                self.interrupt_enable = val;
+                Err(StubWrite(Warn))
+            }
+            0x60 => {
+                self.interrupt_level = val;
+                Err(StubWrite(Warn))
+            }
             0x70 => Err(Unimplemented),
             _ => Err(Unexpected),
         }
@@ -129,5 +146,61 @@ impl Memory for GpioBlock {
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         let port = (offset / 4) % 4;
         self.port[port as usize].w32(offset - 4 * port, val)
+    }
+}
+
+/// Standard GPIO addresses + 0x800 allow atomic port manipulation on PP502x.
+///
+/// Bits 8..15 of the written word define which bits are changed, bits 0..7
+/// define the value of those bits.
+#[derive(Debug)]
+pub struct GpioBlockAtomicMirror {
+    block: ArcMutexDevice<GpioBlock>,
+}
+
+impl GpioBlockAtomicMirror {
+    pub fn new(block: ArcMutexDevice<GpioBlock>) -> GpioBlockAtomicMirror {
+        GpioBlockAtomicMirror { block }
+    }
+}
+
+impl Device for GpioBlockAtomicMirror {
+    fn kind(&self) -> &'static str {
+        "GPIO Port Atomic-Access Mirror"
+    }
+
+    fn probe(&self, _offset: u32) -> Probe<'_> {
+        // XXX: There doesn't seem to be a good way to implement this using the current
+        // probe system...
+        Probe::Register("<mirrored GPIO Port>")
+    }
+}
+
+impl Memory for GpioBlockAtomicMirror {
+    fn r32(&mut self, offset: u32) -> MemResult<u32> {
+        match offset {
+            0x0..=0x7f => Err(InvalidAccess),
+            _ => Err(Unexpected),
+        }
+    }
+
+    fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
+        let mut block = self.block.lock().unwrap();
+
+        let mask = val.get_bits(8..=15) as u8;
+        let val = val.get_bits(0..=7) as u8;
+
+        match offset {
+            0x0..=0x7f => {
+                // XXX: the whole point is to do a _side effect free_ read + modify of the GPIO
+                // ports. Using r8 here technically breaks this invariant, though at the moment,
+                // this works fine (AFAIK GPIO reads are side-effect free). This might lead to a
+                // subtle bug if GPIO reads result in side-effects though...
+                let old_val = block.r8(offset)?;
+                block.w8(offset, (old_val & !mask) | (val & mask))?;
+                Ok(())
+            }
+            _ => Err(Unexpected),
+        }
     }
 }

@@ -13,6 +13,7 @@ pub mod hle_flash;
 pub mod i2c;
 pub mod ppcon;
 pub mod timers;
+pub mod util;
 
 /// Vocabulary type denoting a type which is sent over the interrupt bus
 pub trait Interrupt: 'static + Send + Copy {}

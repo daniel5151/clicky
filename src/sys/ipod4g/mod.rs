@@ -1,4 +1,5 @@
 use std::io::{Read, Seek, SeekFrom};
+use std::sync::Arc;
 
 use armv4t_emu::{reg, Cpu, Mode as ArmMode};
 use crossbeam_channel as chan;
@@ -23,13 +24,15 @@ mod devices {
     pub use dev::cpucon::CpuCon;
     pub use dev::cpuid::{self, CpuId};
     pub use dev::devcon::DevCon;
-    pub use dev::gpio::GpioBlock;
+    pub use dev::gpio::{GpioBlock, GpioBlockAtomicMirror};
     pub use dev::hd66753::Hd66753;
     pub use dev::hle_flash::HLEFlash;
     pub use dev::i2c::I2CCon;
     pub use dev::ppcon::PPCon;
     pub use dev::timers::Timers;
 }
+
+use crate::devices::util::arcmutex::ArcMutexDevice;
 
 // TODO: move interrupt enum to interrupt controller
 #[derive(Debug, Clone, Copy)]
@@ -292,23 +295,31 @@ pub struct Ipod4gBus {
     pub cpucon: devices::CpuCon,
     pub hd66753: devices::Hd66753,
     pub timers: devices::Timers<PP5020Irq>,
-    pub gpio_abcd: devices::GpioBlock,
-    pub gpio_efgh: devices::GpioBlock,
-    pub gpio_ijkl: devices::GpioBlock,
+    pub gpio_abcd: ArcMutexDevice<devices::GpioBlock>,
+    pub gpio_efgh: ArcMutexDevice<devices::GpioBlock>,
+    pub gpio_ijkl: ArcMutexDevice<devices::GpioBlock>,
+    pub gpio_mirror_abcd: devices::GpioBlockAtomicMirror,
+    pub gpio_mirror_efgh: devices::GpioBlockAtomicMirror,
+    pub gpio_mirror_ijkl: devices::GpioBlockAtomicMirror,
     pub i2c: devices::I2CCon,
     pub ppcon: devices::PPCon,
     pub devcon: devices::DevCon,
 
     pub mystery_irq_con: devices::Stub,
     pub mystery_lcd_con: devices::Stub,
-    // this mysterio GPIO _might_ actually be the result of address-mirroring of the GPIO block.
-    // This is a total guess, and is something I'll explore later if need be...
-    pub mystery_gpio: devices::Stub,
 }
 
 impl Ipod4gBus {
     #[allow(clippy::redundant_clone)] // Makes the code cleaner in this case
     fn new_hle(interrupt_bus: chan::Sender<(PP5020Irq, bool)>) -> Ipod4gBus {
+        let gpio_abcd = ArcMutexDevice::new(GpioBlock::new(["A", "B", "C", "D"]));
+        let gpio_efgh = ArcMutexDevice::new(GpioBlock::new(["E", "F", "G", "H"]));
+        let gpio_ijkl = ArcMutexDevice::new(GpioBlock::new(["I", "J", "K", "L"]));
+
+        let gpio_mirror_abcd = gpio_abcd.clone();
+        let gpio_mirror_efgh = gpio_efgh.clone();
+        let gpio_mirror_ijkl = gpio_ijkl.clone();
+
         use devices::*;
         Ipod4gBus {
             sdram: AsanRam::new(32 * 1024 * 1024), // 32 MB
@@ -318,16 +329,18 @@ impl Ipod4gBus {
             cpucon: CpuCon::new_hle(),
             hd66753: Hd66753::new_hle(160, 128),
             timers: Timers::new_hle(interrupt_bus, PP5020Irq::Timer1, PP5020Irq::Timer2),
-            gpio_abcd: GpioBlock::new(["A", "B", "C", "D"]),
-            gpio_efgh: GpioBlock::new(["E", "F", "G", "H"]),
-            gpio_ijkl: GpioBlock::new(["I", "J", "K", "L"]),
+            gpio_abcd,
+            gpio_efgh,
+            gpio_ijkl,
+            gpio_mirror_abcd: GpioBlockAtomicMirror::new(gpio_mirror_abcd),
+            gpio_mirror_efgh: GpioBlockAtomicMirror::new(gpio_mirror_efgh),
+            gpio_mirror_ijkl: GpioBlockAtomicMirror::new(gpio_mirror_ijkl),
             i2c: I2CCon::new_hle(),
             ppcon: PPCon::new_hle(),
             devcon: DevCon::new_hle(),
 
             mystery_irq_con: Stub::new("Mystery IRQ Con?".into()),
             mystery_lcd_con: Stub::new("Mystery LCD Con?".into()),
-            mystery_gpio: Stub::new("Mystery GPIO?".into()),
         }
     }
 }
@@ -362,12 +375,10 @@ macro_rules! mmap {
             }
 
             fn probe(&self, offset: u32) -> Probe {
+
                 match offset {
                     $($start..=$end => {
-                        Probe::Device {
-                            device: &self.$device,
-                            next: Box::new(self.$device.probe(offset - $start))
-                        }
+                        Probe::from_device(&self.$device, offset - $start)
                     })*
                     _ => Probe::Unmapped,
                 }
@@ -397,7 +408,9 @@ mmap! {
     0x6000_d000..=0x6000_d07f => gpio_abcd,
     0x6000_d080..=0x6000_d0ff => gpio_efgh,
     0x6000_d100..=0x6000_d17f => gpio_ijkl,
-    0x6000_d824..=0x6000_d827 => mystery_gpio,
+    0x6000_d800..=0x6000_d87f => gpio_mirror_abcd,
+    0x6000_d880..=0x6000_d8ff => gpio_mirror_efgh,
+    0x6000_d900..=0x6000_d97f => gpio_mirror_ijkl,
     0x7000_0000..=0x7000_1fff => ppcon,
     0x7000_3000..=0x7000_3fff => hd66753,
     0x7000_a010..=0x7000_a014 => mystery_lcd_con,
