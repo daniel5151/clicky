@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::{LockResult, Mutex, MutexGuard};
 
 use crate::devices::{Device, Probe};
 use crate::memory::{MemResult, Memory};
@@ -28,7 +28,7 @@ impl<D> ArcMutexDevice<D> {
     }
 
     /// Lock the underlying device
-    pub fn lock(&self) -> Result<MutexGuard<'_, D>, PoisonError<MutexGuard<'_, D>>> {
+    pub fn lock(&self) -> LockResult<MutexGuard<D>> {
         self.device.lock()
     }
 }
