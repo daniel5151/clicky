@@ -1,0 +1,8 @@
+*.o
+loader
+loader.bin
+loader.objdump
+make_fw
+
+*.bin
+*.elf

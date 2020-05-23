@@ -7,9 +7,9 @@
 CROSS    ?= arm-none-eabi-
 CC        = $(CROSS)gcc
 LD        = $(CROSS)ld
-MYCFLAGS  = -g -Wall -std=gnu99 -ffreestanding -nostdinc -fomit-frame-pointer -DVERSION=\"0\"
+MYCFLAGS  = -g -Og -Wall -std=gnu99 -ffreestanding -nostdinc -fomit-frame-pointer -DVERSION=\"0\"
 # -DDEBUG
-MYCPPFLAGS= -g -Wall -nostdinc -fomit-frame-pointer -mstructure-size-boundary=8
+MYCPPFLAGS= -g -Og -Wall -nostdinc -fomit-frame-pointer -mstructure-size-boundary=8
 MYLDFLAGS = -Tarm_elf_40.x `$(CC) -print-libgcc-file-name`
 OBJCOPY   = $(CROSS)objcopy
 
