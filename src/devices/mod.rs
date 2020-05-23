@@ -12,6 +12,7 @@ pub mod gpio;
 pub mod hd66753;
 pub mod hle_flash;
 pub mod i2c;
+pub mod intcon;
 pub mod ppcon;
 pub mod timers;
 pub mod util;

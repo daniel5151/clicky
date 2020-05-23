@@ -101,7 +101,7 @@ impl Memory for GpioPort {
                 self.interrupt_level = val;
                 Err(StubWrite(Warn))
             }
-            0x70 => Err(Unimplemented),
+            0x70 => Err(StubWrite(Warn)),
             _ => Err(Unexpected),
         }
     }

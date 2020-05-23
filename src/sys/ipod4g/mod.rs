@@ -27,6 +27,7 @@ mod devices {
     pub use dev::hd66753::Hd66753;
     pub use dev::hle_flash::HLEFlash;
     pub use dev::i2c::I2CCon;
+    pub use dev::intcon::IntCon;
     pub use dev::ppcon::PPCon;
     pub use dev::timers::Timers;
 }
@@ -45,7 +46,7 @@ impl Interrupt for PP5020Irq {}
 #[derive(Debug)]
 pub struct MemExceptionCtx {
     pc: u32,
-    addr: u32,
+    access: MemAccess,
     in_device: String,
 }
 
@@ -163,13 +164,13 @@ impl Ipod4g {
 
         let ctx = MemExceptionCtx {
             pc,
-            addr: access.offset,
+            access,
             in_device: in_mem_space_of,
         };
 
         let ctx_str = format!(
             "[pc {:#010x?}][addr {:#010x?}][{}]",
-            ctx.pc, ctx.addr, ctx.in_device
+            ctx.pc, access.offset, ctx.in_device
         );
 
         use MemException::*;
@@ -303,6 +304,8 @@ pub struct Ipod4gBus {
     pub i2c: devices::I2CCon,
     pub ppcon: devices::PPCon,
     pub devcon: devices::DevCon,
+    pub intcon_lo: devices::IntCon,
+    pub intcon_hi: devices::IntCon,
 
     pub mystery_irq_con: devices::Stub,
     pub mystery_lcd_con: devices::Stub,
@@ -337,6 +340,8 @@ impl Ipod4gBus {
             i2c: I2CCon::new_hle(),
             ppcon: PPCon::new_hle(),
             devcon: DevCon::new_hle(),
+            intcon_lo: IntCon::new_hle("lo"),
+            intcon_hi: IntCon::new_hle("hi"),
 
             mystery_irq_con: Stub::new("Mystery IRQ Con?"),
             mystery_lcd_con: Stub::new("Mystery LCD Con?"),
@@ -401,6 +406,8 @@ mmap! {
     0x4000_0000..=0x4001_7fff => fastram,
     0x6000_0000..=0x6000_0fff => cpuid,
     0x6000_1010..=0x6000_1fff => mystery_irq_con,
+    0x6000_4000..=0x6000_40ff => intcon_lo,
+    0x6000_4100..=0x6000_41ff => intcon_hi,
     0x6000_5000..=0x6000_5fff => timers,
     0x6000_6000..=0x6000_6fff => devcon,
     0x6000_7000..=0x6000_7fff => cpucon,

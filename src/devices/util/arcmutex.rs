@@ -43,7 +43,7 @@ impl<D: Device> Device for ArcMutexDevice<D> {
     }
 
     fn probe(&self, offset: u32) -> Probe {
-        Probe::from_device(&*self.device.lock().unwrap(), offset)
+        self.device.lock().unwrap().probe(offset)
     }
 }
 

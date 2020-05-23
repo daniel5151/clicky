@@ -1,3 +1,5 @@
+use log::Level::*;
+
 use crate::devices::{Device, Probe};
 use crate::memory::{MemException::*, MemResult, Memory};
 
@@ -29,7 +31,7 @@ impl Device for NewDevice {
 impl Memory for NewDevice {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
-            0x0 => Err(Unimplemented),
+            0x0 => Err(StubRead(Warn, 0x00)),
             _ => Err(Unexpected),
         }
     }
