@@ -1,6 +1,7 @@
 #![allow(
-    clippy::unit_arg,  // Substantially reduces boilerplate
-    clippy::match_bool // can make things more clear at times
+    clippy::unit_arg,  // substantially reduces boilerplate
+    clippy::match_bool, // can make things more clear at times
+    clippy::new_without_default, // just adds more boilerplate
 )]
 
 pub mod cpucon;

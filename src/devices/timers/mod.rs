@@ -20,6 +20,7 @@ pub struct Timers<I: Interrupt> {
 }
 
 impl<I: Interrupt> Timers<I> {
+    #[allow(clippy::redundant_clone)]
     pub fn new_hle(
         interrupt_bus: chan::Sender<(I, bool)>,
         timer1int: I,

@@ -40,13 +40,11 @@ impl Memory for HLEFlash {
         }
     }
 
-    fn w32(&mut self, offset: u32, _val: u32) -> MemResult<()> {
-        match offset {
-            _ => Err(ContractViolation {
-                msg: "tried to write to Flash Rom".to_string(),
-                severity: log::Level::Warn,
-                stub_val: None,
-            }),
-        }
+    fn w32(&mut self, _offset: u32, _val: u32) -> MemResult<()> {
+        Err(ContractViolation {
+            msg: "tried to write to Flash Rom".to_string(),
+            severity: log::Level::Warn,
+            stub_val: None,
+        })
     }
 }

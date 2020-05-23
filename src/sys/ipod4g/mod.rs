@@ -95,7 +95,7 @@ impl Ipod4g {
             os_image.addr + os_image.entry_offset,
         );
         cpu.reg_set(ArmMode::User, reg::CPSR, 0xd3); // supervisor mode
-        let cop = cpu.clone();
+        let cop = cpu;
 
         // create the interrupt bus
         let (interrupt_bus_tx, interrupt_bus_rx) = chan::unbounded();
@@ -338,8 +338,8 @@ impl Ipod4gBus {
             ppcon: PPCon::new_hle(),
             devcon: DevCon::new_hle(),
 
-            mystery_irq_con: Stub::new("Mystery IRQ Con?".into()),
-            mystery_lcd_con: Stub::new("Mystery LCD Con?".into()),
+            mystery_irq_con: Stub::new("Mystery IRQ Con?"),
+            mystery_lcd_con: Stub::new("Mystery LCD Con?"),
         }
     }
 }

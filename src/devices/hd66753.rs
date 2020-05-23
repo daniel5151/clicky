@@ -78,7 +78,7 @@ impl Hd66753Renderer {
             window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
 
             while window.is_open() && kill_rx.is_empty() && !window.is_key_down(Key::Escape) {
-                let cgram = cgram.read().unwrap().clone(); // avoid holding a lock
+                let cgram = *cgram.read().unwrap(); // avoid holding a lock
                 let invert = invert.load(Ordering::Relaxed);
 
                 // Only translate the chunk of CGRAM corresponding to visible pixels
