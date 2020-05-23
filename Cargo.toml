@@ -16,3 +16,6 @@ pretty_env_logger = "0.3"
 structopt = "0.3"
 termion = "1.5"
 thiserror = "1.0"
+
+[profile.dev.package."*"]
+opt-level = 3
