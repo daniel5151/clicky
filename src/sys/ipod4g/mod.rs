@@ -23,6 +23,7 @@ mod devices {
     pub use dev::cpucon::CpuCon;
     pub use dev::cpuid::{self, CpuId};
     pub use dev::devcon::DevCon;
+    pub use dev::eide::EIDECon;
     pub use dev::gpio::{GpioBlock, GpioBlockAtomicMirror};
     pub use dev::hd66753::Hd66753;
     pub use dev::hle_flash::HLEFlash;
@@ -306,6 +307,7 @@ pub struct Ipod4gBus {
     pub devcon: devices::DevCon,
     pub intcon_lo: devices::IntCon,
     pub intcon_hi: devices::IntCon,
+    pub eidecon: devices::EIDECon,
 
     pub mystery_irq_con: devices::Stub,
     pub mystery_lcd_con: devices::Stub,
@@ -342,6 +344,7 @@ impl Ipod4gBus {
             devcon: DevCon::new_hle(),
             intcon_lo: IntCon::new_hle("lo"),
             intcon_hi: IntCon::new_hle("hi"),
+            eidecon: EIDECon::new_hle(),
 
             mystery_irq_con: Stub::new("Mystery IRQ Con?"),
             mystery_lcd_con: Stub::new("Mystery LCD Con?"),
@@ -421,4 +424,5 @@ mmap! {
     0x7000_3000..=0x7000_3fff => hd66753,
     0x7000_a010..=0x7000_a014 => mystery_lcd_con,
     0x7000_c000..=0x7000_cfff => i2c,
+    0xc300_0000..=0xc300_0fff => eidecon,
 }
