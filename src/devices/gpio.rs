@@ -79,29 +79,14 @@ impl Memory for GpioPort {
         let val = val as u8;
 
         match offset {
-            0x00 => {
-                self.enable = val;
-                Err(StubWrite(Warn))
-            }
-            0x10 => {
-                self.output_enable = val;
-                Err(StubWrite(Warn))
-            }
-            0x20 => {
-                self.output_val = val;
-                Err(StubWrite(Warn))
-            }
+            0x00 => Err(StubWrite(Warn, self.enable = val)),
+            0x10 => Err(StubWrite(Warn, self.output_enable = val)),
+            0x20 => Err(StubWrite(Warn, self.output_val = val)),
             0x30 => Err(InvalidAccess),
             0x40 => Err(InvalidAccess),
-            0x50 => {
-                self.interrupt_enable = val;
-                Err(StubWrite(Warn))
-            }
-            0x60 => {
-                self.interrupt_level = val;
-                Err(StubWrite(Warn))
-            }
-            0x70 => Err(StubWrite(Warn)),
+            0x50 => Err(StubWrite(Warn, self.interrupt_enable = val)),
+            0x60 => Err(StubWrite(Warn, self.interrupt_level = val)),
+            0x70 => Err(StubWrite(Warn, ())),
             _ => Err(Unexpected),
         }
     }

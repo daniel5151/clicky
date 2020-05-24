@@ -11,7 +11,7 @@ pub enum MemException {
     /// Memory location is using a stubbed read implementation
     StubRead(log::Level, u32),
     /// Memory location is using a stubbed write implementation
-    StubWrite(log::Level),
+    StubWrite(log::Level, ()),
 
     // -- Guest Access Violations -- //
     /// Attempted to access a device at an invalid offset

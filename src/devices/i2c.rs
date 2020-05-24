@@ -58,12 +58,12 @@ impl Memory for I2CCon {
         let _ = val;
 
         match offset {
-            0x00c => Err(StubWrite(Warn)),
-            0x100 => Err(StubWrite(Warn)),
-            0x104 => Err(StubWrite(Warn)),
-            0x120 => Err(StubWrite(Warn)),
-            0x124 => Err(StubWrite(Warn)),
-            0x140 => Err(StubWrite(Warn)),
+            0x00c => Err(StubWrite(Warn, ())),
+            0x100 => Err(StubWrite(Warn, ())),
+            0x104 => Err(StubWrite(Warn, ())),
+            0x120 => Err(StubWrite(Warn, ())),
+            0x124 => Err(StubWrite(Warn, ())),
+            0x140 => Err(StubWrite(Warn, ())),
             _ => Err(Unexpected),
         }
     }

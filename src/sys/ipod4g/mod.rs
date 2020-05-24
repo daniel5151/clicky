@@ -183,7 +183,7 @@ impl Ipod4g {
                 })
             }
             StubRead(level, _) => log!(level, "{} stubbed read ({})", ctx_str, access.val),
-            StubWrite(level) => log!(level, "{} stubbed write ({})", ctx_str, access.val),
+            StubWrite(level, ()) => log!(level, "{} stubbed write ({})", ctx_str, access.val),
             Misaligned => {
                 // FIXME: Misaligned access (i.e: Data Abort) should be a CPU exception.
                 return Err(FatalError::FatalMemException {

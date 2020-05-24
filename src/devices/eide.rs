@@ -106,14 +106,8 @@ impl Memory for EIDECon {
             0x014 => Ok(self.ide1_cfg.primary_timing[1] = val),
             0x018 => Ok(self.ide1_cfg.secondary_timing[0] = val),
             0x01c => Ok(self.ide1_cfg.secondary_timing[1] = val),
-            0x028 => {
-                self.ide0_cfg.config = val;
-                Err(StubWrite(Warn))
-            }
-            0x02c => {
-                self.ide1_cfg.config = val;
-                Err(StubWrite(Warn))
-            }
+            0x028 => Err(StubWrite(Warn, self.ide0_cfg.config = val)),
+            0x02c => Err(StubWrite(Warn, self.ide1_cfg.config = val)),
 
             0x1e0 => self.ide.write16(IdeReg::Data, val as u16),
             0x1e4 => self.ide.write(IdeReg::Features, val as u8),

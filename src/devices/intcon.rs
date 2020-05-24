@@ -121,14 +121,8 @@ impl Memory for IntCon {
             0x18 => Err(Unimplemented),
             0x1c => Err(Unimplemented),
             0x20 => Err(Unimplemented),
-            0x24 => {
-                self.cpu_int_enable = val;
-                Err(StubWrite(Warn))
-            }
-            0x28 => {
-                self.cpu_int_disable = val;
-                Err(StubWrite(Warn))
-            }
+            0x24 => Err(StubWrite(Warn, self.cpu_int_enable = val)),
+            0x28 => Err(StubWrite(Warn, self.cpu_int_disable = val)),
             0x2c => Err(Unimplemented),
             0x30 => Err(Unimplemented),
             0x34 => Err(Unimplemented),

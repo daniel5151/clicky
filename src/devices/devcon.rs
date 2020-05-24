@@ -50,22 +50,10 @@ impl Memory for DevCon {
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         match offset {
-            0x04 => {
-                self.reset[0] = val;
-                Err(StubWrite(Warn))
-            }
-            0x08 => {
-                self.reset[1] = val;
-                Err(StubWrite(Warn))
-            }
-            0x0c => {
-                self.enable[0] = val;
-                Err(StubWrite(Warn))
-            }
-            0x10 => {
-                self.enable[1] = val;
-                Err(StubWrite(Warn))
-            }
+            0x04 => Err(StubWrite(Warn, self.reset[0] = val)),
+            0x08 => Err(StubWrite(Warn, self.reset[1] = val)),
+            0x0c => Err(StubWrite(Warn, self.enable[0] = val)),
+            0x10 => Err(StubWrite(Warn, self.enable[1] = val)),
             _ => Err(Unexpected),
         }
     }

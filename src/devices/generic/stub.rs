@@ -36,6 +36,6 @@ impl Memory for Stub {
     }
 
     fn w32(&mut self, _offset: u32, _val: u32) -> MemResult<()> {
-        Err(StubWrite(Error))
+        Err(StubWrite(Error, ()))
     }
 }
