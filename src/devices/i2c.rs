@@ -6,12 +6,12 @@ use crate::memory::{MemException::*, MemResult, Memory};
 /// I2C Controller
 #[derive(Debug)]
 pub struct I2CCon {
-    // TODO
+    control: u32,
 }
 
 impl I2CCon {
     pub fn new_hle() -> I2CCon {
-        I2CCon {}
+        I2CCon { control: 0 }
     }
 }
 
@@ -44,21 +44,31 @@ impl Device for I2CCon {
 impl Memory for I2CCon {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
-            0x00c => Err(StubRead(Warn, 0x0000_0000)),
-            0x100 => Err(StubRead(Warn, 0x0000_0000)),
-            0x104 => Err(StubRead(Warn, 0x0000_0000)),
-            0x120 => Err(StubRead(Warn, 0x0000_0000)),
-            0x124 => Err(StubRead(Warn, 0x0000_0000)),
-            0x140 => Err(StubRead(Warn, 0x0000_0000)),
+            0x000 => Err(StubRead(Warn, self.control)),
+            0x004 => Err(StubRead(Warn, 0)),
+            0x00c => Err(StubRead(Warn, 0)),
+            0x010 => Err(StubRead(Warn, 0)),
+            0x014 => Err(StubRead(Warn, 0)),
+            0x018 => Err(StubRead(Warn, 0)),
+            0x01c => Err(StubRead(Warn, 0)),
+            0x100 => Err(StubRead(Warn, 0)),
+            0x104 => Err(StubRead(Warn, 0)),
+            0x120 => Err(StubRead(Warn, 0)),
+            0x124 => Err(StubRead(Warn, 0)),
+            0x140 => Err(StubRead(Warn, 0)),
             _ => Err(Unexpected),
         }
     }
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
-        let _ = val;
-
         match offset {
+            0x000 => Err(StubWrite(Warn, self.control = val)),
+            0x004 => Err(StubWrite(Warn, ())),
             0x00c => Err(StubWrite(Warn, ())),
+            0x010 => Err(StubWrite(Warn, ())),
+            0x014 => Err(StubWrite(Warn, ())),
+            0x018 => Err(StubWrite(Warn, ())),
+            0x01c => Err(StubWrite(Warn, ())),
             0x100 => Err(StubWrite(Warn, ())),
             0x104 => Err(StubWrite(Warn, ())),
             0x120 => Err(StubWrite(Warn, ())),
