@@ -1,7 +1,36 @@
+use std::convert::TryFrom;
+
 use bit_field::BitField;
 use log::Level::*;
+use num_enum::TryFromPrimitive;
 
+use crate::block::BlockDev;
 use crate::memory::{MemException::*, MemResult};
+
+/// IDE Device (either 0 or 1)
+#[derive(Debug)]
+pub enum IdeIdx {
+    IDE0,
+    IDE1,
+}
+
+impl From<bool> for IdeIdx {
+    fn from(b: bool) -> IdeIdx {
+        match b {
+            false => IdeIdx::IDE0,
+            true => IdeIdx::IDE1,
+        }
+    }
+}
+
+impl std::fmt::Display for IdeIdx {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        match self {
+            IdeIdx::IDE0 => write!(f, "IDE0"),
+            IdeIdx::IDE1 => write!(f, "IDE1"),
+        }
+    }
+}
 
 /// IDE Register to access.
 ///
@@ -31,7 +60,7 @@ pub enum IdeReg {
     Lba3,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct IdeRegs {
     data: u16,
     error: u8,
@@ -42,22 +71,36 @@ struct IdeRegs {
     lba2_cyl_hi: u8,
     lba3_dev_head: u8,
     status: u8,
-    command: u8,
-    dev_control: u8,
+
+    // Device Control
+    /// software reset
+    srst: bool,
+    /// irq enable
+    nein: bool,
+}
+
+#[derive(Debug, TryFromPrimitive)]
+#[repr(u8)]
+enum IdeCmd {
+    IdentifyDevice = 0xec,
+    ReadMultiple = 0xc4,
+    ReadSectors = 0x20,
+    ReadSectorsVerify = 0x21,
+    Standby = 0xe0,
 }
 
 #[derive(Debug)]
 struct IdeDrive {
+    eightbit: bool, // FIXME: I think this can be derived from reg.features...
     reg: IdeRegs,
-    // ...
+    blockdev: BlockDev,
 }
 
 /// Generic IDE Controller. Doesn't implement `Device` or `Memory` directly,
 /// leaving those details up to the platform-specific implementations.
 #[derive(Debug)]
 pub struct IdeController {
-    eightbit: bool,
-    selected_device: bool, // u1
+    selected_device: IdeIdx, // u1
     ide0: Option<IdeDrive>,
     ide1: Option<IdeDrive>,
 }
@@ -65,27 +108,75 @@ pub struct IdeController {
 impl IdeController {
     pub fn new() -> IdeController {
         IdeController {
-            eightbit: false,
-            selected_device: false,
+            selected_device: IdeIdx::IDE0,
             ide0: None,
             ide1: None,
         }
     }
 
+    pub fn attach(&mut self, drive: IdeIdx, blockdev: BlockDev) {
+        let ide = match drive {
+            IdeIdx::IDE0 => &mut self.ide0,
+            IdeIdx::IDE1 => &mut self.ide1,
+        };
+
+        *ide = Some(IdeDrive {
+            eightbit: false,
+            reg: IdeRegs::default(),
+            blockdev,
+        })
+    }
+
+    pub fn detach(&mut self, drive: IdeIdx) {
+        let ide = match drive {
+            IdeIdx::IDE0 => &mut self.ide0,
+            IdeIdx::IDE1 => &mut self.ide1,
+        };
+
+        *ide = None
+    }
+
     fn current_dev(&mut self) -> MemResult<&mut IdeDrive> {
         match self.selected_device {
-            false => self.ide0.as_mut(),
-            true => self.ide1.as_mut(),
+            IdeIdx::IDE0 => self.ide0.as_mut(),
+            IdeIdx::IDE1 => self.ide1.as_mut(),
         }
         // not a real error. The OS might just be probing for IDE devices.
         .ok_or(ContractViolation {
             msg: format!(
-                "tried to access IDE{} when no drive is connected",
-                self.selected_device as u8
+                "tried to access {} when no drive is connected",
+                self.selected_device
             ),
             severity: Info,
-            stub_val: None,
+            stub_val: Some(0xff), // OSDev Wiki recommends 0xff as "open bus" val
         })
+    }
+
+    fn exec_cmd(&mut self, cmd: u8) -> MemResult<()> {
+        let cmd = IdeCmd::try_from(cmd).map_err(|_| ContractViolation {
+            msg: format!("unknown IDE command: {:#04x?}", cmd),
+            severity: Error,
+            stub_val: None,
+        })?;
+
+        macro_rules! unimplemented_cmd {
+            () => {
+                Err(ContractViolation {
+                    msg: format!("unimplemented IDE command: {:?}", cmd),
+                    severity: Error,
+                    stub_val: None,
+                })
+            };
+        }
+
+        use IdeCmd::*;
+        match cmd {
+            IdentifyDevice => unimplemented_cmd!(),
+            ReadMultiple => unimplemented_cmd!(),
+            ReadSectors => unimplemented_cmd!(),
+            ReadSectorsVerify => unimplemented_cmd!(),
+            Standby => unimplemented_cmd!(),
+        }
     }
 
     /// Perform a 16-bit read from an IDE register.
@@ -95,7 +186,7 @@ impl IdeController {
     /// method will return the appropriate byte, albeit cast to a u16.
     pub fn read16(&mut self, reg: IdeReg) -> MemResult<u16> {
         match reg {
-            IdeReg::Data if !self.eightbit => {
+            IdeReg::Data if !self.current_dev()?.eightbit => {
                 // TODO
                 Err(Unimplemented)
             }
@@ -110,7 +201,7 @@ impl IdeController {
     /// method will return the appropriate byte, albeit cast to a u16.
     pub fn write16(&mut self, reg: IdeReg, val: u16) -> MemResult<()> {
         match reg {
-            IdeReg::Data if !self.eightbit => {
+            IdeReg::Data if !self.current_dev()?.eightbit => {
                 // TODO
                 Err(Unimplemented)
             }
@@ -149,7 +240,7 @@ impl IdeController {
         let ide = match reg {
             DeviceHead | Lba3 => {
                 // FIXME?: Actually strip-out reserved bits?
-                self.selected_device = val.get_bit(4); // DEV bit
+                self.selected_device = val.get_bit(4).into(); // DEV bit
                 let ide = self.current_dev()?;
                 return Ok(ide.reg.lba3_dev_head = val);
             }
@@ -164,8 +255,12 @@ impl IdeController {
             CylinderLo | Lba1 => Ok(ide.reg.lba1_cyl_lo = val),
             CylinderHi | Lba2 => Ok(ide.reg.lba2_cyl_hi = val),
             DeviceHead | Lba3 => unreachable!("should have been handled above"),
-            Command | Status => Err(Unimplemented),
-            DevControl | AltStatus => Err(Unimplemented),
+            Command | Status => self.exec_cmd(val),
+            DevControl | AltStatus => {
+                ide.reg.srst = val.get_bit(2);
+                ide.reg.nein = val.get_bit(1);
+                Ok(())
+            }
             DataLatch => Err(Unimplemented),
         }
     }

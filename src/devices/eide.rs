@@ -29,6 +29,10 @@ impl EIDECon {
             ide: IdeController::new(),
         }
     }
+
+    pub fn as_ide(&mut self) -> &mut IdeController {
+        &mut self.ide
+    }
 }
 
 impl Device for EIDECon {

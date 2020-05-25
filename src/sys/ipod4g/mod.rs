@@ -4,6 +4,7 @@ use armv4t_emu::{reg, Cpu, Mode as ArmMode};
 use crossbeam_channel as chan;
 use log::*;
 
+use crate::block::BlockDev;
 use crate::devices::{Device, Interrupt, Probe};
 use crate::memory::{
     armv4t_adaptor::{MemoryAdapter, MemoryAdapterException},
@@ -16,6 +17,8 @@ mod hle_bootloader;
 
 mod devices {
     use crate::devices as dev;
+
+    pub use dev::generic;
 
     pub use dev::generic::asanram::AsanRam;
     pub use dev::generic::stub::Stub;
@@ -78,7 +81,10 @@ pub struct Ipod4g {
 impl Ipod4g {
     /// Returns a new PP5020System using High Level Emulation (HLE) of the
     /// bootloader (i.e: without requiring a Flash dump).
-    pub fn new_hle(mut fw_file: impl Read + Seek) -> Result<Ipod4g, Box<dyn std::error::Error>> {
+    pub fn new_hle(
+        mut fw_file: impl Read + Seek,
+        hdd: BlockDev,
+    ) -> Result<Ipod4g, Box<dyn std::error::Error>> {
         let fw_info = firmware::FirmwareMeta::parse(&mut fw_file)?;
 
         println!("Parsed firmware meta: {:#x?}", fw_info);
@@ -111,6 +117,11 @@ impl Ipod4g {
         fw_file.read_exact(&mut os_image_data)?;
 
         bus.sdram.bulk_write(0, &os_image_data);
+
+        // connect HDD
+        bus.eidecon
+            .as_ide()
+            .attach(devices::generic::ide::IdeIdx::IDE0, hdd);
 
         // inject fake sysinfo into fastram.
         //

@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use log::*;
 use structopt::StructOpt;
 
+pub mod block;
 pub mod devices;
 pub mod memory;
 pub mod sys;
@@ -56,9 +57,12 @@ fn main() -> Result<(), Box<dyn StdError>> {
 
     let args = Args::from_args();
 
+    // TODO: properly expose HDD to CLI
+    let hdd = block::BlockDev::Null;
+
     // create the base system
     let file = fs::File::open(args.firmware)?;
-    let mut system = Ipod4g::new_hle(file)?;
+    let mut system = Ipod4g::new_hle(file, hdd)?;
 
     // check if a debugger should be connected at boot
     let debugger = match (args.gdb_fatal_err, args.gdbport) {
