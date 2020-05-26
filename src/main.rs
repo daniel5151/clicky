@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate static_assertions;
+
 use std::error::Error as StdError;
 use std::fs;
 use std::net::{TcpListener, TcpStream};
@@ -57,12 +60,12 @@ fn main() -> Result<(), Box<dyn StdError>> {
 
     let args = Args::from_args();
 
-    // TODO: properly expose HDD to CLI
-    let hdd = block::BlockDev::Null;
+    // TODO: properly expose HDD options to CLI
+    let hdd = block::backend::Null::new(1024 * 1024 * 1024); // 1GB
 
     // create the base system
     let file = fs::File::open(args.firmware)?;
-    let mut system = Ipod4g::new_hle(file, hdd)?;
+    let mut system = Ipod4g::new_hle(file, Box::new(hdd))?;
 
     // check if a debugger should be connected at boot
     let debugger = match (args.gdb_fatal_err, args.gdbport) {

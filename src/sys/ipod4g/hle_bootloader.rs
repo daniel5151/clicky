@@ -1,7 +1,7 @@
 /// Copied from ipodloader2 source
 #[allow(non_snake_case)]
-#[repr(C)]
-#[derive(Default)]
+#[repr(C, packed)]
+#[derive(Copy, Clone, Default)]
 pub struct sysinfo_t {
     pub IsyS: u32, /* == "IsyS" */
     pub len: u32,
@@ -43,11 +43,9 @@ pub struct sysinfo_t {
      * pub ModelNumStr: [u8; 16], */
 }
 
-impl sysinfo_t {
-    pub fn as_slice(&self) -> &[u8] {
-        // XXX: this will break on big-endian systems
-        unsafe {
-            std::slice::from_raw_parts(self as *const _ as *const u8, std::mem::size_of::<Self>())
-        }
-    }
-}
+// Safety:
+// - All of `hd_driveid`'s fields are of type `uX` and/or arrays of `uX`, which
+//   are Pod types themselves
+// - `hd_driveid` is repr(C, packed), ensuring no padding
+unsafe impl bytemuck::Zeroable for sysinfo_t {}
+unsafe impl bytemuck::Pod for sysinfo_t {}

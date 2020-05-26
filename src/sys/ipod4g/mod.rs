@@ -83,7 +83,7 @@ impl Ipod4g {
     /// bootloader (i.e: without requiring a Flash dump).
     pub fn new_hle(
         mut fw_file: impl Read + Seek,
-        hdd: BlockDev,
+        hdd: Box<dyn BlockDev>,
     ) -> Result<Ipod4g, Box<dyn std::error::Error>> {
         let fw_info = firmware::FirmwareMeta::parse(&mut fw_file)?;
 
@@ -145,13 +145,13 @@ impl Ipod4g {
         bus.w32(SYSINFO_PTR, SYSINFO_LOC).unwrap(); // pointer to sysinfo
         bus.fastram.bulk_write(
             SYSINFO_LOC - 0x4000_0000,
-            sysinfo_t {
+            // FIXME?: this will break on big-endian systems
+            bytemuck::bytes_of(&sysinfo_t {
                 IsyS: u32::from_le_bytes(*b"IsyS"),
                 len: 0x184,
                 boardHwSwInterfaceRev: 0x50000,
                 ..Default::default()
-            }
-            .as_slice(),
+            }),
         );
 
         Ok(Ipod4g {

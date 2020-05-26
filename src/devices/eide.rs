@@ -86,16 +86,16 @@ impl Memory for EIDECon {
             0x02c => Err(StubRead(Warn, self.ide1_cfg.config)),
 
             0x1e0 => self.ide.read16(IdeReg::Data).map(|v| v as u32),
-            0x1e4 => self.ide.read(IdeReg::Error).map(|v| v as u32),
-            0x1e8 => self.ide.read(IdeReg::SectorCount).map(|v| v as u32),
-            0x1ec => self.ide.read(IdeReg::SectorNo).map(|v| v as u32),
-            0x1f0 => self.ide.read(IdeReg::CylinderLo).map(|v| v as u32),
-            0x1f4 => self.ide.read(IdeReg::CylinderHi).map(|v| v as u32),
-            0x1f8 => self.ide.read(IdeReg::DeviceHead).map(|v| v as u32),
-            0x1fc => self.ide.read(IdeReg::Status).map(|v| v as u32),
+            0x1e4 => self.ide.read8(IdeReg::Error).map(|v| v as u32),
+            0x1e8 => self.ide.read8(IdeReg::SectorCount).map(|v| v as u32),
+            0x1ec => self.ide.read8(IdeReg::SectorNo).map(|v| v as u32),
+            0x1f0 => self.ide.read8(IdeReg::CylinderLo).map(|v| v as u32),
+            0x1f4 => self.ide.read8(IdeReg::CylinderHi).map(|v| v as u32),
+            0x1f8 => self.ide.read8(IdeReg::DeviceHead).map(|v| v as u32),
+            0x1fc => self.ide.read8(IdeReg::Status).map(|v| v as u32),
 
-            0x3f8 => self.ide.read(IdeReg::AltStatus).map(|v| v as u32),
-            0x3fc => self.ide.read(IdeReg::DataLatch).map(|v| v as u32),
+            0x3f8 => self.ide.read8(IdeReg::AltStatus).map(|v| v as u32),
+            0x3fc => self.ide.read8(IdeReg::DataLatch).map(|v| v as u32),
             _ => Err(Unexpected),
         }
     }
@@ -114,16 +114,16 @@ impl Memory for EIDECon {
             0x02c => Err(StubWrite(Warn, self.ide1_cfg.config = val)),
 
             0x1e0 => self.ide.write16(IdeReg::Data, val as u16),
-            0x1e4 => self.ide.write(IdeReg::Features, val as u8),
-            0x1e8 => self.ide.write(IdeReg::SectorCount, val as u8),
-            0x1ec => self.ide.write(IdeReg::SectorNo, val as u8),
-            0x1f0 => self.ide.write(IdeReg::CylinderLo, val as u8),
-            0x1f4 => self.ide.write(IdeReg::CylinderHi, val as u8),
-            0x1f8 => self.ide.write(IdeReg::DeviceHead, val as u8),
-            0x1fc => self.ide.write(IdeReg::Command, val as u8),
+            0x1e4 => self.ide.write8(IdeReg::Features, val as u8),
+            0x1e8 => self.ide.write8(IdeReg::SectorCount, val as u8),
+            0x1ec => self.ide.write8(IdeReg::SectorNo, val as u8),
+            0x1f0 => self.ide.write8(IdeReg::CylinderLo, val as u8),
+            0x1f4 => self.ide.write8(IdeReg::CylinderHi, val as u8),
+            0x1f8 => self.ide.write8(IdeReg::DeviceHead, val as u8),
+            0x1fc => self.ide.write8(IdeReg::Command, val as u8),
 
-            0x3f8 => self.ide.write(IdeReg::DevControl, val as u8),
-            0x3fc => self.ide.write(IdeReg::DataLatch, val as u8),
+            0x3f8 => self.ide.write8(IdeReg::DevControl, val as u8),
+            0x3fc => self.ide.write8(IdeReg::DataLatch, val as u8),
             _ => Err(Unexpected),
         }
     }
