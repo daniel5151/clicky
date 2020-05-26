@@ -1,12 +1,14 @@
 #[macro_use]
 extern crate static_assertions;
 
+#[macro_use]
+extern crate log;
+
 use std::error::Error as StdError;
 use std::fs;
 use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
 
-use log::*;
 use structopt::StructOpt;
 
 pub mod block;
@@ -53,8 +55,8 @@ fn new_tcp_gdbstub<T: gdbstub::Target>(
 
 fn main() -> Result<(), Box<dyn StdError>> {
     pretty_env_logger::formatted_builder()
-        .filter(None, LevelFilter::Debug)
-        .filter(Some("armv4t_emu"), LevelFilter::Debug)
+        .filter(None, log::LevelFilter::Debug)
+        .filter(Some("armv4t_emu"), log::LevelFilter::Debug)
         .parse_filters(&std::env::var("RUST_LOG").unwrap_or_default())
         .init();
 

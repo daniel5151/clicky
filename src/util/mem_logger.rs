@@ -1,5 +1,3 @@
-use log::*;
-
 use crate::devices::{Device, Probe};
 use crate::memory::{MemAccessKind, MemResult, Memory, ToMemAccess};
 

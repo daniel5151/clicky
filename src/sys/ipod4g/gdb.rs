@@ -1,6 +1,5 @@
 use armv4t_emu::reg;
 use gdbstub::{Access as GdbStubAccess, Target, TargetState};
-use log::*;
 
 use super::{BlockMode, FatalError, Ipod4g};
 use crate::memory::{MemAccess, MemAccessKind, MemAccessVal, Memory};
