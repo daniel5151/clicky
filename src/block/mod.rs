@@ -1,13 +1,10 @@
 use std::fmt::Debug;
 use std::io::{self, Read, Seek, Write};
 
-mod null;
-mod raw;
+pub mod backend;
+mod cfg;
 
-pub mod backend {
-    pub use super::null::Null;
-    pub use super::raw::Raw;
-}
+pub use cfg::BlockCfg;
 
 /// Abstraction over different Block Device backends.
 pub trait BlockDev: Debug + Read + Write + Seek {

@@ -51,14 +51,24 @@ make
 ../ipodloader/make_fw -v -g 4g -o ipodloader2_loop.bin -l ../loop.bin loader.bin
 ```
 
+### Creating a HDD image
+
+If you're on linux, you can run `mkipodhd_raw.sh` under the `scripts` directory to create a tiny (64 MiB) HDD image.
+
+As the project matures, I'll include additional scripts to install RockBox / iPodLinux onto the disk image.
+
 ### Running `clicky`
 
 Now that you have some iPod firmware images, you can finally run clicky:
 
 ```bash
-cargo run -- ./resources/ipodloader/ipodloader_loops_unopt.bin
-cargo run -- ./resources/ipodloader2/ipodloader2_loops.bin
+cargo run -- ./resources/ipodloader/ipodloader_loops_unopt.bin --hdd=null:1GiB
+cargo run -- ./resources/ipodloader2/ipodloader2_loops.bin --hdd=raw:file=ipodhd.img
 ```
+
+`ipodloader_loops_unopt.bin` should display an image of the iPodLinux Tux and then loop forever.
+
+`ipodloader2_loops.bin` is what's currently being worked on, and output fluctuates every other commit :)
 
 ## Dev Guide
 

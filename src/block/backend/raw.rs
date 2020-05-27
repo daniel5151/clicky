@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::{self, Read, Seek, Write};
 
-use super::BlockDev;
+use crate::block::BlockDev;
 
 /// Raw, file-backed block device. No fancy features, just raw 1:1 access to
 /// the underlying file's contents.

@@ -1,6 +1,6 @@
 use std::io::{self, Read, Seek, Write};
 
-use super::BlockDev;
+use crate::block::BlockDev;
 
 /// Null block device.
 #[derive(Debug)]

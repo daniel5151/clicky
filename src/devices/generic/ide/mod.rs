@@ -175,7 +175,7 @@ impl IdeDrive {
     ///
     /// Returns `None` when the drive is in CHS mode but the registers contain
     /// invalid cyl/head/sector vals.
-    fn get_blockdev_offset(&self) -> Option<u64> {
+    fn get_sector_offset(&self) -> Option<u64> {
         let offset = if self.reg.lba3_dev_head.get_bit(DEVHEAD::L) {
             (self.reg.lba3_dev_head.get_bits(DEVHEAD::HS) as u64) << 24
                 | (self.reg.lba2_cyl_hi as u64) << 16
@@ -313,7 +313,7 @@ impl IdeDrive {
             }
             ReadMultiple => unimplemented_cmd!(),
             ReadSectors | ReadSectorsNoRetry => {
-                let offset = match self.get_blockdev_offset() {
+                let offset = match self.get_sector_offset() {
                     Some(offset) => offset,
                     None => {
                         // XXX: actually set error bits
@@ -322,7 +322,7 @@ impl IdeDrive {
                 };
 
                 // Seek into the blockdev
-                if let Err(e) = self.blockdev.seek(io::SeekFrom::Start(offset)) {
+                if let Err(e) = self.blockdev.seek(io::SeekFrom::Start(offset * 512)) {
                     // XXX: actually set error bits
                     return Err(e)?;
                 }

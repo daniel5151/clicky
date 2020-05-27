@@ -75,6 +75,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08c48aae112d48ed9f069b33538ea9e3e90aa263cfa3d1c24309612b1f7472de"
 
 [[package]]
+name = "bytesize"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81a18687293a1546b67c246452202bbbf143d239cb43494cc163da14979082da"
+
+[[package]]
 name = "cast"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -129,8 +135,10 @@ dependencies = [
  "bit_field",
  "bytemuck",
  "byteorder",
+ "bytesize",
  "crossbeam-channel",
  "gdbstub",
+ "human-size",
  "log",
  "minifb",
  "num_enum",
@@ -254,6 +262,12 @@ checksum = "61565ff7aaace3525556587bd2dc31d4a07071957be715e63ce7b1eccf51a8f4"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "human-size"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f90b9d206a509fdc5034ea8ffb4d6ca080dd61883cfa222c480cfcba8c570368"
 
 [[package]]
 name = "humantime"

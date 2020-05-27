@@ -17,6 +17,7 @@ pub mod memory;
 pub mod sys;
 pub mod util;
 
+use crate::block::{BlockCfg, BlockDev};
 use crate::sys::ipod4g::Ipod4g;
 
 const SYSDUMP_FILENAME: &str = "sysdump.log";
@@ -30,6 +31,12 @@ struct Args {
     /// firmware file to load
     #[structopt(parse(from_os_str))]
     firmware: PathBuf,
+
+    /// HDD image to use
+    ///
+    /// At the moment, this should be `--hdd=raw:/path/to/ipodhd.img`
+    #[structopt(long)]
+    hdd: BlockCfg,
 
     /// spawn a gdb server listening on the specified port
     #[structopt(short)]
@@ -63,11 +70,17 @@ fn main() -> Result<(), Box<dyn StdError>> {
     let args = Args::from_args();
 
     // TODO: properly expose HDD options to CLI
-    let hdd = block::backend::Null::new(1024 * 1024 * 1024); // 1GB
+    let hdd: Box<dyn BlockDev> = match args.hdd {
+        BlockCfg::Null { len } => Box::new(block::backend::Null::new(len)),
+        BlockCfg::Raw { path } => {
+            let file = fs::File::open(path)?;
+            Box::new(block::backend::Raw::new(file))
+        }
+    };
 
     // create the base system
     let file = fs::File::open(args.firmware)?;
-    let mut system = Ipod4g::new_hle(file, Box::new(hdd))?;
+    let mut system = Ipod4g::new_hle(file, hdd)?;
 
     // check if a debugger should be connected at boot
     let debugger = match (args.gdb_fatal_err, args.gdbport) {
