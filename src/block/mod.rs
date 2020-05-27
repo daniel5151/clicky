@@ -1,3 +1,6 @@
+use std::fmt::Debug;
+use std::io::{self, Read, Seek, Write};
+
 mod null;
 mod raw;
 
@@ -7,7 +10,7 @@ pub mod backend {
 }
 
 /// Abstraction over different Block Device backends.
-pub trait BlockDev: std::fmt::Debug {
+pub trait BlockDev: Debug + Read + Write + Seek {
     /// Return the length (in bytes) of the underlying medium
-    fn len(&self) -> u64;
+    fn len(&self) -> io::Result<u64>;
 }

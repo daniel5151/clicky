@@ -29,3 +29,11 @@ pub enum MemException {
         stub_val: Option<u32>,
     },
 }
+
+// Maybe this should be a separate error type at some point, but this is fine
+// for now.
+impl From<std::io::Error> for MemException {
+    fn from(e: std::io::Error) -> MemException {
+        MemException::FatalError(e.to_string())
+    }
+}

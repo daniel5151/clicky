@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use std::io::{self, Read, Seek, Write};
 
 use bit_field::BitField;
 use log::Level::*;
@@ -6,6 +7,10 @@ use num_enum::TryFromPrimitive;
 
 use crate::block::BlockDev;
 use crate::memory::{MemException::*, MemResult};
+
+// TODO?: make num heads / num sectors configurable?
+const NUM_HEADS: usize = 16;
+const NUM_SECTORS: usize = 63;
 
 mod identify;
 
@@ -118,21 +123,23 @@ enum IdeCmd {
     IdentifyDevice = 0xec,
     ReadMultiple = 0xc4,
     ReadSectors = 0x20,
-    ReadSectorsVerify = 0x21,
+    ReadSectorsNoRetry = 0x21,
     Standby = 0xe0,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-enum IdeIoBufState {
-    Idle,
-    Read,
-    Write,
-}
-
+// TODO: provide a zero-copy constructor which uses the `Read` trait
 struct IdeIoBuf {
-    state: IdeIoBufState,
     buf: [u8; 512],
     idx: usize,
+}
+
+impl IdeIoBuf {
+    fn empty() -> IdeIoBuf {
+        IdeIoBuf {
+            buf: [0; 512],
+            idx: 0,
+        }
+    }
 }
 
 impl std::fmt::Debug for IdeIoBuf {
@@ -145,37 +152,103 @@ impl std::fmt::Debug for IdeIoBuf {
 }
 
 #[derive(Debug)]
+enum IdeDriveState {
+    Idle,
+    Read {
+        remaining_sectors: usize,
+        iobuf: IdeIoBuf,
+    },
+    Write,
+}
+
+#[derive(Debug)]
 struct IdeDrive {
+    state: IdeDriveState,
     eightbit: bool, // FIXME?: I think this can be derived from reg.features?
     reg: IdeRegs,
     blockdev: Box<dyn BlockDev>,
-    iobuf: IdeIoBuf,
 }
 
 impl IdeDrive {
+    /// Handles LBA/CHS offset translation, returning the offset into the
+    /// blockdev (in blocks, _not bytes_).
+    ///
+    /// Returns `None` when the drive is in CHS mode but the registers contain
+    /// invalid cyl/head/sector vals.
+    fn get_blockdev_offset(&self) -> Option<u64> {
+        let offset = if self.reg.lba3_dev_head.get_bit(DEVHEAD::L) {
+            (self.reg.lba3_dev_head.get_bits(DEVHEAD::HS) as u64) << 24
+                | (self.reg.lba2_cyl_hi as u64) << 16
+                | (self.reg.lba1_cyl_lo as u64) << 8
+                | (self.reg.lba0_sector_no as u64)
+        } else {
+            let sector = self.reg.lba0_sector_no as u64;
+            let cyl = ((self.reg.lba2_cyl_hi as u16) << 8 | (self.reg.lba1_cyl_lo as u16)) as u64;
+            let head = self.reg.lba3_dev_head.get_bits(DEVHEAD::HS) as u64;
+
+            // XXX: this should be pre-calculated, likely during the call to `attach()`
+            let total_cyls = self.blockdev.len().unwrap() / (NUM_HEADS * NUM_SECTORS * 512) as u64;
+
+            if sector < NUM_SECTORS as _ || cyl < total_cyls || head < NUM_HEADS as _ {
+                return None;
+            }
+
+            ((cyl * NUM_HEADS as u64 + head) * NUM_SECTORS as u64 + sector) as u64
+        };
+
+        Some(offset)
+    }
+
     fn data_read8(&mut self) -> MemResult<u8> {
-        if self.iobuf.state != IdeIoBufState::Read {
-            // FIXME: I _feel_ like there's a more "correct" way to handle this
-            return Err(FatalError(format!(
-                "tried to read data from IDE while {:?}",
-                self.iobuf.state
-            )));
+        let (remaining_sectors, iobuf) = match self.state {
+            IdeDriveState::Read {
+                ref mut remaining_sectors,
+                ref mut iobuf,
+            } => (remaining_sectors, iobuf),
+            _ => {
+                // FIXME: this should set some error bits
+                return Err(FatalError(format!(
+                    "cannot read data while drive is in an invalid state: {:?}",
+                    self.state
+                )));
+            }
+        };
+
+        // check if the next sector needs to be loaded first
+        if iobuf.idx >= 512 {
+            assert!(*remaining_sectors != 0);
+
+            (self.reg.status)
+                .set_bit(STATUS::DRQ, false)
+                .set_bit(STATUS::BSY, true);
+
+            iobuf.idx = 0;
+            if let Err(e) = self.blockdev.read_exact(&mut iobuf.buf) {
+                // XXX: actually set error bits
+                return Err(e)?;
+            }
+
+            (self.reg.status)
+                .set_bit(STATUS::DRQ, true)
+                .set_bit(STATUS::BSY, false);
+
+            // TODO: fire IRQ
         }
 
-        if self.iobuf.idx >= 512 {
-            // XXX: implement loading sectors
-            return Err(FatalError("loading sectors isn't implemented yet".into()));
-        }
+        let ret = iobuf.buf[iobuf.idx];
+        iobuf.idx += 1;
 
-        let ret = self.iobuf.buf[self.iobuf.idx];
-
-        self.iobuf.idx += 1;
-        if self.iobuf.idx >= 512 {
-            return Err(ContractViolation {
-                msg: "cannot read more than contents of iobuf yet".into(),
-                severity: Warn,
-                stub_val: Some(0x00),
-            });
+        // check if there are no more sectors remaining
+        if iobuf.idx >= 512 {
+            *remaining_sectors -= 1; // FIXME: this varies under `ReadMultiple`
+            if *remaining_sectors == 0 {
+                self.state = IdeDriveState::Idle;
+                (self.reg.status)
+                    .set_bit(STATUS::DRDY, true)
+                    .set_bit(STATUS::DRQ, false)
+                    .set_bit(STATUS::BSY, false);
+                // TODO: fire IRQ
+            }
         }
 
         Ok(ret)
@@ -207,12 +280,14 @@ impl IdeDrive {
         use IdeCmd::*;
         match cmd {
             IdentifyDevice => {
+                let len = self.blockdev.len()?;
+
                 // fill the iobuf with identification info
                 let drive_meta = identify::IdeDriveMeta {
-                    total_sectors: self.blockdev.len() / 512,
-                    cylinders: (self.blockdev.len() / (16 * 63 * 512)) as u16,
-                    heads: 16,   // ?
-                    sectors: 63, // ?
+                    total_sectors: len / 512,
+                    cylinders: (len / (NUM_HEADS * NUM_SECTORS * 512) as u64) as u16,
+                    heads: NUM_HEADS as u16,     // ?
+                    sectors: NUM_SECTORS as u16, // ?
                     // TODO: generate these strings from blockdev info
                     serial: b"serials_are_4_chumps",
                     fw_version: b"0",
@@ -221,11 +296,12 @@ impl IdeDrive {
 
                 // won't panic, since `hd_driveid` is statically asserted to be
                 // exactly 512 bytes long.
-                self.iobuf
-                    .buf
-                    .copy_from_slice(bytemuck::bytes_of(&drive_meta.to_hd_driveid()));
-                self.iobuf.idx = 0;
-                self.iobuf.state = IdeIoBufState::Read;
+                let mut iobuf = IdeIoBuf::empty();
+                (iobuf.buf).copy_from_slice(bytemuck::bytes_of(&drive_meta.to_hd_driveid()));
+                self.state = IdeDriveState::Read {
+                    remaining_sectors: 1,
+                    iobuf,
+                };
 
                 (self.reg.status)
                     .set_bit(STATUS::BSY, false)
@@ -236,15 +312,42 @@ impl IdeDrive {
                 Ok(())
             }
             ReadMultiple => unimplemented_cmd!(),
-            ReadSectors | ReadSectorsVerify => {
-                // TODO: actually seek lol
+            ReadSectors | ReadSectorsNoRetry => {
+                let offset = match self.get_blockdev_offset() {
+                    Some(offset) => offset,
+                    None => {
+                        // XXX: actually set error bits
+                        return Err(FatalError("invalid offset".into()));
+                    }
+                };
+
+                // Seek into the blockdev
+                if let Err(e) = self.blockdev.seek(io::SeekFrom::Start(offset)) {
+                    // XXX: actually set error bits
+                    return Err(e)?;
+                }
+
+                // Read the first sector from the blockdev
+                let mut iobuf = IdeIoBuf::empty();
+                if let Err(e) = self.blockdev.read_exact(&mut iobuf.buf) {
+                    // XXX: actually set error bits
+                    return Err(e)?;
+                }
+
+                self.state = IdeDriveState::Read {
+                    remaining_sectors: if self.reg.sector_count == 0 {
+                        256
+                    } else {
+                        self.reg.sector_count as usize
+                    },
+                    iobuf,
+                };
 
                 (self.reg.status)
                     .set_bit(STATUS::BSY, false)
-                    // "[ReadSectorsVerify] is identical to the READ SECTOR(S)
-                    // command, except that the DRQ bit is never set, and no
-                    // data is transferred to the host."
-                    .set_bit(STATUS::DRQ, cmd != ReadSectorsVerify);
+                    .set_bit(STATUS::DSC, true)
+                    .set_bit(STATUS::DRDY, true)
+                    .set_bit(STATUS::DRQ, true);
 
                 // TODO: fire interrupt
 
@@ -259,7 +362,7 @@ impl IdeDrive {
 /// those vary between platform-specific implementations.
 #[derive(Debug)]
 pub struct IdeController {
-    selected_device: IdeIdx, // u1
+    selected_device: IdeIdx,
     ide0: Option<IdeDrive>,
     ide1: Option<IdeDrive>,
 }
@@ -288,17 +391,13 @@ impl IdeController {
         };
 
         let new_drive = IdeDrive {
+            state: IdeDriveState::Idle,
             eightbit: false,
             reg: IdeRegs {
                 status: *0u8.set_bit(STATUS::DRDY, true),
                 ..IdeRegs::default()
             },
             blockdev,
-            iobuf: IdeIoBuf {
-                state: IdeIoBufState::Idle,
-                buf: [0; 512],
-                idx: 0,
-            },
         };
 
         *ide = Some(new_drive);
@@ -391,7 +490,7 @@ impl IdeController {
             DeviceHead | Lba3 => Ok(ide.reg.lba3_dev_head),
             Status | Command => {
                 // TODO: ack interrupt
-                Err(StubRead(Warn, ide.reg.status.into()))
+                Err(StubRead(Info, ide.reg.status.into()))
             }
             AltStatus | DevControl => Ok(ide.reg.status),
             DataLatch => Err(Unimplemented),
