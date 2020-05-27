@@ -54,7 +54,7 @@ pub struct MemExceptionCtx {
 }
 
 #[derive(Debug)]
-pub enum FatalError {
+pub enum SysError {
     FatalMemException {
         context: MemExceptionCtx,
         reason: MemException,
@@ -167,7 +167,7 @@ impl Ipod4g {
         cpu: &Cpu,
         mem: &impl Device,
         exception: MemoryAdapterException,
-    ) -> Result<(), FatalError> {
+    ) -> Result<(), SysError> {
         let MemoryAdapterException { access, mem_except } = exception;
 
         let pc = cpu.reg_get(ArmMode::User, reg::PC);
@@ -187,16 +187,23 @@ impl Ipod4g {
         use MemException::*;
         match mem_except {
             Unimplemented | Unexpected => {
-                return Err(FatalError::FatalMemException {
+                return Err(SysError::FatalMemException {
                     context: ctx,
                     reason: mem_except,
                 })
             }
             StubRead(level, _) => log!(level, "{} stubbed read ({})", ctx_str, access.val),
             StubWrite(level, ()) => log!(level, "{} stubbed write ({})", ctx_str, access.val),
+            FatalError(_) => {
+                return Err(SysError::FatalMemException {
+                    context: ctx,
+                    reason: mem_except,
+                })
+            }
+
             Misaligned => {
                 // FIXME: Misaligned access (i.e: Data Abort) should be a CPU exception.
-                return Err(FatalError::FatalMemException {
+                return Err(SysError::FatalMemException {
                     context: ctx,
                     reason: mem_except,
                 });
@@ -210,8 +217,10 @@ impl Ipod4g {
                 severity,
                 stub_val,
             } => {
+                // TODO: use config option to decide if Error-level ContractViolation should
+                // terminate execution
                 if severity == log::Level::Error {
-                    return Err(FatalError::FatalMemException {
+                    return Err(SysError::FatalMemException {
                         context: ctx,
                         reason: ContractViolation {
                             msg,
@@ -243,7 +252,7 @@ impl Ipod4g {
         &mut self,
         _log_memory_access: impl FnMut(MemAccess),
         _halt_block_mode: BlockMode,
-    ) -> Result<bool, FatalError> {
+    ) -> Result<bool, SysError> {
         if self.frozen {
             return Ok(true);
         }
@@ -278,7 +287,7 @@ impl Ipod4g {
     ///
     /// In HLE mode, a "graceful exit" is when the PC points into the
     /// bootloader's code.
-    pub fn run(&mut self) -> Result<(), FatalError> {
+    pub fn run(&mut self) -> Result<(), SysError> {
         while self.step(|_| (), BlockMode::Blocking)? {}
         Ok(())
     }

@@ -4,6 +4,7 @@ use std::thread;
 
 use bit_field::BitField;
 use crossbeam_channel as chan;
+use log::Level::*;
 use minifb::{Key, Window, WindowOptions};
 
 use crate::devices::{Device, Probe};
@@ -206,6 +207,15 @@ impl Hd66753 {
     }
 
     fn handle_data(&mut self, val: u16) -> MemResult<()> {
+        macro_rules! unimplemented_cmd {
+            () => {
+                return Err(FatalError(format!(
+                    "unimplemented: LCD command {:#x?}",
+                    self.ir
+                )));
+            };
+        }
+
         match self.ir {
             // Driver output control
             0x01 => {
@@ -214,6 +224,8 @@ impl Hd66753 {
                 self.ireg.nl = val.get_bits(0..=4) as u8;
                 // TODO?: use Driver Output control bits to control window size
             }
+            0x02 => unimplemented_cmd!(),
+            0x03 => unimplemented_cmd!(),
             // Contrast Control
             0x04 => {
                 self.ireg.vr = val.get_bits(8..=10) as u8;
@@ -228,8 +240,8 @@ impl Hd66753 {
 
                 if self.ireg.am == 0b11 {
                     return Err(ContractViolation {
-                        msg: "0b11 is an invalid LCD AM value".into(),
-                        severity: log::Level::Error,
+                        msg: "0b11 is an invalid LCD EntryMode:AM value".into(),
+                        severity: Error,
                         stub_val: None,
                     });
                 }
@@ -245,6 +257,22 @@ impl Hd66753 {
                 self.ireg.d = val.get_bit(0);
                 // TODO: expose more LCD config data to renderer
             }
+            // Cursor Control
+            0x08 => unimplemented_cmd!(),
+            // NOOP
+            0x09 => {}
+            // NOOP
+            0x0a => {}
+            // Horizontal Cursor Position
+            0x0b => unimplemented_cmd!(),
+            // Vertical Cursor Position
+            0x0c => unimplemented_cmd!(),
+            // 1st Screen Driving Position
+            0x0d => unimplemented_cmd!(),
+            // 1st Screen Driving Position
+            0x0e => unimplemented_cmd!(),
+            // NOTE: 0x0f isn't listed as a valid command.
+            // 0x0f => {},
             // RAM Write Data Mask
             0x10 => self.ireg.wm = val,
             // RAM Address Set
@@ -278,20 +306,13 @@ impl Hd66753 {
                 // increment the ac appropriately
                 let dx_ac = match self.ireg.am {
                     0b00 => 1,
-                    0b01 => {
-                        return Err(ContractViolation {
-                            msg: "unimplemented: vertical CGRAM write".into(),
-                            severity: log::Level::Error,
-                            stub_val: None,
-                        })
-                    }
+                    0b01 => return Err(FatalError("unimplemented: vertical CGRAM write".into())),
                     0b10 => {
-                        return Err(ContractViolation {
-                            msg: "unimplemented: two-word vertical CGRAM write".into(),
-                            severity: log::Level::Error,
-                            stub_val: None,
-                        })
+                        return Err(FatalError(
+                            "unimplemented: two-word vertical CGRAM write".into(),
+                        ))
                     }
+                    0b11 => return Err(FatalError("EntryMode:AM cannot be set to 0b11".into())),
                     _ => unreachable!(),
                 };
 
@@ -310,18 +331,14 @@ impl Hd66753 {
                     };
                 }
 
-                // log::debug!("new ac {:#06x?}", self.ac);
-
                 self.ac %= 0x1080;
             }
-            x if x < 0x12 => {
-                return Err(ContractViolation {
-                    msg: format!("unimplemented: LCD command {:#x?}", x),
-                    severity: log::Level::Error,
-                    stub_val: None,
-                })
+            invalid_cmd => {
+                return Err(FatalError(format!(
+                    "attempted to execute invalid LCD command {:#x?}",
+                    invalid_cmd
+                )))
             }
-            _ => unreachable!(),
         }
 
         Ok(())
@@ -374,14 +391,15 @@ impl Memory for Hd66753 {
 
         match offset {
             0x8 => {
-                if val > 0x12 {
+                self.ir = val;
+
+                if self.ir > 0x12 {
                     return Err(ContractViolation {
-                        msg: format!("Trying to set invalid LCD Command: {}", val),
-                        severity: log::Level::Error,
+                        msg: format!("set invalid LCD Command: {:#04x?}", val),
+                        severity: Error,
                         stub_val: None,
                     });
                 }
-                self.ir = val;
             }
             0x10 => self.handle_data(val)?,
             _ => return Err(Unexpected),

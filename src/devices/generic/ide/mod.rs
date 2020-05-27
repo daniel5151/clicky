@@ -156,20 +156,15 @@ impl IdeDrive {
     fn data_read8(&mut self) -> MemResult<u8> {
         if self.iobuf.state != IdeIoBufState::Read {
             // FIXME: I _feel_ like there's a more "correct" way to handle this
-            return Err(ContractViolation {
-                msg: format!("tried to read data from IDE while {:?}", self.iobuf.state),
-                severity: Error,
-                stub_val: None,
-            });
+            return Err(FatalError(format!(
+                "tried to read data from IDE while {:?}",
+                self.iobuf.state
+            )));
         }
 
         if self.iobuf.idx >= 512 {
             // XXX: implement loading sectors
-            return Err(ContractViolation {
-                msg: "loading sectors isn't implemented yet".into(),
-                severity: Error,
-                stub_val: None,
-            });
+            return Err(FatalError("loading sectors isn't implemented yet".into()));
         }
 
         let ret = self.iobuf.buf[self.iobuf.idx];
@@ -191,22 +186,16 @@ impl IdeDrive {
     }
 
     fn exec_cmd(&mut self, cmd: u8) -> MemResult<()> {
-        // TODO?: don't terminate execution on unsupported IDE command
-        // Failing fast is useful during development, but the spec _does_ have a
-        // well-specified behavior for unsupported commands...
+        // TODO?: handle unsupported IDE command according to ATA spec
         let cmd = IdeCmd::try_from(cmd).map_err(|_| ContractViolation {
             msg: format!("unknown IDE command: {:#04x?}", cmd),
-            severity: Error,
+            severity: Error, // TODO: this should be Warn, and IDE error bits should be set
             stub_val: None,
         })?;
 
         macro_rules! unimplemented_cmd {
             () => {
-                Err(ContractViolation {
-                    msg: format!("unimplemented IDE command: {:?}", cmd),
-                    severity: Error,
-                    stub_val: None,
-                })
+                return Err(FatalError(format!("unimplemented IDE command: {:?}", cmd)));
             };
         }
 
@@ -267,7 +256,7 @@ impl IdeDrive {
 }
 
 /// Generic IDE Controller. Doesn't implement `Device` or `Memory` directly, as
-/// thosevary between platform-specific implementations.
+/// those vary between platform-specific implementations.
 #[derive(Debug)]
 pub struct IdeController {
     selected_device: IdeIdx, // u1

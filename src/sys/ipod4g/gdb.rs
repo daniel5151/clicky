@@ -1,12 +1,12 @@
 use armv4t_emu::reg;
 use gdbstub::{Access as GdbStubAccess, Target, TargetState};
 
-use super::{BlockMode, FatalError, Ipod4g};
+use super::{BlockMode, Ipod4g, SysError};
 use crate::memory::{MemAccess, MemAccessKind, MemAccessVal, Memory};
 
 impl Target for Ipod4g {
     type Usize = u32;
-    type Error = FatalError;
+    type Error = SysError;
 
     fn target_description_xml() -> Option<&'static str> {
         Some(r#"<target version="1.0"><architecture>armv4t</architecture></target>"#)

@@ -2,6 +2,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use crossbeam_channel as chan;
+use log::Level::*;
 
 use crate::devices::{Device, Interrupt, Probe};
 use crate::memory::{MemException::*, MemResult, Memory};
@@ -139,7 +140,7 @@ impl<I: Interrupt> IrqTimer<I> {
                     None => {
                         return Err(ContractViolation {
                             msg: "Periodic mode enabled before setting a Load value".to_string(),
-                            severity: log::Level::Error,
+                            severity: Error,
                             stub_val: None,
                         })
                     }
@@ -188,8 +189,8 @@ impl<I: Interrupt> Memory for IrqTimer<I> {
                     Some(v) => v,
                     None => {
                         return Err(ContractViolation {
-                            msg: "Cannot read Load value before it's been set".into(),
-                            severity: log::Level::Error,
+                            msg: "cannot read Load value before it's been set".into(),
+                            severity: Error,
                             stub_val: None,
                         })
                     }
@@ -236,9 +237,8 @@ impl<I: Interrupt> Memory for IrqTimer<I> {
                             Some(v) => v,
                             None => {
                                 return Err(ContractViolation {
-                                    msg: "Periodic mode enabled before setting a Load value"
-                                        .to_string(),
-                                    severity: log::Level::Error,
+                                    msg: "Periodic mode enabled before setting a Load value".into(),
+                                    severity: Error,
                                     stub_val: None,
                                 })
                             }
