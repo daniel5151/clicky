@@ -53,9 +53,18 @@ make
 
 ### Creating a HDD image
 
-If you're on linux, you can run `mkipodhd_raw.sh` under the `scripts` directory to create a tiny (64 MiB) HDD image.
+To get up-and-running with a basic test image, run the following commands:
 
-As the project matures, I'll include additional scripts to install RockBox / iPodLinux onto the disk image.
+```bash
+./scripts/mkipodhd_raw.sh # creates an `ipodhd.img` raw disk image
+./scripts/add_ipodloader_cfg_to_rawhd.sh
+```
+
+The resulting disk image is only 64MiB in size. It's formatted using MBR, and has two partitions: the iPod firmware partition, and a FAT32 partition.
+
+Getting data onto the disk image is a bit finicky. On Linux, you can run `sudo mount -o loop,offset=$((12288 * 512)) ipodhd.img tmp/` to mount the FAT32 partition. The specific offset number corresponds to the location of the FAT32 partition in the disk image. The offset value is determined by running `fdisk -lu ipodhd.img`.
+
+Alternatively, you can use `mtools` to copy files/folders over without having to mount the image file. See the `add_ipodloader_cfg_to_rawhd.sh` script for an example of this.
 
 ### Running `clicky`
 
