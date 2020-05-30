@@ -31,6 +31,7 @@ mod devices {
     pub use dev::hle_flash::HLEFlash;
     pub use dev::i2c::I2CCon;
     pub use dev::intcon::IntCon;
+    pub use dev::memcon::{self, MemCon};
     pub use dev::ppcon::PPCon;
     pub use dev::timers::Timers;
 }
@@ -212,6 +213,12 @@ impl Ipod4g {
                 MemAccessKind::Read => error!("{} read from write-only register", ctx_str),
                 MemAccessKind::Write => error!("{} write to read-only register", ctx_str),
             },
+            MmuViolation => {
+                return Err(SysError::FatalMemException {
+                    context: ctx,
+                    reason: mem_except,
+                })
+            }
             ContractViolation {
                 msg,
                 severity,
@@ -259,6 +266,10 @@ impl Ipod4g {
 
         let run_cpu = self.devices.cpucon.is_cpu_running();
         let run_cop = self.devices.cpucon.is_cop_running();
+
+        // xxx: armv4t_emu doesn't currently expose any way to differentiate between
+        // instruction-fetch reads, and regular reads. Therefore, it's impossible to
+        // enforce MMU "execute" protection bits...
 
         if run_cpu {
             self.devices.cpuid.set_cpuid(devices::cpuid::CpuIdKind::Cpu);
@@ -327,6 +338,7 @@ pub struct Ipod4gBus {
     pub intcon_lo: devices::IntCon,
     pub intcon_hi: devices::IntCon,
     pub eidecon: devices::EIDECon,
+    pub memcon: devices::MemCon,
 
     pub mystery_irq_con: devices::Stub,
     pub mystery_lcd_con: devices::Stub,
@@ -364,6 +376,7 @@ impl Ipod4gBus {
             intcon_lo: IntCon::new_hle("lo"),
             intcon_hi: IntCon::new_hle("hi"),
             eidecon: EIDECon::new_hle(),
+            memcon: MemCon::new_hle(),
 
             mystery_irq_con: Stub::new("Mystery IRQ Con?"),
             mystery_lcd_con: Stub::new("Mystery LCD Con?"),
@@ -376,6 +389,11 @@ macro_rules! mmap {
         macro_rules! impl_mem_r {
             ($fn:ident, $ret:ty) => {
                 fn $fn(&mut self, addr: u32) -> MemResult<$ret> {
+                    let (addr, prot) = self.memcon.virt_to_phys(addr);
+                    if !prot.r {
+                        return Err(MemException::MmuViolation)
+                    }
+
                     match addr {
                         $($start..=$end => self.$device.$fn(addr - $start),)*
                         _ => Err(MemException::Unexpected),
@@ -387,6 +405,11 @@ macro_rules! mmap {
         macro_rules! impl_mem_w {
             ($fn:ident, $val:ty) => {
                 fn $fn(&mut self, addr: u32, val: $val) -> MemResult<()> {
+                    let (addr, prot) = self.memcon.virt_to_phys(addr);
+                    if !prot.w {
+                        return Err(MemException::MmuViolation)
+                    }
+
                     match addr {
                         $($start..=$end => self.$device.$fn(addr - $start, val),)*
                         _ => Err(MemException::Unexpected),
@@ -400,11 +423,11 @@ macro_rules! mmap {
                 "Ipod4g"
             }
 
-            fn probe(&self, offset: u32) -> Probe {
-
-                match offset {
+            fn probe(&self, addr: u32) -> Probe {
+                let (addr, _) = self.memcon.virt_to_phys(addr);
+                match addr {
                     $($start..=$end => {
-                        Probe::from_device(&self.$device, offset - $start)
+                        Probe::from_device(&self.$device, addr - $start)
                     })*
                     _ => Probe::Unmapped,
                 }
@@ -444,4 +467,5 @@ mmap! {
     0x7000_a010..=0x7000_a014 => mystery_lcd_con,
     0x7000_c000..=0x7000_cfff => i2c,
     0xc300_0000..=0xc300_0fff => eidecon,
+    0xf000_0000..=0xf000_ffff => memcon,
 }

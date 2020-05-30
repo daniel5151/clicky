@@ -20,6 +20,8 @@ pub enum MemException {
     Misaligned,
     /// Attempted to read a write-only register / write to a read-only register.
     InvalidAccess,
+    /// Tried at perform an invalid access on a MMU protected region
+    MmuViolation,
     /// Performed an unexpected action on the device.
     ///
     /// e.g: sending an invalid command byte to an IDE device.

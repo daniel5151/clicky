@@ -33,7 +33,7 @@ While the end-goal is to boot into Rockbox, iPodLinux, and Apple's RetailOS, `cl
 
 At the time of writing, `clicky` is (slowly but surely!) implementing the devices / features necessary to run `ipodloader2`, a third-party bootloader for the iPod. It is already capable of executing the original `ipodloader`.
 
-I've included the source of `ipodloader` and `ipodloader2` in-tree under `./resources/`, and fixed-up their makefiles / sources to compile under more recent gcc toolchains (namely: `gcc-arm-none-eabi`). Additionally, I've tweaked some compiler flags to disable optimizations + enable debug symbols, which should makes debugging a lot easier.
+I've included the source of `ipodloader` and `ipodloader2` in-tree under `./resources/`, and fixed-up their makefiles / sources to compile under more recent gcc toolchains (namely: `gcc-arm-none-eabi`). Additionally, I've tweaked some compiler flags to disable optimizations + enable debug symbols, which should make debugging a lot easier.
 
 On Debian/Ubuntu based distros, you can install the correct toolchain via `apt install gcc-arm-none-eabi`
 
@@ -60,7 +60,7 @@ To get up-and-running with a basic test image, run the following commands:
 ./scripts/add_ipodloader_cfg_to_rawhd.sh
 ```
 
-The resulting disk image is only 64MiB in size. It's formatted using MBR, and has two partitions: the iPod firmware partition, and a FAT32 partition.
+The resulting disk image is only 64MiB in size. It follows WinPod formatting (MBR), and has two partitions: the iPod firmware partition, and a FAT32 partition.
 
 Getting data onto the disk image is a bit finicky. On Linux, you can run `sudo mount -o loop,offset=$((12288 * 512)) ipodhd.img tmp/` to mount the FAT32 partition. The specific offset number corresponds to the location of the FAT32 partition in the disk image. The offset value is determined by running `fdisk -lu ipodhd.img`.
 
@@ -71,7 +71,7 @@ Alternatively, you can use `mtools` to copy files/folders over without having to
 Now that you have some iPod firmware images, you can finally run clicky:
 
 ```bash
-cargo run -- ./resources/ipodloader/ipodloader_loops_unopt.bin --hdd=null:1GiB
+cargo run -- ./resources/ipodloader/ipodloader_loops_unopt.bin --hdd=null:1GiB # doesn't require a hdd image
 cargo run -- ./resources/ipodloader2/ipodloader2_loops.bin --hdd=raw:file=ipodhd.img
 ```
 
@@ -83,7 +83,7 @@ cargo run -- ./resources/ipodloader2/ipodloader2_loops.bin --hdd=raw:file=ipodhd
 
 If you're interested in helping preserve a piece of iconic hardware from the early 2000s, you're more than welcome to lend a hand!
 
-**Disclaimer:** `clicky` is still in the "one man project" phase of development, where I push to master, and every third commit is re-architecting fundamental aspects of the emulator's framework. If you interested, I'd recommend holding opening a PR for a while. I expect things to stabilize sometime around Rockbox starts working okay (namely, i've come up with a good way of handling virtual memory + interrupts).
+**Disclaimer:** `clicky` is still in the "one man project" phase of development, where I push to master, and every third commit is re-architecting fundamental aspects of the emulator's framework. If you interested, I'd recommend holding opening a PR for a while. I expect things to stabilize sometime around Rockbox starts working okay (namely, once I implement the plumbing for virtual memory + interrupts).
 
 ### Diving in
 
