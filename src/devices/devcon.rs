@@ -47,7 +47,7 @@ impl Memory for DevCon {
             0x08 => Ok(self.reset[1]),
             0x0c => Ok(self.enable[0]),
             0x10 => Ok(self.enable[1]),
-            0xa4 => Err(StubRead(Warn, self.mystery_i2c as u32)),
+            0xa4 => Err(StubRead(Error, self.mystery_i2c as u32)),
             _ => Err(Unexpected),
         }
     }
@@ -56,9 +56,9 @@ impl Memory for DevCon {
         match offset {
             0x04 => Err(StubWrite(Warn, self.reset[0] = val)),
             0x08 => Err(StubWrite(Warn, self.reset[1] = val)),
-            0x0c => Err(StubWrite(Warn, self.enable[0] = val)),
-            0x10 => Err(StubWrite(Warn, self.enable[1] = val)),
-            0xa4 => Err(StubWrite(Warn, self.mystery_i2c = val as u8)),
+            0x0c => Err(StubWrite(Info, self.enable[0] = val)),
+            0x10 => Err(StubWrite(Info, self.enable[1] = val)),
+            0xa4 => Err(StubWrite(Error, self.mystery_i2c = val as u8)),
             _ => Err(Unexpected),
         }
     }

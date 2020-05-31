@@ -40,17 +40,20 @@ impl Memory for UsecTimer {
             0x0 => {
                 let now = Instant::now();
                 let elapsed = now.duration_since(self.last);
-                self.val = self.val.wrapping_add(elapsed.as_micros() as u32);
-                self.last = now;
+                let elapsed_as_millis = elapsed.as_micros() as u32;
+                if elapsed_as_millis != 0 {
+                    self.val = self.val.wrapping_add(elapsed_as_millis);
+                    self.last = now;
+                    // eprintln!("{}", self.val);
+                }
+
                 Ok(self.val)
             }
             _ => Err(Unexpected),
         }
     }
 
-    fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
-        let _ = val;
-
+    fn w32(&mut self, offset: u32, _val: u32) -> MemResult<()> {
         match offset {
             0x0 => Err(InvalidAccess),
             _ => Err(Unexpected),

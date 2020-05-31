@@ -1,5 +1,5 @@
 use std::convert::TryFrom;
-use std::io::{self, Read, Seek, Write};
+use std::io::{self, Read, Seek};
 
 use bit_field::BitField;
 use log::Level::*;
@@ -124,7 +124,8 @@ enum IdeCmd {
     ReadMultiple = 0xc4,
     ReadSectors = 0x20,
     ReadSectorsNoRetry = 0x21,
-    Standby = 0xe0,
+    StandbyImmediate = 0xe0,
+    StandbyImmediateAlt = 0x94,
 }
 
 // TODO: provide a zero-copy constructor which uses the `Read` trait
@@ -158,7 +159,7 @@ enum IdeDriveState {
         remaining_sectors: usize,
         iobuf: IdeIoBuf,
     },
-    Write,
+    // Write,
 }
 
 #[derive(Debug)]
@@ -353,7 +354,13 @@ impl IdeDrive {
 
                 Ok(())
             }
-            Standby => unimplemented_cmd!(),
+            StandbyImmediate | StandbyImmediateAlt => {
+                // I mean, it's a virtual disk, there is no "spin up / spin down"
+                self.reg.status.set_bit(STATUS::BSY, false);
+
+                // TODO: fire interrupt
+                Ok(())
+            }
         }
     }
 }

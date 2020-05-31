@@ -129,13 +129,13 @@ impl Ipod4g {
         // I threw my copy of the iPod 4g flashROM into Ghidra, and as far as I can
         // tell, the bootloader does indeed set this structure up somewhere in memory.
         // I don't _fully_ understand where ipodloader got this magic pointer address
-        // from, because perusing the flashROM disassembly didn't reveal any immedately
+        // from, because perusing the flashROM disassembly didn't reveal any immediately
         // obvious writes to that address.
         //
         // Anyhoo, I kinda gave up on doing it "correctly," and kinda just futzed around
         // with the addresses until the code managed to progress further. I _hope_ this
         // structure isn't used past the init stage, since I picked the memory location
-        // to write it into somwhat arbitrarily, and there's no reason some other code
+        // to write it into somewhat arbitrarily, and there's no reason some other code
         // might not come in and trash it...
         //
         // TODO: add some sort of signaling system if the sysinfo struct is overwritten

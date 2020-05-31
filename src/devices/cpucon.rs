@@ -6,6 +6,9 @@ use crate::memory::{MemException::*, MemResult, Memory};
 pub struct CpuCon {
     cpuctl: u32,
     copctl: u32,
+
+    // HACK: used to turn the cop off during init, but never turning it on ever again.
+    hack_only_turn_off_cop: bool,
 }
 
 #[allow(dead_code)]
@@ -38,15 +41,21 @@ impl CpuCon {
         CpuCon {
             cpuctl: 0x0000_0000,
             copctl: 0x0000_0000,
+            hack_only_turn_off_cop: false,
         }
     }
 
     pub fn is_cpu_running(&self) -> bool {
+        // this ain't it chief
         self.cpuctl & cpuctl_flags::FLOW_MASK == 0
     }
 
     pub fn is_cop_running(&self) -> bool {
-        self.copctl & cpuctl_flags::FLOW_MASK == 0
+        if self.hack_only_turn_off_cop {
+            false
+        } else {
+            self.copctl & cpuctl_flags::FLOW_MASK == 0
+        }
     }
 
     fn update_cpuctl(&mut self) {
@@ -89,6 +98,7 @@ impl Memory for CpuCon {
             0x4 => {
                 log::debug!("updated COP Control: {:#010x?}", val);
                 self.copctl = val;
+                self.hack_only_turn_off_cop = true;
                 self.update_cpuctl();
             }
             _ => return Err(Unexpected),
