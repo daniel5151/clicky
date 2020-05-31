@@ -32,6 +32,7 @@ mod devices {
     pub use dev::i2c::I2CCon;
     pub use dev::intcon::IntCon;
     pub use dev::memcon::{self, MemCon};
+    pub use dev::piezo::Piezo;
     pub use dev::ppcon::PPCon;
     pub use dev::timers::Timers;
 }
@@ -339,6 +340,7 @@ pub struct Ipod4gBus {
     pub intcon_hi: devices::IntCon,
     pub eidecon: devices::EIDECon,
     pub memcon: devices::MemCon,
+    pub piezo: devices::Piezo,
 
     pub mystery_irq_con: devices::Stub,
     pub mystery_lcd_con: devices::Stub,
@@ -377,6 +379,7 @@ impl Ipod4gBus {
             intcon_hi: IntCon::new_hle("hi"),
             eidecon: EIDECon::new_hle(),
             memcon: MemCon::new_hle(),
+            piezo: Piezo::new(),
 
             mystery_irq_con: Stub::new("Mystery IRQ Con?"),
             mystery_lcd_con: Stub::new("Mystery LCD Con?"),
@@ -464,6 +467,7 @@ mmap! {
     0x6000_d900..=0x6000_d97f => gpio_mirror_ijkl,
     0x7000_0000..=0x7000_1fff => ppcon,
     0x7000_3000..=0x7000_3fff => hd66753,
+    0x7000_a000..=0x7000_a003 => piezo,
     0x7000_a010..=0x7000_a014 => mystery_lcd_con,
     0x7000_c000..=0x7000_cfff => i2c,
     0xc300_0000..=0xc300_0fff => eidecon,
