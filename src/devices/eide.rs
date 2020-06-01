@@ -1,6 +1,7 @@
 use log::Level::*;
 
 use crate::devices::{Device, Probe};
+use crate::irq;
 use crate::memory::{MemException::*, MemResult, Memory};
 
 use crate::devices::generic::ide::{IdeController, IdeReg};
@@ -22,11 +23,11 @@ pub struct EIDECon {
 }
 
 impl EIDECon {
-    pub fn new_hle() -> EIDECon {
+    pub fn new_hle(irq: irq::Sender) -> EIDECon {
         EIDECon {
             ide0_cfg: Default::default(),
             ide1_cfg: Default::default(),
-            ide: IdeController::new(),
+            ide: IdeController::new(irq),
         }
     }
 

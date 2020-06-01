@@ -44,8 +44,8 @@ impl Memory for CpuId {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
             0x0 => match self.cpuid {
-                CpuIdKind::Cpu => Ok(0x55),
-                CpuIdKind::Cop => Ok(0xaa),
+                CpuIdKind::Cpu => Ok(0x55555555),
+                CpuIdKind::Cop => Ok(0xaaaaaaaa),
             },
             _ => Err(Unexpected),
         }

@@ -58,10 +58,10 @@ impl Memory for PPCon {
         match offset {
             0x0 => Err(InvalidAccess),
             0x4 => Err(InvalidAccess),
-            0x10 => Err(StubWrite(Warn, self.dev_init[0] = val)),
-            0x20 => Err(StubWrite(Warn, self.dev_init[1] = val)),
-            0x80 => Err(StubWrite(Warn, self.gpo_val = val)),
-            0x84 => Err(StubWrite(Warn, self.gpo_enable = val)),
+            0x10 => Err(StubWrite(Info, self.dev_init[0] = val)),
+            0x20 => Err(StubWrite(Info, self.dev_init[1] = val)),
+            0x80 => Ok(self.gpo_val = val),
+            0x84 => Ok(self.gpo_enable = val),
             _ => Err(Unexpected),
         }
     }

@@ -6,6 +6,7 @@ use log::Level::*;
 use num_enum::TryFromPrimitive;
 
 use crate::block::BlockDev;
+use crate::irq;
 use crate::memory::{MemException::*, MemResult};
 
 // TODO?: make num heads / num sectors configurable?
@@ -369,14 +370,39 @@ impl IdeDrive {
 /// those vary between platform-specific implementations.
 #[derive(Debug)]
 pub struct IdeController {
+    irq: irq::Sender,
     selected_device: IdeIdx,
     ide0: Option<IdeDrive>,
     ide1: Option<IdeDrive>,
 }
 
+/// It'd be nice if this was a method, but it makes borrowing other fields of
+/// (&mut self) as pain, since the borrow checker doesn't work across function
+/// boundaries.
+///
+/// Returns MemResult<&mut IdeDrive>
+macro_rules! selected_ide {
+    ($self:ident) => {
+        match $self.selected_device {
+            IdeIdx::IDE0 => $self.ide0.as_mut(),
+            IdeIdx::IDE1 => $self.ide1.as_mut(),
+        }
+        // not a real error. The OS might just be probing for IDE devices.
+        .ok_or(ContractViolation {
+            msg: format!(
+                "tried to access {} when no drive is connected",
+                $self.selected_device
+            ),
+            severity: Info,
+            stub_val: Some(0xff), // OSDev Wiki recommends 0xff as "open bus" val
+        })
+    };
+}
+
 impl IdeController {
-    pub fn new() -> IdeController {
+    pub fn new(irq: irq::Sender) -> IdeController {
         IdeController {
+            irq,
             selected_device: IdeIdx::IDE0,
             ide0: None,
             ide1: None,
@@ -423,22 +449,6 @@ impl IdeController {
         ide.take().map(|ide| ide.blockdev)
     }
 
-    fn current_dev(&mut self) -> MemResult<&mut IdeDrive> {
-        match self.selected_device {
-            IdeIdx::IDE0 => self.ide0.as_mut(),
-            IdeIdx::IDE1 => self.ide1.as_mut(),
-        }
-        // not a real error. The OS might just be probing for IDE devices.
-        .ok_or(ContractViolation {
-            msg: format!(
-                "tried to access {} when no drive is connected",
-                self.selected_device
-            ),
-            severity: Info,
-            stub_val: Some(0xff), // OSDev Wiki recommends 0xff as "open bus" val
-        })
-    }
-
     /// Perform a 16-bit read from an IDE register.
     ///
     /// NOTE: This method respects the current data-transfer size configuration
@@ -447,7 +457,7 @@ impl IdeController {
     pub fn read16(&mut self, reg: IdeReg) -> MemResult<u16> {
         match reg {
             IdeReg::Data => {
-                let ide = self.current_dev()?;
+                let ide = selected_ide!(self)?;
                 let val = ide.data_read8()?;
                 if ide.eightbit {
                     Ok(val as u16)
@@ -468,7 +478,7 @@ impl IdeController {
     pub fn write16(&mut self, reg: IdeReg, val: u16) -> MemResult<()> {
         match reg {
             IdeReg::Data => {
-                let ide = self.current_dev()?;
+                let ide = selected_ide!(self)?;
                 ide.data_write8(val as u8)?;
 
                 if !ide.eightbit {
@@ -485,10 +495,10 @@ impl IdeController {
     pub fn read8(&mut self, reg: IdeReg) -> MemResult<u8> {
         use IdeReg::*;
 
-        let ide = self.current_dev()?;
+        let ide = selected_ide!(self)?;
 
         match reg {
-            Data => Err(Unimplemented),
+            Data => ide.data_read8(),
             Error | Features => Ok(ide.reg.error),
             SectorCount => Ok(ide.reg.sector_count),
             SectorNo | Lba0 => Ok(ide.reg.lba0_sector_no),
@@ -496,8 +506,8 @@ impl IdeController {
             CylinderHi | Lba2 => Ok(ide.reg.lba2_cyl_hi),
             DeviceHead | Lba3 => Ok(ide.reg.lba3_dev_head),
             Status | Command => {
-                // TODO: ack interrupt
-                Err(StubRead(Info, ide.reg.status.into()))
+                self.irq.clear(); // ack IRQ
+                Ok(ide.reg.status)
             }
             AltStatus | DevControl => Ok(ide.reg.status),
             DataLatch => Err(Unimplemented),
@@ -513,14 +523,14 @@ impl IdeController {
             DeviceHead | Lba3 => {
                 // FIXME?: Actually strip-out reserved bits?
                 self.selected_device = val.get_bit(DEVHEAD::DEV).into();
-                let ide = self.current_dev()?;
+                let ide = selected_ide!(self)?;
                 return Ok(ide.reg.lba3_dev_head = val);
             }
-            _ => self.current_dev()?,
+            _ => selected_ide!(self)?,
         };
 
         match reg {
-            Data => Err(Unimplemented),
+            Data => ide.data_write8(val as u8),
             Features | Error => Ok(ide.reg.feature = val),
             SectorCount => Ok(ide.reg.sector_count = val),
             SectorNo | Lba0 => Ok(ide.reg.lba0_sector_no = val),

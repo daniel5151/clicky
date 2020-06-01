@@ -20,9 +20,6 @@ pub mod ppcon;
 pub mod timers;
 pub mod util;
 
-/// Vocabulary type denoting a type which is sent over the interrupt bus
-pub trait Interrupt: 'static + Send + Copy {}
-
 /// Common trait implemented by all emulated devices.
 pub trait Device {
     /// The name of the emulated device.

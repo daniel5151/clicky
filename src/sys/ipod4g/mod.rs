@@ -1,10 +1,10 @@
 use std::io::{Read, Seek, SeekFrom};
 
 use armv4t_emu::{reg, Cpu, Mode as ArmMode};
-use crossbeam_channel as chan;
 
 use crate::block::BlockDev;
-use crate::devices::{Device, Interrupt, Probe};
+use crate::devices::{Device, Probe};
+use crate::irq;
 use crate::memory::{
     armv4t_adaptor::{MemoryAdapter, MemoryAdapterException},
     MemAccess, MemAccessKind, MemException, MemResult, Memory,
@@ -39,15 +39,6 @@ mod devices {
 
 use crate::devices::util::arcmutex::ArcMutexDevice;
 
-// TODO: move interrupt enum to interrupt controller
-#[derive(Debug, Clone, Copy)]
-pub enum PP5020Irq {
-    Timer1 = 0,
-    Timer2 = 1,
-}
-
-impl Interrupt for PP5020Irq {}
-
 #[derive(Debug)]
 pub struct MemExceptionCtx {
     pc: u32,
@@ -76,7 +67,7 @@ pub struct Ipod4g {
     cpu: Cpu,
     cop: Cpu,
     devices: Ipod4gBus,
-    interrupt_bus: chan::Receiver<(PP5020Irq, bool)>,
+    irq_pending: irq::Pending,
 }
 
 impl Ipod4g {
@@ -107,10 +98,10 @@ impl Ipod4g {
         let cop = cpu;
 
         // create the interrupt bus
-        let (interrupt_bus_tx, interrupt_bus_rx) = chan::unbounded();
+        let irq_pending = irq::Pending::new();
 
         // initialize system devices (in HLE state)
-        let mut bus = Ipod4gBus::new_hle(interrupt_bus_tx);
+        let mut bus = Ipod4gBus::new_hle(irq_pending.clone());
 
         // extract image from firmware
         fw_file.seek(SeekFrom::Start(os_image.dev_offset as u64 + 0x200))?;
@@ -161,7 +152,7 @@ impl Ipod4g {
             cpu,
             cop,
             devices: bus,
-            interrupt_bus: interrupt_bus_rx,
+            irq_pending,
         })
     }
 
@@ -249,7 +240,7 @@ impl Ipod4g {
         // use armv4t_emu::Exception;
 
         // TODO
-        if !self.interrupt_bus.is_empty() {
+        if self.irq_pending.has_pending() {
             panic!("IRQ handling isn't implemented yet!");
         }
     }
@@ -268,7 +259,7 @@ impl Ipod4g {
         let run_cpu = self.devices.cpucon.is_cpu_running();
         let run_cop = self.devices.cpucon.is_cop_running();
 
-        // xxx: armv4t_emu doesn't currently expose any way to differentiate between
+        // XXX: armv4t_emu doesn't currently expose any way to differentiate between
         // instruction-fetch reads, and regular reads. Therefore, it's impossible to
         // enforce MMU "execute" protection bits...
 
@@ -326,7 +317,7 @@ pub struct Ipod4gBus {
     pub flash: devices::HLEFlash,
     pub cpucon: devices::CpuCon,
     pub hd66753: devices::Hd66753,
-    pub timers: devices::Timers<PP5020Irq>,
+    pub timers: devices::Timers,
     pub gpio_abcd: ArcMutexDevice<devices::GpioBlock>,
     pub gpio_efgh: ArcMutexDevice<devices::GpioBlock>,
     pub gpio_ijkl: ArcMutexDevice<devices::GpioBlock>,
@@ -336,8 +327,7 @@ pub struct Ipod4gBus {
     pub i2c: devices::I2CCon,
     pub ppcon: devices::PPCon,
     pub devcon: devices::DevCon,
-    pub intcon_lo: devices::IntCon,
-    pub intcon_hi: devices::IntCon,
+    pub intcon: devices::IntCon,
     pub eidecon: devices::EIDECon,
     pub memcon: devices::MemCon,
     pub piezo: devices::Piezo,
@@ -348,7 +338,7 @@ pub struct Ipod4gBus {
 
 impl Ipod4gBus {
     #[allow(clippy::redundant_clone)] // Makes the code cleaner in this case
-    fn new_hle(interrupt_bus: chan::Sender<(PP5020Irq, bool)>) -> Ipod4gBus {
+    fn new_hle(irq_pending: irq::Pending) -> Ipod4gBus {
         let gpio_abcd = ArcMutexDevice::new(GpioBlock::new(["A", "B", "C", "D"]));
         let gpio_efgh = ArcMutexDevice::new(GpioBlock::new(["E", "F", "G", "H"]));
         let gpio_ijkl = ArcMutexDevice::new(GpioBlock::new(["I", "J", "K", "L"]));
@@ -356,6 +346,11 @@ impl Ipod4gBus {
         let gpio_mirror_abcd = gpio_abcd.clone();
         let gpio_mirror_efgh = gpio_efgh.clone();
         let gpio_mirror_ijkl = gpio_ijkl.clone();
+
+        let (ide_irq_tx, ide_irq_rx) = irq::new(irq_pending, "IDE");
+
+        let mut intcon = IntCon::new_hle();
+        intcon.register(23, ide_irq_rx);
 
         use devices::*;
         Ipod4gBus {
@@ -365,7 +360,7 @@ impl Ipod4gBus {
             flash: HLEFlash::new_hle(),
             cpucon: CpuCon::new_hle(),
             hd66753: Hd66753::new_hle(160, 128),
-            timers: Timers::new_hle(interrupt_bus, PP5020Irq::Timer1, PP5020Irq::Timer2),
+            timers: Timers::new_hle(),
             gpio_abcd,
             gpio_efgh,
             gpio_ijkl,
@@ -375,9 +370,8 @@ impl Ipod4gBus {
             i2c: I2CCon::new_hle(),
             ppcon: PPCon::new_hle(),
             devcon: DevCon::new_hle(),
-            intcon_lo: IntCon::new_hle("lo"),
-            intcon_hi: IntCon::new_hle("hi"),
-            eidecon: EIDECon::new_hle(),
+            intcon,
+            eidecon: EIDECon::new_hle(ide_irq_tx),
             memcon: MemCon::new_hle(),
             piezo: Piezo::new(),
 
@@ -454,8 +448,7 @@ mmap! {
     0x4000_0000..=0x4001_7fff => fastram,
     0x6000_0000..=0x6000_0fff => cpuid,
     0x6000_1010..=0x6000_1fff => mystery_irq_con,
-    0x6000_4000..=0x6000_40ff => intcon_lo,
-    0x6000_4100..=0x6000_41ff => intcon_hi,
+    0x6000_4000..=0x6000_41ff => intcon,
     0x6000_5000..=0x6000_5fff => timers,
     0x6000_6000..=0x6000_6fff => devcon,
     0x6000_7000..=0x6000_7fff => cpucon,

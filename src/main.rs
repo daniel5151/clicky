@@ -13,6 +13,7 @@ use structopt::StructOpt;
 
 pub mod block;
 pub mod devices;
+pub mod irq;
 pub mod memory;
 pub mod sys;
 pub mod util;
