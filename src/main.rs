@@ -13,6 +13,7 @@ use structopt::StructOpt;
 
 pub mod block;
 pub mod devices;
+pub mod gui;
 pub mod irq;
 pub mod memory;
 pub mod sys;
@@ -82,6 +83,9 @@ fn main() -> Result<(), Box<dyn StdError>> {
     // create the base system
     let file = fs::File::open(args.firmware)?;
     let mut system = Ipod4g::new_hle(file, hdd)?;
+
+    // spawn the UI thread
+    let _minifb_ui = gui::minifb::IPodMinifb::new((160, 128), system.render_callback());
 
     // check if a debugger should be connected at boot
     let debugger = match (args.gdb_fatal_err, args.gdbport) {

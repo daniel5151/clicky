@@ -7,6 +7,7 @@ fi
 cat <<EOM >ipodloader.conf
 # config file
 debug = 4096 # TODO: remove once memory remapping is fixed
+timeout = 3
 EOM
 
 IMG_FATPART="ipodhd.img@@$((12288 * 512))"

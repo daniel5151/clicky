@@ -4,6 +4,7 @@ use armv4t_emu::{reg, Cpu, Mode as ArmMode};
 
 use crate::block::BlockDev;
 use crate::devices::{Device, Probe};
+use crate::gui::RenderCallback;
 use crate::irq;
 use crate::memory::{
     armv4t_adaptor::{MemoryAdapter, MemoryAdapterException},
@@ -302,6 +303,11 @@ impl Ipod4g {
     pub fn freeze(&mut self) {
         self.frozen = true;
     }
+
+    /// Return the system's RenderCallback method.
+    pub fn render_callback(&self) -> RenderCallback {
+        self.devices.hd66753.render_callback()
+    }
 }
 
 /// The main Ipod4g memory bus.
@@ -359,7 +365,7 @@ impl Ipod4gBus {
             cpuid: CpuId::new(),
             flash: HLEFlash::new_hle(),
             cpucon: CpuCon::new_hle(),
-            hd66753: Hd66753::new_hle(160, 128),
+            hd66753: Hd66753::new_hle(),
             timers: Timers::new_hle(),
             gpio_abcd,
             gpio_efgh,
