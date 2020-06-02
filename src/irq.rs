@@ -22,7 +22,7 @@ pub fn new(notify: Pending, debug_label: &'static str) -> (Sender, Reciever) {
 }
 
 /// Check if _any_ connected IRQs have been triggered.
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Pending {
     signal: Arc<AtomicBool>,
 }

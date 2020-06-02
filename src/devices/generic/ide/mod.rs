@@ -153,6 +153,7 @@ impl std::fmt::Debug for IdeIoBuf {
     }
 }
 
+#[allow(dead_code)] // TODO: remove this once IDE write is implemented
 #[derive(Debug)]
 enum IdeDriveState {
     Idle,
@@ -160,7 +161,10 @@ enum IdeDriveState {
         remaining_sectors: usize,
         iobuf: IdeIoBuf,
     },
-    // Write,
+    Write {
+        remaining_sectors: usize,
+        iobuf: IdeIoBuf,
+    },
 }
 
 #[derive(Debug)]
@@ -227,7 +231,7 @@ impl IdeDrive {
             iobuf.idx = 0;
             if let Err(e) = self.blockdev.read_exact(&mut iobuf.buf) {
                 // XXX: actually set error bits
-                return Err(e)?;
+                return Err(e.into());
             }
 
             (self.reg.status)
@@ -326,14 +330,14 @@ impl IdeDrive {
                 // Seek into the blockdev
                 if let Err(e) = self.blockdev.seek(io::SeekFrom::Start(offset * 512)) {
                     // XXX: actually set error bits
-                    return Err(e)?;
+                    return Err(e.into());
                 }
 
                 // Read the first sector from the blockdev
                 let mut iobuf = IdeIoBuf::empty();
                 if let Err(e) = self.blockdev.read_exact(&mut iobuf.buf) {
                     // XXX: actually set error bits
-                    return Err(e)?;
+                    return Err(e.into());
                 }
 
                 self.state = IdeDriveState::Read {

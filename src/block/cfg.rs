@@ -32,7 +32,7 @@ impl FromStr for BlockCfg {
                 let mut len = None;
 
                 for arg in s {
-                    let mut s = arg.split("=");
+                    let mut s = arg.split('=');
                     let kind = s.next().unwrap();
                     match kind {
                         "len" => {
@@ -55,7 +55,7 @@ impl FromStr for BlockCfg {
                 let mut file = None;
 
                 for arg in s {
-                    let mut s = arg.split("=");
+                    let mut s = arg.split('=');
                     let kind = s.next().unwrap();
                     match kind {
                         "file" => {

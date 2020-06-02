@@ -198,12 +198,12 @@ impl Memory for MemCon {
             0xf000..=0xf03f if offset & 0b100 == 0 => {
                 let no = (offset - 0xf000) / 8;
                 self.mmap[no as usize].logical = val;
-                return Err(FatalError("mmap not implemented".into()));
+                Err(FatalError("mmap not implemented".into()))
             }
             0xf000..=0xf03f if offset & 0b100 != 0 => {
                 let no = (offset - 0xf000) / 8;
                 self.mmap[no as usize].physical = val;
-                return Err(FatalError("mmap not implemented".into()));
+                Err(FatalError("mmap not implemented".into()))
             }
             _ => Err(Unexpected),
         }
