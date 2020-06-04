@@ -4,6 +4,7 @@ extern crate static_assertions;
 #[macro_use]
 extern crate log;
 
+use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::fs;
 use std::net::{TcpListener, TcpStream};
@@ -14,13 +15,13 @@ use structopt::StructOpt;
 pub mod block;
 pub mod devices;
 pub mod gui;
-pub mod irq;
 pub mod memory;
+pub mod signal;
 pub mod sys;
 pub mod util;
 
 use crate::block::{BlockCfg, BlockDev};
-use crate::sys::ipod4g::Ipod4g;
+use crate::sys::ipod4g::{Ipod4g, Ipod4gControls};
 
 const SYSDUMP_FILENAME: &str = "sysdump.log";
 
@@ -84,8 +85,32 @@ fn main() -> Result<(), Box<dyn StdError>> {
     let file = fs::File::open(args.firmware)?;
     let mut system = Ipod4g::new_hle(file, hdd)?;
 
+    // hook-up controls
+    let minifb_controls = {
+        let Ipod4gControls { mut hold } = system.take_controls().unwrap();
+
+        // set hold high by default
+        hold.set_high();
+
+        let mut controls: HashMap<_, gui::KeyCallback> = HashMap::new();
+        controls.insert(
+            minifb::Key::H, // H for Hold
+            Box::new(move |pressed| {
+                if pressed {
+                    // toggle on and off
+                    match hold.is_set_high() {
+                        false => hold.set_high(),
+                        true => hold.set_low(),
+                    }
+                }
+            }),
+        );
+        controls
+    };
+
     // spawn the UI thread
-    let _minifb_ui = gui::minifb::IPodMinifb::new((160, 128), system.render_callback());
+    let _minifb_ui =
+        gui::minifb::IPodMinifb::new((160, 128), system.render_callback(), minifb_controls);
 
     // check if a debugger should be connected at boot
     let debugger = match (args.gdb_fatal_err, args.gdbport) {

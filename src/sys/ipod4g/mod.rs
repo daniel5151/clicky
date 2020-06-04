@@ -5,11 +5,11 @@ use armv4t_emu::{reg, Cpu, Mode as ArmMode};
 use crate::block::BlockDev;
 use crate::devices::{Device, Probe};
 use crate::gui::RenderCallback;
-use crate::irq;
 use crate::memory::{
     armv4t_adaptor::{MemoryAdapter, MemoryAdapterException},
     MemAccess, MemAccessKind, MemException, MemResult, Memory,
 };
+use crate::signal::{gpio, irq};
 
 mod firmware;
 mod gdb;
@@ -60,6 +60,11 @@ pub enum BlockMode {
     NonBlocking,
 }
 
+#[derive(Debug)]
+pub struct Ipod4gControls {
+    pub hold: gpio::Sender,
+}
+
 /// A Ipod4g system
 #[derive(Debug)]
 pub struct Ipod4g {
@@ -68,10 +73,17 @@ pub struct Ipod4g {
     cpu: Cpu,
     cop: Cpu,
     devices: Ipod4gBus,
+    controls: Option<Ipod4gControls>,
+
     irq_pending: irq::Pending,
+    gpio_changed: gpio::Changed,
 }
 
 impl Ipod4g {
+    pub fn take_controls(&mut self) -> Option<Ipod4gControls> {
+        self.controls.take()
+    }
+
     /// Returns a new PP5020System using High Level Emulation (HLE) of the
     /// bootloader (i.e: without requiring a Flash dump).
     pub fn new_hle(
@@ -147,13 +159,28 @@ impl Ipod4g {
             }),
         );
 
+        // hook-up external controls
+        let gpio_changed = gpio::Changed::new();
+        let (hold_tx, hold_rx) = gpio::new(gpio_changed.clone(), "Hold");
+
+        {
+            let mut gpio_abcd = bus.gpio_abcd.lock().unwrap();
+            gpio_abcd.register_in(5, hold_rx);
+            // HLE: I think the bootloader enables the GPIOA:5 pin (i.e: the Hold button)
+            gpio_abcd.w32(0x00, 0x20).unwrap();
+        }
+
+        let controls = Ipod4gControls { hold: hold_tx };
+
         Ok(Ipod4g {
             hle: true,
             frozen: false,
             cpu,
             cop,
             devices: bus,
+            controls: Some(controls),
             irq_pending,
+            gpio_changed,
         })
     }
 
@@ -241,8 +268,8 @@ impl Ipod4g {
         // use armv4t_emu::Exception;
 
         // TODO
-        if self.irq_pending.has_pending() {
-            panic!("IRQ handling isn't implemented yet!");
+        if self.irq_pending.check_pending() {
+            // panic!("IRQ handling isn't implemented yet!");
         }
     }
 
@@ -282,6 +309,12 @@ impl Ipod4g {
             }
         }
 
+        // TODO?: explore adding callbacks to the signaling system
+        if self.gpio_changed.check_changed() {
+            self.devices.gpio_abcd.lock().unwrap().update();
+            self.devices.gpio_efgh.lock().unwrap().update();
+            self.devices.gpio_ijkl.lock().unwrap().update();
+        }
         self.check_device_interrupts(BlockMode::NonBlocking);
 
         Ok(true)
@@ -345,18 +378,25 @@ pub struct Ipod4gBus {
 impl Ipod4gBus {
     #[allow(clippy::redundant_clone)] // Makes the code cleaner in this case
     fn new_hle(irq_pending: irq::Pending) -> Ipod4gBus {
-        let gpio_abcd = ArcMutexDevice::new(GpioBlock::new(["A", "B", "C", "D"]));
-        let gpio_efgh = ArcMutexDevice::new(GpioBlock::new(["E", "F", "G", "H"]));
-        let gpio_ijkl = ArcMutexDevice::new(GpioBlock::new(["I", "J", "K", "L"]));
+        let (ide_irq_tx, ide_irq_rx) = irq::new(irq_pending.clone(), "IDE");
+        let (gpio0_irq_tx, gpio0_irq_rx) = irq::new(irq_pending.clone(), "GPIO0");
+        let (gpio1_irq_tx, gpio1_irq_rx) = irq::new(irq_pending.clone(), "GPIO1");
+        let (gpio2_irq_tx, gpio2_irq_rx) = irq::new(irq_pending.clone(), "GPIO2");
+
+        let gpio_abcd = ArcMutexDevice::new(GpioBlock::new(gpio0_irq_tx, ["A", "B", "C", "D"]));
+        let gpio_efgh = ArcMutexDevice::new(GpioBlock::new(gpio1_irq_tx, ["E", "F", "G", "H"]));
+        let gpio_ijkl = ArcMutexDevice::new(GpioBlock::new(gpio2_irq_tx, ["I", "J", "K", "L"]));
 
         let gpio_mirror_abcd = gpio_abcd.clone();
         let gpio_mirror_efgh = gpio_efgh.clone();
         let gpio_mirror_ijkl = gpio_ijkl.clone();
 
-        let (ide_irq_tx, ide_irq_rx) = irq::new(irq_pending, "IDE");
-
         let mut intcon = IntCon::new_hle();
-        intcon.register(23, ide_irq_rx);
+        intcon
+            .register(23, ide_irq_rx)
+            .register(32, gpio0_irq_rx)
+            .register(33, gpio1_irq_rx)
+            .register(34, gpio2_irq_rx);
 
         use devices::*;
         Ipod4gBus {

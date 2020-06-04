@@ -1,10 +1,11 @@
+use bit_field::BitField;
 use log::Level::*;
 
 use crate::devices::{Device, Probe};
-use crate::irq;
 use crate::memory::{MemException::*, MemResult, Memory};
+use crate::signal::irq;
 
-use crate::devices::generic::ide::{IdeController, IdeReg};
+use crate::devices::generic::ide::{IdeController, IdeIdx, IdeReg};
 
 #[derive(Debug, Default)]
 struct IdeDriveCfg {
@@ -83,8 +84,13 @@ impl Memory for EIDECon {
             0x014 => Ok(self.ide1_cfg.primary_timing[1]),
             0x018 => Ok(self.ide1_cfg.secondary_timing[0]),
             0x01c => Ok(self.ide1_cfg.secondary_timing[1]),
-            0x028 => Err(StubRead(Warn, self.ide0_cfg.config)),
-            0x02c => Err(StubRead(Warn, self.ide1_cfg.config)),
+            0x028 => {
+                let val = *0u32
+                    .set_bit(4, self.ide.irq_state(IdeIdx::IDE0))
+                    .set_bit(5, self.ide.irq_state(IdeIdx::IDE1));
+                Err(StubRead(Info, val))
+            }
+            0x02c => Err(Unimplemented),
 
             0x1e0 => self.ide.read16(IdeReg::Data).map(|v| v as u32),
             0x1e4 => self.ide.read8(IdeReg::Error).map(|v| v as u32),
@@ -111,8 +117,16 @@ impl Memory for EIDECon {
             0x014 => Ok(self.ide1_cfg.primary_timing[1] = val),
             0x018 => Ok(self.ide1_cfg.secondary_timing[0] = val),
             0x01c => Ok(self.ide1_cfg.secondary_timing[1] = val),
-            0x028 => Err(StubWrite(Warn, self.ide0_cfg.config = val)),
-            0x02c => Err(StubWrite(Warn, self.ide1_cfg.config = val)),
+            0x028 => {
+                if val.get_bit(4) {
+                    self.ide.clear_irq(IdeIdx::IDE0)
+                }
+                if val.get_bit(5) {
+                    self.ide.clear_irq(IdeIdx::IDE1)
+                }
+                Err(StubWrite(Info, ()))
+            }
+            0x02c => Err(Unimplemented),
 
             0x1e0 => self.ide.write16(IdeReg::Data, val as u16),
             0x1e4 => self.ide.write8(IdeReg::Features, val as u8),

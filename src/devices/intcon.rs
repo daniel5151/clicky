@@ -1,8 +1,8 @@
 use bit_field::BitField;
 
 use crate::devices::{Device, Probe};
-use crate::irq;
 use crate::memory::{MemException::*, MemResult, Memory};
+use crate::signal::irq;
 
 #[derive(Debug, Default)]
 struct IntConCpuRegs {
@@ -56,19 +56,19 @@ impl IntCon32 {
 
     /// Iterate through `self.irqs`, updating registers accordingly
     fn update_regs(&mut self) {
-        for (idx, irq) in self.irqs.iter().enumerate() {
+        for (i, irq) in self.irqs.iter().enumerate() {
             let irq = match irq {
                 Some(irq) => irq,
                 None => continue,
             };
 
-            let status = irq.is_set();
+            let status = irq.asserted();
 
             for cpu in [&mut self.cpu, &mut self.cop].iter_mut() {
-                let enabled = cpu.enabled.get_bit(idx);
-                let is_fiq = cpu.priority.get_bit(idx);
-                cpu.fiq_stat.set_bit(idx, enabled && is_fiq && status);
-                cpu.irq_stat.set_bit(idx, enabled && !is_fiq && status);
+                let enabled = cpu.enabled.get_bit(i);
+                let is_fiq = cpu.priority.get_bit(i);
+                cpu.fiq_stat.set_bit(i, enabled && is_fiq && status);
+                cpu.irq_stat.set_bit(i, enabled && !is_fiq && status);
             }
         }
 

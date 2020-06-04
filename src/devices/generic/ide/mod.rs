@@ -6,8 +6,8 @@ use log::Level::*;
 use num_enum::TryFromPrimitive;
 
 use crate::block::BlockDev;
-use crate::irq;
 use crate::memory::{MemException::*, MemResult};
+use crate::signal::irq;
 
 // TODO?: make num heads / num sectors configurable?
 const NUM_HEADS: usize = 16;
@@ -173,6 +173,7 @@ struct IdeDrive {
     eightbit: bool, // FIXME?: I think this can be derived from reg.features?
     reg: IdeRegs,
     blockdev: Box<dyn BlockDev>,
+    irq: irq::Sender, // shared between both drives
 }
 
 impl IdeDrive {
@@ -374,7 +375,7 @@ impl IdeDrive {
 /// those vary between platform-specific implementations.
 #[derive(Debug)]
 pub struct IdeController {
-    irq: irq::Sender,
+    common_irq_line: irq::Sender,
     selected_device: IdeIdx,
     ide0: Option<IdeDrive>,
     ide1: Option<IdeDrive>,
@@ -406,7 +407,7 @@ macro_rules! selected_ide {
 impl IdeController {
     pub fn new(irq: irq::Sender) -> IdeController {
         IdeController {
-            irq,
+            common_irq_line: irq,
             selected_device: IdeIdx::IDE0,
             ide0: None,
             ide1: None,
@@ -435,6 +436,7 @@ impl IdeController {
                 ..IdeRegs::default()
             },
             blockdev,
+            irq: self.common_irq_line.clone(),
         };
 
         *ide = Some(new_drive);
@@ -451,6 +453,30 @@ impl IdeController {
         };
 
         ide.take().map(|ide| ide.blockdev)
+    }
+
+    /// Check if an IDE drive is currently asserting an IRQ.
+    pub fn irq_state(&self, idx: IdeIdx) -> bool {
+        let ide = match idx {
+            IdeIdx::IDE0 => &self.ide0,
+            IdeIdx::IDE1 => &self.ide1,
+        };
+
+        ide.as_ref()
+            .map(|ide| ide.irq.is_asserting())
+            .unwrap_or(false)
+    }
+
+    /// Clears an IDE drive's IRQ.
+    pub fn clear_irq(&mut self, idx: IdeIdx) {
+        let ide = match idx {
+            IdeIdx::IDE0 => &mut self.ide0,
+            IdeIdx::IDE1 => &mut self.ide1,
+        };
+
+        if let Some(ide) = ide.as_mut() {
+            ide.irq.clear()
+        }
     }
 
     /// Perform a 16-bit read from an IDE register.
@@ -510,7 +536,7 @@ impl IdeController {
             CylinderHi | Lba2 => Ok(ide.reg.lba2_cyl_hi),
             DeviceHead | Lba3 => Ok(ide.reg.lba3_dev_head),
             Status | Command => {
-                self.irq.clear(); // ack IRQ
+                ide.irq.clear(); // ack IRQ
                 Ok(ide.reg.status)
             }
             AltStatus | DevControl => Ok(ide.reg.status),
@@ -540,7 +566,7 @@ impl IdeController {
             SectorNo | Lba0 => Ok(ide.reg.lba0_sector_no = val),
             CylinderLo | Lba1 => Ok(ide.reg.lba1_cyl_lo = val),
             CylinderHi | Lba2 => Ok(ide.reg.lba2_cyl_hi = val),
-            DeviceHead | Lba3 => unreachable!("should have been handled above"),
+            DeviceHead | Lba3 => unreachable!("should be handled above"),
             Command | Status => ide.exec_cmd(val),
             DevControl | AltStatus => {
                 ide.reg.srst = val.get_bit(2);

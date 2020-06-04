@@ -1,9 +1,10 @@
+use std::collections::HashMap;
 use std::thread;
 
 use crossbeam_channel as chan;
 use minifb::{Key, Window, WindowOptions};
 
-use crate::gui::RenderCallback;
+use crate::gui::{KeyCallback, RenderCallback};
 
 #[derive(Debug)]
 pub struct IPodMinifb {
@@ -13,7 +14,11 @@ pub struct IPodMinifb {
 impl IPodMinifb {
     /// (width, height) crops the framebuffer to the specific iPod model's
     /// screen size.
-    pub fn new((width, height): (usize, usize), mut update_fb: RenderCallback) -> IPodMinifb {
+    pub fn new(
+        (width, height): (usize, usize),
+        mut update_fb: RenderCallback,
+        mut controls: HashMap<Key, KeyCallback>,
+    ) -> IPodMinifb {
         let (kill_tx, kill_rx) = chan::bounded(1);
 
         let thread = move || {
@@ -33,9 +38,30 @@ impl IPodMinifb {
             .expect("could not create minifb window");
 
             // ~60 fps
-            // window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
+            window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
 
-            while window.is_open() && kill_rx.is_empty() && !window.is_key_down(Key::Escape) {
+            'ui_loop: while window.is_open() && kill_rx.is_empty() {
+                if let Some(keys) = window.get_keys_pressed(minifb::KeyRepeat::Yes) {
+                    for k in keys {
+                        if k == Key::Escape {
+                            break 'ui_loop;
+                        }
+
+                        if let Some(cb) = controls.get_mut(&k) {
+                            cb(true)
+                        }
+                    }
+                }
+
+                if let Some(keys) = window.get_keys_released() {
+                    for k in keys {
+                        if let Some(cb) = controls.get_mut(&k) {
+                            cb(false)
+                        }
+                    }
+                }
+
+                // update the framebuffer
                 let (w, _h) = update_fb(&mut emu_buffer);
 
                 // crop the emulated buffer
@@ -56,7 +82,7 @@ impl IPodMinifb {
         };
 
         let _handle = thread::Builder::new()
-            .name("Hd66753 Renderer".into())
+            .name("minifb ui".into())
             .spawn(thread)
             .unwrap();
 
