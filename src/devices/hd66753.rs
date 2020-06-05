@@ -92,7 +92,7 @@ impl std::fmt::Debug for Hd66753 {
 }
 
 impl Hd66753 {
-    pub fn new_hle() -> Hd66753 {
+    pub fn new() -> Hd66753 {
         let cgram = Arc::new(RwLock::new([0; EMU_CGRAM_LEN]));
         let ireg = Arc::new(RwLock::new(InternalRegs {
             nl: 0b11111, // 168 x 132

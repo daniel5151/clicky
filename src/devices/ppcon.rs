@@ -12,7 +12,7 @@ pub struct PPCon {
 }
 
 impl PPCon {
-    pub fn new_hle() -> PPCon {
+    pub fn new() -> PPCon {
         PPCon {
             dev_init: [0, 0],
             gpo_enable: 0,

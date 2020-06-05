@@ -68,7 +68,7 @@ impl std::fmt::Debug for MemCon {
 }
 
 impl MemCon {
-    pub fn new_hle() -> MemCon {
+    pub fn new() -> MemCon {
         MemCon {
             cache_data: [0; 0x2000],
             cache_status: [0; 0x2000],

@@ -114,7 +114,7 @@ impl Ipod4g {
         let irq_pending = irq::Pending::new();
 
         // initialize system devices (in HLE state)
-        let mut bus = Ipod4gBus::new_hle(irq_pending.clone());
+        let mut bus = Ipod4gBus::new(irq_pending.clone());
 
         // extract image from firmware
         fw_file.seek(SeekFrom::Start(os_image.dev_offset as u64 + 0x200))?;
@@ -377,7 +377,7 @@ pub struct Ipod4gBus {
 
 impl Ipod4gBus {
     #[allow(clippy::redundant_clone)] // Makes the code cleaner in this case
-    fn new_hle(irq_pending: irq::Pending) -> Ipod4gBus {
+    fn new(irq_pending: irq::Pending) -> Ipod4gBus {
         let (ide_irq_tx, ide_irq_rx) = irq::new(irq_pending.clone(), "IDE");
         let (gpio0_irq_tx, gpio0_irq_rx) = irq::new(irq_pending.clone(), "GPIO0");
         let (gpio1_irq_tx, gpio1_irq_rx) = irq::new(irq_pending.clone(), "GPIO1");
@@ -391,7 +391,7 @@ impl Ipod4gBus {
         let gpio_mirror_efgh = gpio_efgh.clone();
         let gpio_mirror_ijkl = gpio_ijkl.clone();
 
-        let mut intcon = IntCon::new_hle();
+        let mut intcon = IntCon::new();
         intcon
             .register(23, ide_irq_rx)
             .register(32, gpio0_irq_rx)
@@ -403,22 +403,22 @@ impl Ipod4gBus {
             sdram: AsanRam::new(32 * 1024 * 1024), // 32 MB
             fastram: AsanRam::new(96 * 1024),      // 96 KB
             cpuid: CpuId::new(),
-            flash: HLEFlash::new_hle(),
-            cpucon: CpuCon::new_hle(),
-            hd66753: Hd66753::new_hle(),
-            timers: Timers::new_hle(),
+            flash: HLEFlash::new(),
+            cpucon: CpuCon::new(),
+            hd66753: Hd66753::new(),
+            timers: Timers::new(),
             gpio_abcd,
             gpio_efgh,
             gpio_ijkl,
             gpio_mirror_abcd: GpioBlockAtomicMirror::new(gpio_mirror_abcd),
             gpio_mirror_efgh: GpioBlockAtomicMirror::new(gpio_mirror_efgh),
             gpio_mirror_ijkl: GpioBlockAtomicMirror::new(gpio_mirror_ijkl),
-            i2c: I2CCon::new_hle(),
-            ppcon: PPCon::new_hle(),
-            devcon: DevCon::new_hle(),
+            i2c: I2CCon::new(),
+            ppcon: PPCon::new(),
+            devcon: DevCon::new(),
             intcon,
-            eidecon: EIDECon::new_hle(ide_irq_tx),
-            memcon: MemCon::new_hle(),
+            eidecon: EIDECon::new(ide_irq_tx),
+            memcon: MemCon::new(),
             piezo: Piezo::new(),
 
             mystery_irq_con: Stub::new("Mystery IRQ Con?"),

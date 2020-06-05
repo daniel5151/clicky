@@ -24,7 +24,7 @@ pub struct EIDECon {
 }
 
 impl EIDECon {
-    pub fn new_hle(irq: irq::Sender) -> EIDECon {
+    pub fn new(irq: irq::Sender) -> EIDECon {
         EIDECon {
             ide0_cfg: Default::default(),
             ide1_cfg: Default::default(),

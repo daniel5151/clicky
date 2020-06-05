@@ -37,7 +37,7 @@ mod cpuctl_flags {
 }
 
 impl CpuCon {
-    pub fn new_hle() -> CpuCon {
+    pub fn new() -> CpuCon {
         CpuCon {
             cpuctl: 0x0000_0000,
             copctl: 0x0000_0000,

@@ -27,7 +27,7 @@ struct IntCon32 {
 }
 
 impl IntCon32 {
-    pub fn new_hle(label: &'static str) -> IntCon32 {
+    pub fn new(label: &'static str) -> IntCon32 {
         IntCon32 {
             label,
             irqs: Default::default(),
@@ -187,10 +187,10 @@ pub struct IntCon {
 }
 
 impl IntCon {
-    pub fn new_hle() -> IntCon {
+    pub fn new() -> IntCon {
         IntCon {
-            lo: IntCon32::new_hle("lo"),
-            hi: IntCon32::new_hle("hi"),
+            lo: IntCon32::new("lo"),
+            hi: IntCon32::new("hi"),
         }
     }
 

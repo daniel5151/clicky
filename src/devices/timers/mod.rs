@@ -13,7 +13,7 @@ pub struct Timers {
 }
 
 impl Timers {
-    pub fn new_hle() -> Timers {
+    pub fn new() -> Timers {
         Timers {
             usec: UsecTimer::new(),
         }

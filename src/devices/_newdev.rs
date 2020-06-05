@@ -8,7 +8,7 @@ use crate::memory::{MemException::*, MemResult, Memory};
 pub struct NewDevice {}
 
 impl NewDevice {
-    pub fn new_hle() -> NewDevice {
+    pub fn new() -> NewDevice {
         NewDevice {}
     }
 }

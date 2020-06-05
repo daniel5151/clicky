@@ -7,7 +7,7 @@ use crate::memory::{MemException::*, MemResult, Memory};
 pub struct HLEFlash {}
 
 impl HLEFlash {
-    pub fn new_hle() -> HLEFlash {
+    pub fn new() -> HLEFlash {
         HLEFlash {}
     }
 }

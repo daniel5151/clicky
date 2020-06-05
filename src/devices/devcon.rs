@@ -12,7 +12,7 @@ pub struct DevCon {
 }
 
 impl DevCon {
-    pub fn new_hle() -> DevCon {
+    pub fn new() -> DevCon {
         DevCon {
             reset: [0, 0],
             enable: [0, 0],

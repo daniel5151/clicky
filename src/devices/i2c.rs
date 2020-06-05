@@ -10,7 +10,7 @@ pub struct I2CCon {
 }
 
 impl I2CCon {
-    pub fn new_hle() -> I2CCon {
+    pub fn new() -> I2CCon {
         I2CCon { control: 0 }
     }
 }
