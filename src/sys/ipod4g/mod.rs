@@ -24,6 +24,7 @@ mod devices {
     pub use dev::generic::asanram::AsanRam;
     pub use dev::generic::stub::Stub;
 
+    pub use dev::cachecon::CacheCon;
     pub use dev::cpucon::CpuCon;
     pub use dev::cpuid::{self, CpuId};
     pub use dev::devcon::DevCon;
@@ -32,6 +33,7 @@ mod devices {
     pub use dev::gpio::{GpioBlock, GpioBlockAtomicMirror};
     pub use dev::hd66753::Hd66753;
     pub use dev::i2c::I2CCon;
+    pub use dev::i2s::I2SCon;
     pub use dev::intcon::IntCon;
     pub use dev::memcon::{self, MemCon};
     pub use dev::piezo::Piezo;
@@ -326,6 +328,8 @@ pub struct Ipod4gBus {
     pub eidecon: devices::EIDECon,
     pub memcon: devices::MemCon,
     pub piezo: devices::Piezo,
+    pub cachecon: devices::CacheCon,
+    pub i2s: devices::I2SCon,
 
     pub mystery_irq_con: devices::Stub,
     pub mystery_lcd_con: devices::Stub,
@@ -376,6 +380,8 @@ impl Ipod4gBus {
             eidecon: EIDECon::new(ide_irq_tx),
             memcon: MemCon::new(),
             piezo: Piezo::new(),
+            cachecon: CacheCon::new(),
+            i2s: I2SCon::new(),
 
             mystery_irq_con: Stub::new("Mystery IRQ Con?"),
             mystery_lcd_con: Stub::new("Mystery LCD Con?"),
@@ -454,6 +460,7 @@ mmap! {
     0x6000_5000..=0x6000_5fff => timers,
     0x6000_6000..=0x6000_6fff => devcon,
     0x6000_7000..=0x6000_7fff => cpucon,
+    0x6000_c000..=0x6000_cfff => cachecon,
     0x6000_d000..=0x6000_d07f => gpio_abcd,
     0x6000_d080..=0x6000_d0ff => gpio_efgh,
     0x6000_d100..=0x6000_d17f => gpio_ijkl,
@@ -465,6 +472,7 @@ mmap! {
     0x7000_a000..=0x7000_a003 => piezo,
     0x7000_a010..=0x7000_a014 => mystery_lcd_con,
     0x7000_c000..=0x7000_cfff => i2c,
+    0x7000_2800..=0x7000_28ff => i2s,
     0xc300_0000..=0xc300_0fff => eidecon,
     0xf000_0000..=0xf000_ffff => memcon,
 }

@@ -4,6 +4,7 @@
     clippy::new_without_default, // just adds more boilerplate
 )]
 
+pub mod cachecon;
 pub mod cpucon;
 pub mod cpuid;
 pub mod devcon;
@@ -13,6 +14,7 @@ pub mod generic;
 pub mod gpio;
 pub mod hd66753;
 pub mod i2c;
+pub mod i2s;
 pub mod intcon;
 pub mod memcon;
 pub mod piezo;

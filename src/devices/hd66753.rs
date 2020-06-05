@@ -38,12 +38,25 @@ const EMU_CGRAM_WIDTH: usize = 256;
 const EMU_CGRAM_BYTES: usize = (EMU_CGRAM_WIDTH * CGRAM_HEIGHT) * 2 / 8;
 const EMU_CGRAM_LEN: usize = EMU_CGRAM_BYTES / 2; // addressed as 16-bit words
 
+// TODO: migrate to bit_field crate + mod reg { const X: usize = Y; ... }
 #[derive(Debug, Default, Copy, Clone)]
 struct InternalRegs {
     // Driver Output Control (R01)
     cms: bool,
     sgs: bool,
     nl: u8, // 5 bits
+    // LCD-Driving-Waveform Control (R02)
+    nw: u8, // 5 bits
+    eor: bool,
+    b_c: bool,
+    // Power Control (R03)
+    stb: bool,
+    slp: bool,
+    ap: u8, // 2 bits
+    dc: u8, // 2 bits
+    ps: u8, // 2 bits
+    bt: u8, // 2 bits
+    bs: u8, // 3 bits
     // Contrast Control (R04)
     vr: u8, // 3 bits
     ct: u8, // 7 bits
@@ -58,8 +71,21 @@ struct InternalRegs {
     gsl: u8, // 2 bits
     rev: bool,
     d: bool,
+    // Cursor Control (R08)
+    c: bool,
+    cm: u8, // 2 bits
     // RAM Write Data Mask (R10)
     wm: u16,
+    // Horizontal/Vertical Cursor Position (R0B/R0C)
+    hs: u8,
+    he: u8,
+    vs: u8,
+    ve: u8,
+    // 1st/2nd Screen Driving Position (R0D/R0E)
+    ss1: u8,
+    se1: u8,
+    ss2: u8,
+    se2: u8,
 }
 
 /// Hitachi HD66753 168x132 monochrome LCD Controller.
@@ -136,6 +162,8 @@ impl Hd66753 {
                 .take(height)
                 .flat_map(|row| row.iter().take(CGRAM_WIDTH * 2 / 8 / 2).rev());
 
+            // TODO: implement cursor control
+
             let new_buf = cgram_window.flat_map(|w| {
                 // every 16 bits = 8 pixels
                 (0..8).rev().map(move |i| {
@@ -158,27 +186,35 @@ impl Hd66753 {
     }
 
     fn handle_data(&mut self, val: u16) -> MemResult<()> {
-        macro_rules! unimplemented_cmd {
-            () => {
-                return Err(FatalError(format!(
-                    "unimplemented: LCD command {:#x?}",
-                    self.ir
-                )));
-            };
-        }
-
         let mut ireg = self.ireg.write().unwrap();
 
         match self.ir {
+            // Start Oscillation
+            0x00 => {
+                // TODO: track if oscillating?
+            }
             // Driver output control
             0x01 => {
                 ireg.cms = val.get_bit(9);
                 ireg.sgs = val.get_bit(8);
                 ireg.nl = val.get_bits(0..=4) as u8;
-                // TODO?: use Driver Output control bits to control window size
             }
-            0x02 => unimplemented_cmd!(),
-            0x03 => unimplemented_cmd!(),
+            // LCD-Driving-Waveform Control
+            0x02 => {
+                ireg.nw = val.get_bits(0..=4) as u8;
+                ireg.eor = val.get_bit(5);
+                ireg.b_c = val.get_bit(6);
+            }
+            // Power Control
+            0x03 => {
+                ireg.stb = val.get_bit(0);
+                ireg.slp = val.get_bit(1);
+                ireg.ap = val.get_bits(2..=3) as u8;
+                ireg.dc = val.get_bits(4..=5) as u8;
+                ireg.ps = val.get_bits(6..=7) as u8;
+                ireg.bt = val.get_bits(8..=9) as u8;
+                ireg.bs = val.get_bits(10..=12) as u8;
+            }
             // Contrast Control
             0x04 => {
                 ireg.vr = val.get_bits(8..=10) as u8;
@@ -210,19 +246,48 @@ impl Hd66753 {
                 ireg.d = val.get_bit(0);
             }
             // Cursor Control
-            0x08 => unimplemented_cmd!(),
+            0x08 => {
+                ireg.cm = val.get_bits(0..=1) as u8;
+                ireg.c = val.get_bit(2);
+
+                if ireg.c {
+                    return Err(ContractViolation {
+                        msg: "cursor mode is enabled, but not implemented!".into(),
+                        severity: Warn,
+                        stub_val: None,
+                    });
+                } else {
+                    return Err(ContractViolation {
+                        msg: "cursor mode is now disabled".into(),
+                        severity: Info,
+                        stub_val: None,
+                    });
+                }
+            }
             // NOOP
             0x09 => {}
             // NOOP
             0x0a => {}
             // Horizontal Cursor Position
-            0x0b => unimplemented_cmd!(),
+            0x0b => {
+                ireg.hs = val.get_bits(0..=7) as u8;
+                ireg.he = val.get_bits(8..=15) as u8;
+            }
             // Vertical Cursor Position
-            0x0c => unimplemented_cmd!(),
+            0x0c => {
+                ireg.vs = val.get_bits(0..=7) as u8;
+                ireg.ve = val.get_bits(8..=15) as u8;
+            }
             // 1st Screen Driving Position
-            0x0d => unimplemented_cmd!(),
+            0x0d => {
+                ireg.ss1 = val.get_bits(0..=7) as u8;
+                ireg.se1 = val.get_bits(8..=15) as u8;
+            }
             // 1st Screen Driving Position
-            0x0e => unimplemented_cmd!(),
+            0x0e => {
+                ireg.ss2 = val.get_bits(0..=7) as u8;
+                ireg.se2 = val.get_bits(8..=15) as u8;
+            }
             // NOTE: 0x0f isn't listed as a valid command.
             // 0x0f => {},
             // RAM Write Data Mask
@@ -316,12 +381,16 @@ impl Device for Hd66753 {
 
 impl Memory for Hd66753 {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
+        if offset == 0x0 {
+            // bypass the latch
+            return Ok(0); // HACK: Emulated LCD is never busy
+        }
+
         if let Some(val) = self.read_byte_latch.take() {
             return Ok(val as u32);
         }
 
         let val: u16 = match offset {
-            0x0 => 0, // HACK: Emulated LCD is never busy
             // XXX: not currently tracking driving raster-row position
             0x8 => self.ireg.read().unwrap().ct as u16,
             _ => return Err(Unexpected),
@@ -332,8 +401,12 @@ impl Memory for Hd66753 {
     }
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
-        let val = val as u8; // the iPod uses the controller via an 8-bit interface
+        if offset == 0x0 {
+            // bypass the latch
+            return Err(StubWrite(Error, ()));
+        }
 
+        let val = val as u8; // the iPod uses the controller via an 8-bit interface
         let val = match self.write_byte_latch.take() {
             None => {
                 self.write_byte_latch = Some(val as u8);
@@ -353,11 +426,11 @@ impl Memory for Hd66753 {
                         stub_val: None,
                     });
                 }
-            }
-            0x10 => self.handle_data(val)?,
-            _ => return Err(Unexpected),
-        }
 
-        Ok(())
+                Ok(())
+            }
+            0x10 => Ok(self.handle_data(val)?),
+            _ => Err(Unexpected),
+        }
     }
 }

@@ -1,3 +1,4 @@
+use bit_field::BitField;
 use log::Level::*;
 
 use crate::devices::{Device, Probe};
