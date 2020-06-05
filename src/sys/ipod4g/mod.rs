@@ -1,4 +1,4 @@
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek};
 
 use armv4t_emu::{reg, Cpu, Mode as ArmMode};
 
@@ -11,9 +11,10 @@ use crate::memory::{
 };
 use crate::signal::{gpio, irq};
 
-mod firmware;
 mod gdb;
 mod hle_bootloader;
+
+use hle_bootloader::run_hle_bootloader;
 
 mod devices {
     use crate::devices as dev;
@@ -27,9 +28,9 @@ mod devices {
     pub use dev::cpuid::{self, CpuId};
     pub use dev::devcon::DevCon;
     pub use dev::eide::EIDECon;
+    pub use dev::flash::Flash;
     pub use dev::gpio::{GpioBlock, GpioBlockAtomicMirror};
     pub use dev::hd66753::Hd66753;
-    pub use dev::hle_flash::HLEFlash;
     pub use dev::i2c::I2CCon;
     pub use dev::intcon::IntCon;
     pub use dev::memcon::{self, MemCon};
@@ -65,10 +66,14 @@ pub struct Ipod4gControls {
     pub hold: gpio::Sender,
 }
 
+pub enum BootKind<F: Read + Seek> {
+    ColdBoot { flash_rom: Vec<u8> },
+    HLEBoot { fw_file: F },
+}
+
 /// A Ipod4g system
 #[derive(Debug)]
 pub struct Ipod4g {
-    hle: bool,
     frozen: bool,
     cpu: Cpu,
     cop: Cpu,
@@ -86,102 +91,53 @@ impl Ipod4g {
 
     /// Returns a new PP5020System using High Level Emulation (HLE) of the
     /// bootloader (i.e: without requiring a Flash dump).
-    pub fn new_hle(
-        mut fw_file: impl Read + Seek,
+    pub fn new<F>(
         hdd: Box<dyn BlockDev>,
-    ) -> Result<Ipod4g, Box<dyn std::error::Error>> {
-        let fw_info = firmware::FirmwareMeta::parse(&mut fw_file)?;
-
-        println!("Parsed firmware meta: {:#x?}", fw_info);
-
-        let os_image = fw_info
-            .images
-            .iter()
-            .find(|img| img.name == *b"osos")
-            .ok_or("could not find OS image")?;
-
-        // fake the bootloader, load directly at the image address
-        let mut cpu = Cpu::new();
-        cpu.reg_set(
-            ArmMode::User,
-            reg::PC,
-            os_image.addr + os_image.entry_offset,
-        );
-        cpu.reg_set(ArmMode::User, reg::CPSR, 0xd3); // supervisor mode
-        let cop = cpu;
-
-        // create the interrupt bus
+        boot_kind: BootKind<F>,
+    ) -> Result<Ipod4g, Box<dyn std::error::Error>>
+    where
+        F: Read + Seek,
+    {
+        // initialize base system
         let irq_pending = irq::Pending::new();
+        let gpio_changed = gpio::Changed::new();
 
-        // initialize system devices (in HLE state)
-        let mut bus = Ipod4gBus::new(irq_pending.clone());
-
-        // extract image from firmware
-        fw_file.seek(SeekFrom::Start(os_image.dev_offset as u64 + 0x200))?;
-        let mut os_image_data = vec![0; os_image.len as usize];
-        fw_file.read_exact(&mut os_image_data)?;
-
-        bus.sdram.bulk_write(0, &os_image_data);
+        let mut sys = Ipod4g {
+            frozen: false,
+            cpu: Cpu::new(),
+            cop: Cpu::new(),
+            devices: Ipod4gBus::new(irq_pending.clone()),
+            controls: None,
+            irq_pending,
+            gpio_changed: gpio_changed.clone(),
+        };
 
         // connect HDD
-        bus.eidecon
+        sys.devices
+            .eidecon
             .as_ide()
             .attach(devices::generic::ide::IdeIdx::IDE0, hdd);
 
-        // inject fake sysinfo into fastram.
-        //
-        // I threw my copy of the iPod 4g flashROM into Ghidra, and as far as I can
-        // tell, the bootloader does indeed set this structure up somewhere in memory.
-        // I don't _fully_ understand where ipodloader got this magic pointer address
-        // from, because perusing the flashROM disassembly didn't reveal any immediately
-        // obvious writes to that address.
-        //
-        // Anyhoo, I kinda gave up on doing it "correctly," and kinda just futzed around
-        // with the addresses until the code managed to progress further. I _hope_ this
-        // structure isn't used past the init stage, since I picked the memory location
-        // to write it into somewhat arbitrarily, and there's no reason some other code
-        // might not come in and trash it...
-        //
-        // TODO: add some sort of signaling system if the sysinfo struct is overwritten
-        use hle_bootloader::sysinfo_t;
-        const SYSINFO_PTR: u32 = 0x4001_7f1c;
-        // SYSINFO_LOC is pulled out of my ass lol
-        const SYSINFO_LOC: u32 = 0x4001_7f00 - std::mem::size_of::<sysinfo_t>() as u32;
-        bus.w32(SYSINFO_PTR, SYSINFO_LOC).unwrap(); // pointer to sysinfo
-        bus.fastram.bulk_write(
-            SYSINFO_LOC - 0x4000_0000,
-            // FIXME?: this will break on big-endian systems
-            bytemuck::bytes_of(&sysinfo_t {
-                IsyS: u32::from_le_bytes(*b"IsyS"),
-                len: 0x184,
-                boardHwSwInterfaceRev: 0x50000,
-                ..Default::default()
-            }),
-        );
-
         // hook-up external controls
-        let gpio_changed = gpio::Changed::new();
-        let (hold_tx, hold_rx) = gpio::new(gpio_changed.clone(), "Hold");
+        let (hold_tx, hold_rx) = gpio::new(gpio_changed, "Hold");
 
         {
-            let mut gpio_abcd = bus.gpio_abcd.lock().unwrap();
+            let mut gpio_abcd = sys.devices.gpio_abcd.lock().unwrap();
             gpio_abcd.register_in(5, hold_rx);
             // HLE: I think the bootloader enables the GPIOA:5 pin (i.e: the Hold button)
             gpio_abcd.w32(0x00, 0x20).unwrap();
         }
 
-        let controls = Ipod4gControls { hold: hold_tx };
+        sys.controls = Some(Ipod4gControls { hold: hold_tx });
 
-        Ok(Ipod4g {
-            hle: true,
-            frozen: false,
-            cpu,
-            cop,
-            devices: bus,
-            controls: Some(controls),
-            irq_pending,
-            gpio_changed,
-        })
+        // depending on the kind of boot, either install the provided flash ROM dump, or
+        // run the HLE bootloader.
+        match boot_kind {
+            BootKind::ColdBoot { flash_rom } => sys.devices.flash.use_dump(flash_rom)?,
+            BootKind::HLEBoot { fw_file } => run_hle_bootloader(&mut sys, fw_file)?,
+        }
+
+        Ok(sys)
     }
 
     fn handle_mem_exception(
@@ -353,7 +309,7 @@ pub struct Ipod4gBus {
     pub sdram: devices::AsanRam,
     pub fastram: devices::AsanRam,
     pub cpuid: devices::CpuId,
-    pub flash: devices::HLEFlash,
+    pub flash: devices::Flash,
     pub cpucon: devices::CpuCon,
     pub hd66753: devices::Hd66753,
     pub timers: devices::Timers,
@@ -403,7 +359,7 @@ impl Ipod4gBus {
             sdram: AsanRam::new(32 * 1024 * 1024), // 32 MB
             fastram: AsanRam::new(96 * 1024),      // 96 KB
             cpuid: CpuId::new(),
-            flash: HLEFlash::new(),
+            flash: Flash::new(),
             cpucon: CpuCon::new(),
             hd66753: Hd66753::new(),
             timers: Timers::new(),

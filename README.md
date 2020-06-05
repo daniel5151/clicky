@@ -111,16 +111,15 @@ Any useful resources I stumble across during development are stashed away under 
 
 ### Using `clicky` with an Apple flash ROM dump
 
-**NOTE:** This feature is currently unimplemented. I'll re-implement it once the rest of the project matures.
+A proper Low Level Emulation (LLE) boot process would involve booting the CPU from address 0 and having it execute whatever bootloader code is present in Flash ROM. This code includes some basic device setup, toggling certain interrupts, and of course, loading the actual firmware image from the HDD into executable memory.
 
-A proper Low Level Emulation (LLE) boot process would involve booting the CPU from address 0 and having it execute whatever bootloader code is present in Flash ROM. This code most likely performs several different functions, including setting up devices, toggling certain interrupts, and of course, loading the actual firmware image from the emulated HDD into executable memory.
+The code contained in Flash ROM is copyrighted by Apple, and as such, `clicky` cannot legally redistribute any copies of it. To work around this, `clicky` includes a High Level Emulation (HLE) bootloader. `clicky` will manually set the state of certain devices, toggle certain interrupts, load the firmware image into memory, and set the Program Counter to the load address of the firmware image. If any code attempts to access the memory locations mapped to flash ROM (e.g: to determine which iPod version it's running on), the `Flash` device implements a limited set of memory locations which can be accessed to complete initialization.
 
-The code contained in Flash ROM is copyrighted by Apple, and as such, `clicky` can't legally redistribute copies of it. Instead, `clicky` currently uses a High Level Emulation (HLE) approach to boot firmware images, where `clicky` "fakes" the Flash ROM bootloader by manually loading the firmware image into memory, and starting execution from whatever address the firmware image specifies. Any code that attempts to access the (nonexistent) flash ROM is redirected to a `fakeflash` device, which implements the _bare minimum_ memory locations required to continue execution (mainly things related to model identification).
+As the project matures, it should be possible to perform a "cold boot" using a dumped Flash ROM image. This setting is supported via the `--flash-rom` flag.
 
-At this stage in development, it is _not_ required to have a Flash ROM image to run `clicky`, since any attempts at performing a LLE boot will most likely fail catastrophically (given the current number of stubbed out / nonexistent devices).
+**NOTE:** At this stage in development, having a Flash ROM image is **not** required to run `clicky`. I plan to maintain the HLE bootloader so that `clicky` is as easy to use as possible.
 
 That said, if you're interested in helping out with `clicky`'s development, you might want to try to get your hands on a flash ROM image. If you happen to still have an old iPod lying around, you can dump the contents of it's flash ROM using Rockbox, as described [here](https://www.rockbox.org/wiki/IpodFlash#Apple_39s_flash_code).
-
 
 ## Roadmap
 

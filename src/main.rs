@@ -21,7 +21,7 @@ pub mod sys;
 pub mod util;
 
 use crate::block::{BlockCfg, BlockDev};
-use crate::sys::ipod4g::{Ipod4g, Ipod4gControls};
+use crate::sys::ipod4g::{BootKind, Ipod4g, Ipod4gControls};
 
 const SYSDUMP_FILENAME: &str = "sysdump.log";
 
@@ -31,7 +31,7 @@ const SYSDUMP_FILENAME: &str = "sysdump.log";
 An emulator for the classic clickwheel iPod 4g.
 "#)]
 struct Args {
-    /// firmware file to load
+    /// Firmware file to load
     #[structopt(parse(from_os_str))]
     firmware: PathBuf,
 
@@ -40,6 +40,10 @@ struct Args {
     /// At the moment, this should be `--hdd=raw:/path/to/ipodhd.img`
     #[structopt(long)]
     hdd: BlockCfg,
+
+    /// Flash ROM binary to use
+    #[structopt(long)]
+    flash_rom: Option<PathBuf>,
 
     /// spawn a gdb server listening on the specified port
     #[structopt(short)]
@@ -81,9 +85,16 @@ fn main() -> Result<(), Box<dyn StdError>> {
         }
     };
 
-    // create the base system
-    let file = fs::File::open(args.firmware)?;
-    let mut system = Ipod4g::new_hle(file, hdd)?;
+    let boot_kind = match args.flash_rom {
+        Some(path) => BootKind::ColdBoot {
+            flash_rom: fs::read(path)?,
+        },
+        None => BootKind::HLEBoot {
+            fw_file: fs::File::open(args.firmware)?,
+        },
+    };
+
+    let mut system = Ipod4g::new(hdd, boot_kind)?;
 
     // hook-up controls
     let minifb_controls = {

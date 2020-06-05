@@ -4,12 +4,12 @@ use byteorder::{BigEndian, ByteOrder, ReadBytesExt, LE};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum Error {
-    #[error("error while reading firmware file")]
+pub enum FirmwareParseError {
+    #[error("error during firmware file IO")]
     Io(#[from] io::Error),
     #[error("magic_hi != \"[hi]\" in the volume header")]
     BadMagic,
-    #[error("Firmware version {0} isn't (currently) supported")]
+    #[error("HLE boot for firmware version {0} isn't (currently) supported")]
     InvalidVersion(u16),
 }
 
@@ -23,17 +23,17 @@ pub struct FirmwareMeta {
 }
 
 impl FirmwareMeta {
-    pub fn parse(fw: &mut (impl Read + Seek)) -> Result<FirmwareMeta, Error> {
+    pub fn parse(fw: &mut (impl Read + Seek)) -> Result<FirmwareMeta, FirmwareParseError> {
         // Volume Header
         let header = VolumeHeader::parse(fw)?;
         if header.magic_hi != BigEndian::read_u32(b"[hi]") {
-            return Err(Error::BadMagic);
+            return Err(FirmwareParseError::BadMagic);
         }
 
         // TODO: don't assume FW version is 3, as each fw uses slightly-different
         // offsets between things
         if header.format_version != 3 {
-            return Err(Error::InvalidVersion(header.format_version));
+            return Err(FirmwareParseError::InvalidVersion(header.format_version));
         }
 
         // Pull directory entries
