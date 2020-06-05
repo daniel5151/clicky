@@ -35,7 +35,7 @@ At the time of writing, `clicky` is (slowly but surely!) implementing the device
 
 I've included the source of `ipodloader` and `ipodloader2` in-tree under `./resources/`, and fixed-up their makefiles / sources to compile under more recent gcc toolchains (namely: `gcc-arm-none-eabi`). Additionally, I've tweaked some compiler flags to disable optimizations + enable debug symbols, which should make debugging a lot easier.
 
-On Debian/Ubuntu based distros, you can install the correct toolchain via `apt install gcc-arm-none-eabi`
+On Debian/Ubuntu based distros, you can install the correct toolchain via `apt install gcc-arm-none-eabi`.
 
 Once the correct toolchain is installed, you can build some iPod firmware binaries based on `ipodloader` and  `ipodloader2` by running:
 
@@ -71,7 +71,7 @@ Alternatively, you can use `mtools` to copy files/folders over without having to
 Now that you have some iPod firmware images, you can finally run clicky:
 
 ```bash
-cargo run -- ./resources/ipodloader/ipodloader_loops_unopt.bin --hdd=null:1GiB # doesn't require a hdd image
+cargo run -- ./resources/ipodloader/ipodloader_loops_unopt.bin --hdd=null:len=1GiB # doesn't require a hdd image
 cargo run -- ./resources/ipodloader2/ipodloader2_loops.bin --hdd=raw:file=ipodhd.img
 ```
 
