@@ -16,33 +16,14 @@ mod hle_bootloader;
 
 use hle_bootloader::run_hle_bootloader;
 
-mod devices {
-    use crate::devices as dev;
-
-    pub use dev::generic;
-
-    pub use dev::generic::asanram::AsanRam;
-    pub use dev::generic::stub::Stub;
-
-    pub use dev::cachecon::CacheCon;
-    pub use dev::cpucon::CpuCon;
-    pub use dev::cpuid::{self, CpuId};
-    pub use dev::devcon::DevCon;
-    pub use dev::eide::EIDECon;
-    pub use dev::flash::Flash;
-    pub use dev::gpio::{GpioBlock, GpioBlockAtomicMirror};
-    pub use dev::hd66753::Hd66753;
-    pub use dev::i2c::I2CCon;
-    pub use dev::i2s::I2SCon;
-    pub use dev::intcon::IntCon;
-    pub use dev::mailbox::Mailbox;
-    pub use dev::memcon::{self, MemCon};
-    pub use dev::piezo::Piezo;
-    pub use dev::ppcon::PPCon;
-    pub use dev::timers::Timers;
-}
-
 use crate::devices::util::arcmutex::ArcMutexDevice;
+mod devices {
+    pub use crate::devices::{
+        display::hd66753::Hd66753,
+        generic::{ide, AsanRam, Stub},
+        platform::pp::*,
+    };
+}
 
 #[derive(Debug)]
 pub struct MemExceptionCtx {
@@ -92,8 +73,7 @@ impl Ipod4g {
         self.controls.take()
     }
 
-    /// Returns a new PP5020System using High Level Emulation (HLE) of the
-    /// bootloader (i.e: without requiring a Flash dump).
+    /// Returns a new Ipod4g instance.
     pub fn new<F>(
         hdd: Box<dyn BlockDev>,
         boot_kind: BootKind<F>,
@@ -119,7 +99,7 @@ impl Ipod4g {
         sys.devices
             .eidecon
             .as_ide()
-            .attach(devices::generic::ide::IdeIdx::IDE0, hdd);
+            .attach(devices::ide::IdeIdx::IDE0, hdd);
 
         // hook-up external controls
         let (hold_tx, hold_rx) = gpio::new(gpio_changed, "Hold");
