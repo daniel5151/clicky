@@ -1,12 +1,8 @@
+use crate::devices::prelude::*;
+
 use std::vec::Vec;
 
 use byteorder::{ByteOrder, LittleEndian};
-
-use crate::devices::{Device, Probe};
-use crate::memory::{
-    MemException::{self, *},
-    MemResult, Memory,
-};
 
 /// RAM device which raises ContractViolation warnings when reading from
 /// uninitialized memory.

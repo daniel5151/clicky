@@ -1,9 +1,8 @@
+use crate::devices::prelude::*;
+
 pub mod cfg_timer;
 pub mod rtc;
 pub mod usec_timer;
-
-use crate::devices::{Device, Probe};
-use crate::memory::{MemException::*, MemResult, Memory};
 
 use cfg_timer::CfgTimer;
 use usec_timer::UsecTimer;

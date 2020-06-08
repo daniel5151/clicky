@@ -1,8 +1,6 @@
-use byteorder::{ByteOrder, LittleEndian};
-use log::Level::*;
+use crate::devices::prelude::*;
 
-use crate::devices::{Device, Probe};
-use crate::memory::{MemException::*, MemResult, Memory};
+use byteorder::{ByteOrder, LittleEndian};
 
 /// Internal iPod Flash ROM. Defaults to HLE mode (where only a few critical
 /// memory locations can be read). Use the `use_dump` method if you have a dump

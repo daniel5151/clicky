@@ -1,8 +1,4 @@
-use bit_field::BitField;
-use log::Level::*;
-
-use crate::devices::{Device, Probe};
-use crate::memory::{MemException::*, MemResult, Memory};
+use crate::devices::prelude::*;
 
 /// Template for creating new devices.
 #[derive(Debug)]

@@ -1,7 +1,4 @@
-use log::Level::*;
-
-use crate::devices::{Device, Probe};
-use crate::memory::{MemException::*, MemResult, Memory};
+use crate::devices::prelude::*;
 
 /// I2C Controller
 #[derive(Debug)]

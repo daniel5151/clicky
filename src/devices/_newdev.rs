@@ -1,10 +1,6 @@
-use bit_field::BitField;
-use log::Level::*;
+use crate::devices::prelude::*;
 
-use crate::devices::{Device, Probe};
-use crate::memory::{MemException::*, MemResult, Memory};
-
-/// Template for creating new devices.
+/// TODO: add brief NewDevice description
 #[derive(Debug)]
 pub struct NewDevice {}
 

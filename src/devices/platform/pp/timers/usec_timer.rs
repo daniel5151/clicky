@@ -1,7 +1,6 @@
-use std::time::Instant;
+use crate::devices::prelude::*;
 
-use crate::devices::{Device, Probe};
-use crate::memory::{MemException::*, MemResult, Memory};
+use std::time::Instant;
 
 /// 32 bit timer which ticks every usec.
 #[derive(Debug)]

@@ -1,11 +1,8 @@
+use crate::devices::prelude::*;
+
 use std::sync::{Arc, RwLock};
 
-use bit_field::BitField;
-use log::Level::*;
-
-use crate::devices::{Device, Probe};
 use crate::gui::RenderCallback;
-use crate::memory::{MemException::*, MemResult, Memory};
 
 const CGRAM_WIDTH: usize = 168;
 const CGRAM_HEIGHT: usize = 132;
@@ -105,7 +102,7 @@ pub struct Hd66753 {
 }
 
 impl std::fmt::Debug for Hd66753 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Hd66753")
             .field("write_byte_latch", &self.write_byte_latch)
             .field("read_byte_latch", &self.read_byte_latch)

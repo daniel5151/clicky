@@ -1,11 +1,10 @@
+use crate::devices::prelude::*;
+
 use std::sync::Arc;
 use std::sync::{LockResult, Mutex, MutexGuard};
 
-use crate::devices::{Device, Probe};
-use crate::memory::{MemResult, Memory};
-
 /// Wrapper around Arc<Mutex<_>> which implements the `Device` and `Memory`
-/// traits without having to explicity deref + lock the underlying device.
+/// traits without having to explicitly deref + lock the underlying device.
 #[derive(Debug)]
 pub struct ArcMutexDevice<D> {
     device: Arc<Mutex<D>>,

@@ -1,11 +1,7 @@
-use bit_field::BitField;
-use log::Level::*;
-
-use crate::devices::{Device, Probe};
-use crate::memory::{MemException::*, MemResult, Memory};
-use crate::signal::irq;
+use crate::devices::prelude::*;
 
 use crate::devices::generic::ide::{IdeController, IdeIdx, IdeReg};
+use crate::signal::irq;
 
 #[derive(Debug, Default)]
 struct IdeDriveCfg {

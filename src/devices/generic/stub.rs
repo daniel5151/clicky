@@ -1,7 +1,4 @@
-use log::Level::*;
-
-use crate::devices::{Device, Probe};
-use crate::memory::{MemException::*, MemResult, Memory};
+use crate::devices::prelude::*;
 
 /// Generic stub device. Reads/Writes result in Error-level StubRead/StubWrites.
 /// THIS DEVICE SHOULD BE USED SPARINGLY AS A WAY TO MAKE FORWARD PROGRESS!

@@ -1,5 +1,4 @@
-use crate::devices::{Device, Probe};
-use crate::memory::{MemException::*, MemResult, Memory};
+use crate::devices::prelude::*;
 
 #[derive(Debug)]
 pub enum CpuIdKind {

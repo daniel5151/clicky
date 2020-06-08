@@ -1,8 +1,6 @@
-use bit_field::BitField;
+use crate::devices::prelude::*;
 
 use crate::devices::util::arcmutex::ArcMutexDevice;
-use crate::devices::{Device, Probe};
-use crate::memory::{MemException::*, MemResult, Memory};
 use crate::signal::{gpio, irq};
 
 /// 8-bit GPIO Port

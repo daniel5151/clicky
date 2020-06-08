@@ -1,12 +1,11 @@
+use crate::devices::prelude::*;
+
 use std::convert::TryFrom;
 use std::io::{self, Read, Seek};
 
-use bit_field::BitField;
-use log::Level::*;
 use num_enum::TryFromPrimitive;
 
 use crate::block::BlockDev;
-use crate::memory::{MemException::*, MemResult};
 use crate::signal::irq;
 
 // TODO?: make num heads / num sectors configurable?
@@ -33,7 +32,7 @@ impl From<bool> for IdeIdx {
 }
 
 impl std::fmt::Display for IdeIdx {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             IdeIdx::IDE0 => write!(f, "IDE0"),
             IdeIdx::IDE1 => write!(f, "IDE1"),

@@ -1,7 +1,5 @@
-use bit_field::BitField;
+use crate::devices::prelude::*;
 
-use crate::devices::{Device, Probe};
-use crate::memory::{MemException::*, MemResult, Memory};
 use crate::signal::irq;
 
 #[derive(Debug, Default)]

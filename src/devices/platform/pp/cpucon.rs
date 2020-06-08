@@ -1,5 +1,4 @@
-use crate::devices::{Device, Probe};
-use crate::memory::{MemException::*, MemResult, Memory};
+use crate::devices::prelude::*;
 
 /// PP5020 CPU controller
 #[derive(Debug)]
