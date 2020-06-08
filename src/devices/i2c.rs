@@ -50,7 +50,7 @@ impl Memory for I2CCon {
             0x010 => Err(StubRead(Warn, 0)),
             0x014 => Err(StubRead(Warn, 0)),
             0x018 => Err(StubRead(Warn, 0)),
-            0x01c => Err(StubRead(Warn, 0)),
+            0x01c => Err(StubRead(Warn, 1 << 6)), // set busy bit
             0x100 => Err(StubRead(Warn, 0)),
             0x104 => Err(StubRead(Warn, 0)),
             0x120 => Err(StubRead(Warn, 0)),
@@ -68,7 +68,7 @@ impl Memory for I2CCon {
             0x010 => Err(StubWrite(Warn, ())),
             0x014 => Err(StubWrite(Warn, ())),
             0x018 => Err(StubWrite(Warn, ())),
-            0x01c => Err(StubWrite(Warn, ())),
+            0x01c => Err(InvalidAccess),
             0x100 => Err(StubWrite(Warn, ())),
             0x104 => Err(StubWrite(Warn, ())),
             0x120 => Err(StubWrite(Warn, ())),

@@ -31,8 +31,24 @@ impl Device for Stub {
 }
 
 impl Memory for Stub {
+    fn r8(&mut self, _offset: u32) -> MemResult<u8> {
+        Err(StubRead(Error, 0))
+    }
+
+    fn r16(&mut self, _offset: u32) -> MemResult<u16> {
+        Err(StubRead(Error, 0))
+    }
+
     fn r32(&mut self, _offset: u32) -> MemResult<u32> {
         Err(StubRead(Error, 0))
+    }
+
+    fn w8(&mut self, _offset: u32, _val: u8) -> MemResult<()> {
+        Err(StubWrite(Error, ()))
+    }
+
+    fn w16(&mut self, _offset: u32, _val: u16) -> MemResult<()> {
+        Err(StubWrite(Error, ()))
     }
 
     fn w32(&mut self, _offset: u32, _val: u32) -> MemResult<()> {

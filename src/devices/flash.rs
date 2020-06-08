@@ -1,4 +1,5 @@
 use byteorder::{ByteOrder, LittleEndian};
+use log::Level::*;
 
 use crate::devices::{Device, Probe};
 use crate::memory::{MemException::*, MemResult, Memory};
@@ -25,7 +26,7 @@ impl Flash {
     }
 
     pub fn is_hle(&self) -> bool {
-        self.dump.is_some()
+        self.dump.is_none()
     }
 
     fn hle_vals(offset: u32) -> MemResult<u32> {
@@ -103,11 +104,15 @@ impl Memory for Flash {
         Self::hle_vals(offset)
     }
 
+    fn w8(&mut self, _offset: u32, _val: u8) -> MemResult<()> {
+        Err(StubWrite(Warn, ()))
+    }
+
+    fn w16(&mut self, _offset: u32, _val: u16) -> MemResult<()> {
+        Err(StubWrite(Warn, ()))
+    }
+
     fn w32(&mut self, _offset: u32, _val: u32) -> MemResult<()> {
-        Err(ContractViolation {
-            msg: "tried to write to Flash Rom".to_string(),
-            severity: log::Level::Error,
-            stub_val: None,
-        })
+        Err(StubWrite(Warn, ()))
     }
 }

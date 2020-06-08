@@ -93,7 +93,8 @@ impl Memory for PPCon {
             0x18 => Err(StubWrite(Info, self.dev_init[2] = val)),
             0x1c => Err(StubWrite(Info, self.dev_init[3] = val)),
             0x20 => Err(StubWrite(Info, self.dev_init[4] = val)),
-            0x30 => Err(StubWrite(Info, self.dev_timing[0] = val)),
+            // HACK: that flag needs to be set to progress through the Flash ROM bootloader
+            0x30 => Err(StubWrite(Info, self.dev_timing[0] = val | 0x8000000)),
             0x34 => Err(StubWrite(Info, self.dev_timing[1] = val)),
             // HACK: that flag needs to be set to progress through the Flash ROM bootloader
             0x3c => Err(StubWrite(Info, self.dev_timing[2] = val | 0x80000000)),
