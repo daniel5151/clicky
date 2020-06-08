@@ -80,7 +80,7 @@ fn main() -> Result<(), Box<dyn StdError>> {
     let hdd: Box<dyn BlockDev> = match args.hdd {
         BlockCfg::Null { len } => Box::new(block::backend::Null::new(len)),
         BlockCfg::Raw { path } => {
-            let file = fs::File::open(path)?;
+            let file = fs::OpenOptions::new().read(true).write(true).open(path)?;
             Box::new(block::backend::Raw::new(file))
         }
     };

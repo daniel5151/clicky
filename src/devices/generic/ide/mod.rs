@@ -14,38 +14,7 @@ const NUM_HEADS: usize = 16;
 const NUM_SECTORS: usize = 63;
 
 mod identify;
-
-/// IDE status register bits
-#[allow(non_snake_case, unused)]
-mod STATUS {
-    /// Busy
-    pub const BSY: usize = 7;
-    /// Device Ready
-    pub const DRDY: usize = 6;
-    /// Device Fault
-    pub const DF: usize = 5;
-    /// Disk Seek Complete
-    pub const DSC: usize = 4;
-    /// Data Request
-    pub const DRQ: usize = 3;
-    /// Corrected Data
-    pub const CORR: usize = 2;
-    /// Index (vendor specific)
-    pub const IDX: usize = 1;
-    /// Error
-    pub const ERR: usize = 0;
-}
-
-#[allow(non_snake_case, unused)]
-mod DEVHEAD {
-    type Range = std::ops::RangeInclusive<usize>;
-    /// LBA addressing
-    pub const L: usize = 6;
-    /// Device Index
-    pub const DEV: usize = 4;
-    /// Bits 24..=27 of the LBA address
-    pub const HS: Range = 0..=3;
-}
+mod reg;
 
 /// IDE Device (either 0 or 1)
 #[derive(Debug, Copy, Clone)]
@@ -127,6 +96,11 @@ enum IdeCmd {
     ReadSectorsNoRetry = 0x21,
     StandbyImmediate = 0xe0,
     StandbyImmediateAlt = 0x94,
+    WriteSectors = 0x30,
+    WriteSectorsNoRetry = 0x31,
+
+    // not strictly ATA-2, but the iPod flash ROM seems to use this cmd?
+    FlushCache = 0xe7,
 }
 
 // TODO: provide a zero-copy constructor which uses the `Read` trait
@@ -153,7 +127,6 @@ impl std::fmt::Debug for IdeIoBuf {
     }
 }
 
-#[allow(dead_code)] // TODO: remove this once IDE write is implemented
 #[derive(Debug)]
 enum IdeDriveState {
     Idle,
@@ -183,15 +156,15 @@ impl IdeDrive {
     /// Returns `None` when the drive is in CHS mode but the registers contain
     /// invalid cyl/head/sector vals.
     fn get_sector_offset(&self) -> Option<u64> {
-        let offset = if self.reg.lba3_dev_head.get_bit(DEVHEAD::L) {
-            (self.reg.lba3_dev_head.get_bits(DEVHEAD::HS) as u64) << 24
+        let offset = if self.reg.lba3_dev_head.get_bit(reg::DEVHEAD::L) {
+            (self.reg.lba3_dev_head.get_bits(reg::DEVHEAD::HS) as u64) << 24
                 | (self.reg.lba2_cyl_hi as u64) << 16
                 | (self.reg.lba1_cyl_lo as u64) << 8
                 | (self.reg.lba0_sector_no as u64)
         } else {
             let sector = self.reg.lba0_sector_no as u64;
             let cyl = ((self.reg.lba2_cyl_hi as u16) << 8 | (self.reg.lba1_cyl_lo as u16)) as u64;
-            let head = self.reg.lba3_dev_head.get_bits(DEVHEAD::HS) as u64;
+            let head = self.reg.lba3_dev_head.get_bits(reg::DEVHEAD::HS) as u64;
 
             // XXX: this should be pre-calculated, likely during the call to `attach()`
             let total_cyls = self.blockdev.len().unwrap() / (NUM_HEADS * NUM_SECTORS * 512) as u64;
@@ -226,9 +199,10 @@ impl IdeDrive {
             assert!(*remaining_sectors != 0);
 
             (self.reg.status)
-                .set_bit(STATUS::DRQ, false)
-                .set_bit(STATUS::BSY, true);
+                .set_bit(reg::STATUS::DRQ, false)
+                .set_bit(reg::STATUS::BSY, true);
 
+            // TODO: async this!
             iobuf.idx = 0;
             if let Err(e) = self.blockdev.read_exact(&mut iobuf.buf) {
                 // XXX: actually set error bits
@@ -236,8 +210,8 @@ impl IdeDrive {
             }
 
             (self.reg.status)
-                .set_bit(STATUS::DRQ, true)
-                .set_bit(STATUS::BSY, false);
+                .set_bit(reg::STATUS::DRQ, true)
+                .set_bit(reg::STATUS::BSY, false);
 
             // TODO: fire IRQ
         }
@@ -251,9 +225,9 @@ impl IdeDrive {
             if *remaining_sectors == 0 {
                 self.state = IdeDriveState::Idle;
                 (self.reg.status)
-                    .set_bit(STATUS::DRDY, true)
-                    .set_bit(STATUS::DRQ, false)
-                    .set_bit(STATUS::BSY, false);
+                    .set_bit(reg::STATUS::DRDY, true)
+                    .set_bit(reg::STATUS::DRQ, false)
+                    .set_bit(reg::STATUS::BSY, false);
                 // TODO: fire IRQ
             }
         }
@@ -261,8 +235,58 @@ impl IdeDrive {
         Ok(ret)
     }
 
-    fn data_write8(&mut self, _val: u8) -> MemResult<()> {
-        Err(Unimplemented)
+    fn data_write8(&mut self, val: u8) -> MemResult<()> {
+        let (remaining_sectors, iobuf) = match self.state {
+            IdeDriveState::Write {
+                ref mut remaining_sectors,
+                ref mut iobuf,
+            } => (remaining_sectors, iobuf),
+            _ => {
+                // FIXME: this should set some error bits
+                return Err(FatalError(format!(
+                    "cannot write data while drive is in an invalid state: {:?}",
+                    self.state
+                )));
+            }
+        };
+
+        iobuf.buf[iobuf.idx] = val;
+        iobuf.idx += 1;
+
+        // check if the sector needs to be flushed to disk
+        if iobuf.idx >= 512 {
+            assert!(*remaining_sectors != 0);
+
+            (self.reg.status)
+                .set_bit(reg::STATUS::DRQ, false)
+                .set_bit(reg::STATUS::BSY, true);
+
+            // TODO: async this!
+            iobuf.idx = 0;
+            if let Err(e) = self.blockdev.write_all(&iobuf.buf) {
+                // XXX: actually set error bits
+                return Err(e.into());
+            }
+
+            (self.reg.status)
+                .set_bit(reg::STATUS::DRQ, true)
+                .set_bit(reg::STATUS::BSY, false);
+
+            // TODO: fire IRQ
+
+            // check if there are no more sectors remaining
+            *remaining_sectors -= 1; // FIXME: this varies under `WriteMultiple`
+            if *remaining_sectors == 0 {
+                self.state = IdeDriveState::Idle;
+                (self.reg.status)
+                    .set_bit(reg::STATUS::DRDY, true)
+                    .set_bit(reg::STATUS::DRQ, false)
+                    .set_bit(reg::STATUS::BSY, false);
+                // TODO: fire IRQ
+            }
+        }
+
+        Ok(())
     }
 
     fn exec_cmd(&mut self, cmd: u8) -> MemResult<()> {
@@ -280,8 +304,8 @@ impl IdeDrive {
         }
 
         (self.reg.status)
-            .set_bit(STATUS::ERR, false)
-            .set_bit(STATUS::BSY, true);
+            .set_bit(reg::STATUS::ERR, false)
+            .set_bit(reg::STATUS::BSY, true);
         self.reg.error = 0;
 
         use IdeCmd::*;
@@ -311,8 +335,8 @@ impl IdeDrive {
                 };
 
                 (self.reg.status)
-                    .set_bit(STATUS::BSY, false)
-                    .set_bit(STATUS::DRQ, true);
+                    .set_bit(reg::STATUS::BSY, false)
+                    .set_bit(reg::STATUS::DRQ, true);
 
                 // TODO: fire interrupt
 
@@ -335,6 +359,8 @@ impl IdeDrive {
                 }
 
                 // Read the first sector from the blockdev
+                // TODO: this should be done asynchronously, with a separate task/thread
+                // notifying the IDE device when the read is completed.
                 let mut iobuf = IdeIoBuf::empty();
                 if let Err(e) = self.blockdev.read_exact(&mut iobuf.buf) {
                     // XXX: actually set error bits
@@ -351,10 +377,10 @@ impl IdeDrive {
                 };
 
                 (self.reg.status)
-                    .set_bit(STATUS::BSY, false)
-                    .set_bit(STATUS::DSC, true)
-                    .set_bit(STATUS::DRDY, true)
-                    .set_bit(STATUS::DRQ, true);
+                    .set_bit(reg::STATUS::BSY, false)
+                    .set_bit(reg::STATUS::DSC, true)
+                    .set_bit(reg::STATUS::DRDY, true)
+                    .set_bit(reg::STATUS::DRQ, true);
 
                 // TODO: fire interrupt
 
@@ -362,9 +388,54 @@ impl IdeDrive {
             }
             StandbyImmediate | StandbyImmediateAlt => {
                 // I mean, it's a virtual disk, there is no "spin up / spin down"
-                self.reg.status.set_bit(STATUS::BSY, false);
+                self.reg.status.set_bit(reg::STATUS::BSY, false);
 
                 // TODO: fire interrupt
+                Ok(())
+            }
+            WriteSectors | WriteSectorsNoRetry => {
+                // NOTE: this code is UNTESTED
+
+                let offset = match self.get_sector_offset() {
+                    Some(offset) => offset,
+                    None => {
+                        // XXX: actually set error bits
+                        return Err(FatalError("invalid offset".into()));
+                    }
+                };
+
+                // Seek into the blockdev
+                if let Err(e) = self.blockdev.seek(io::SeekFrom::Start(offset * 512)) {
+                    // XXX: actually set error bits
+                    return Err(e.into());
+                }
+
+                self.state = IdeDriveState::Write {
+                    remaining_sectors: if self.reg.sector_count == 0 {
+                        256
+                    } else {
+                        self.reg.sector_count as usize
+                    },
+                    iobuf: IdeIoBuf::empty(),
+                };
+
+                (self.reg.status)
+                    .set_bit(reg::STATUS::BSY, false)
+                    .set_bit(reg::STATUS::DSC, true)
+                    .set_bit(reg::STATUS::DRDY, false)
+                    .set_bit(reg::STATUS::DRQ, true);
+
+                // TODO: fire interrupt?
+
+                Ok(())
+            }
+            FlushCache => {
+                // uhh, we don't implement caching
+                (self.reg.status)
+                    .set_bit(reg::STATUS::BSY, false)
+                    .set_bit(reg::STATUS::DRDY, true)
+                    .set_bit(reg::STATUS::DRQ, false);
+
                 Ok(())
             }
         }
@@ -432,7 +503,7 @@ impl IdeController {
             state: IdeDriveState::Idle,
             eightbit: false,
             reg: IdeRegs {
-                status: *0u8.set_bit(STATUS::DRDY, true),
+                status: *0u8.set_bit(reg::STATUS::DRDY, true),
                 ..IdeRegs::default()
             },
             blockdev,
@@ -509,10 +580,12 @@ impl IdeController {
         match reg {
             IdeReg::Data => {
                 let ide = selected_ide!(self)?;
-                ide.data_write8(val as u8)?;
 
-                if !ide.eightbit {
+                if ide.eightbit {
                     ide.data_write8(val as u8)?;
+                } else {
+                    ide.data_write8(val as u8)?;
+                    ide.data_write8((val >> 8) as u8)?;
                 }
 
                 Ok(())
@@ -552,7 +625,7 @@ impl IdeController {
         let ide = match reg {
             DeviceHead | Lba3 => {
                 // FIXME?: Actually strip-out reserved bits?
-                self.selected_device = val.get_bit(DEVHEAD::DEV).into();
+                self.selected_device = val.get_bit(reg::DEVHEAD::DEV).into();
                 let ide = selected_ide!(self)?;
                 return Ok(ide.reg.lba3_dev_head = val);
             }
