@@ -16,6 +16,7 @@ pub mod hd66753;
 pub mod i2c;
 pub mod i2s;
 pub mod intcon;
+pub mod mailbox;
 pub mod memcon;
 pub mod piezo;
 pub mod ppcon;

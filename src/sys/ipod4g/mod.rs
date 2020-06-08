@@ -35,6 +35,7 @@ mod devices {
     pub use dev::i2c::I2CCon;
     pub use dev::i2s::I2SCon;
     pub use dev::intcon::IntCon;
+    pub use dev::mailbox::Mailbox;
     pub use dev::memcon::{self, MemCon};
     pub use dev::piezo::Piezo;
     pub use dev::ppcon::PPCon;
@@ -330,6 +331,7 @@ pub struct Ipod4gBus {
     pub piezo: devices::Piezo,
     pub cachecon: devices::CacheCon,
     pub i2s: devices::I2SCon,
+    pub mailbox: devices::Mailbox,
 
     pub mystery_irq_con: devices::Stub,
     pub mystery_lcd_con: devices::Stub,
@@ -383,6 +385,7 @@ impl Ipod4gBus {
             piezo: Piezo::new(),
             cachecon: CacheCon::new(),
             i2s: I2SCon::new(),
+            mailbox: Mailbox::new(),
 
             mystery_irq_con: Stub::new("Mystery IRQ Con?"),
             mystery_lcd_con: Stub::new("Mystery LCD Con?"),
@@ -457,6 +460,7 @@ mmap! {
     0x1000_0000..=0x11ff_ffff => sdram,
     0x4000_0000..=0x4001_7fff => fastram,
     0x6000_0000..=0x6000_0fff => cpuid,
+    0x6000_1000..=0x6000_102f => mailbox,
     0x6000_4000..=0x6000_41ff => intcon,
     0x6000_5000..=0x6000_5fff => timers,
     0x6000_6000..=0x6000_6fff => devcon,
@@ -476,7 +480,10 @@ mmap! {
     0xc300_0000..=0xc300_0fff => eidecon,
     0xf000_0000..=0xf000_ffff => memcon,
 
-    0x6000_1010..=0x6000_1fff => mystery_irq_con,
+    0x6000_1038 => mystery_irq_con,
+    0x6000_111c => mystery_irq_con,
+    0x6000_1128 => mystery_irq_con,
+    0x6000_1138 => mystery_irq_con,
     0x7000_a010 => mystery_lcd_con,
     0xc031_b1d8 => mystery_flash_stub,
     0xc031_b1e8 => mystery_flash_stub,

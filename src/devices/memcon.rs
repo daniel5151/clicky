@@ -182,6 +182,9 @@ impl Memory for MemCon {
                 let no = (offset - 0xf000) / 8;
                 Ok(self.mmap[no as usize].physical)
             }
+            0xf040 => Err(StubRead(Info, self.cache_mask)),
+            0xf044 => Err(InvalidAccess),
+            0xf048 => Err(Unimplemented),
             _ => Err(Unexpected),
         }
     }
@@ -205,6 +208,9 @@ impl Memory for MemCon {
                 self.mmap[no as usize].physical = val;
                 Err(FatalError("mmap not implemented".into()))
             }
+            0xf040 => Err(StubWrite(Info, self.cache_mask = val)),
+            0xf044 => Err(StubWrite(Info, ())),
+            0xf048 => Err(Unimplemented),
             _ => Err(Unexpected),
         }
     }
