@@ -18,7 +18,6 @@ pub mod gui;
 pub mod memory;
 pub mod signal;
 pub mod sys;
-pub mod util;
 
 use crate::block::{BlockCfg, BlockDev};
 use crate::sys::ipod4g::{BootKind, Ipod4g, Ipod4gControls};

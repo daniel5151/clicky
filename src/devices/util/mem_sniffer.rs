@@ -1,5 +1,6 @@
-use crate::devices::{Device, Probe};
-use crate::memory::{MemAccess, MemAccessKind, MemResult, Memory, ToMemAccess};
+use crate::devices::prelude::*;
+
+use crate::memory::{MemAccess, MemAccessKind, ToMemAccess};
 
 /// [MemSniffer] wraps a [Memory] object, forwarding requests to the underlying
 /// memory object, while also recording accesses to the provided callback.

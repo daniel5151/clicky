@@ -16,7 +16,7 @@ mod hle_bootloader;
 
 use hle_bootloader::run_hle_bootloader;
 
-use crate::devices::util::arcmutex::ArcMutexDevice;
+use crate::devices::util::ArcMutexDevice;
 mod devices {
     pub use crate::devices::{
         display::hd66753::Hd66753,
