@@ -9,7 +9,7 @@ use crate::memory::{
     armv4t_adaptor::{MemoryAdapter, MemoryAdapterException},
     MemAccess, MemAccessKind, MemException, MemResult, Memory,
 };
-use crate::signal::{gpio, irq};
+use crate::signal::{self, gpio, irq};
 
 mod gdb;
 mod hle_bootloader;
@@ -48,6 +48,7 @@ pub enum BlockMode {
 #[derive(Debug)]
 pub struct Ipod4gControls {
     pub hold: gpio::Sender,
+    pub keypad: devices::KeypadSignals<signal::Master>,
 }
 
 pub enum BootKind<F: Read + Seek> {
@@ -66,6 +67,7 @@ pub struct Ipod4g {
 
     irq_pending: irq::Pending,
     gpio_changed: gpio::Changed,
+    i2c_changed: signal::Trigger,
 }
 
 impl Ipod4g {
@@ -84,6 +86,7 @@ impl Ipod4g {
         // initialize base system
         let irq_pending = irq::Pending::new();
         let gpio_changed = gpio::Changed::new();
+        let i2c_changed = signal::Trigger::new(signal::TriggerKind::Edge);
 
         let mut sys = Ipod4g {
             frozen: false,
@@ -93,6 +96,7 @@ impl Ipod4g {
             controls: None,
             irq_pending,
             gpio_changed: gpio_changed.clone(),
+            i2c_changed: i2c_changed.clone(),
         };
 
         // connect HDD
@@ -103,15 +107,23 @@ impl Ipod4g {
 
         // hook-up external controls
         let (hold_tx, hold_rx) = gpio::new(gpio_changed, "Hold");
+        let (keypad_tx, keypad_rx) = devices::KeypadSignals::new_tx_rx(i2c_changed);
 
         {
             let mut gpio_abcd = sys.devices.gpio_abcd.lock().unwrap();
-            gpio_abcd.register_in(5, hold_rx);
+            gpio_abcd.register_in(5, hold_rx.clone());
             // HLE: I think the bootloader enables the GPIOA:5 pin (i.e: the Hold button)
             gpio_abcd.w32(0x00, 0x20).unwrap();
         }
 
-        sys.controls = Some(Ipod4gControls { hold: hold_tx });
+        {
+            sys.devices.i2c.register_keypad(keypad_rx, hold_rx)
+        }
+
+        sys.controls = Some(Ipod4gControls {
+            hold: hold_tx,
+            keypad: keypad_tx,
+        });
 
         // depending on the kind of boot, either install the provided flash ROM dump, or
         // run the HLE bootloader.
@@ -203,15 +215,6 @@ impl Ipod4g {
         Ok(())
     }
 
-    fn check_device_interrupts(&mut self, _blocking: BlockMode) {
-        // use armv4t_emu::Exception;
-
-        // TODO
-        if self.irq_pending.check_pending() {
-            // panic!("IRQ handling isn't implemented yet!");
-        }
-    }
-
     /// Run the system for a single CPU instruction, returning `true` if the
     /// system is still running, or `false` upon exiting to the bootloader.
     pub fn step(
@@ -254,7 +257,16 @@ impl Ipod4g {
             self.devices.gpio_efgh.lock().unwrap().update();
             self.devices.gpio_ijkl.lock().unwrap().update();
         }
-        self.check_device_interrupts(BlockMode::NonBlocking);
+        if self.i2c_changed.check_and_clear() {
+            self.devices.i2c.on_change();
+        }
+
+        if self.irq_pending.check_pending() {
+            // use armv4t_emu::Exception;
+            // TODO
+
+            // panic!("IRQ handling isn't implemented yet!");
+        }
 
         Ok(true)
     }
@@ -325,6 +337,7 @@ impl Ipod4gBus {
         let (gpio0_irq_tx, gpio0_irq_rx) = irq::new(irq_pending.clone(), "GPIO0");
         let (gpio1_irq_tx, gpio1_irq_rx) = irq::new(irq_pending.clone(), "GPIO1");
         let (gpio2_irq_tx, gpio2_irq_rx) = irq::new(irq_pending.clone(), "GPIO2");
+        let (i2c_irq_tx, i2c_irq_rx) = irq::new(irq_pending.clone(), "I2C");
 
         let gpio_abcd = ArcMutexDevice::new(GpioBlock::new(gpio0_irq_tx, ["A", "B", "C", "D"]));
         let gpio_efgh = ArcMutexDevice::new(GpioBlock::new(gpio1_irq_tx, ["E", "F", "G", "H"]));
@@ -336,10 +349,20 @@ impl Ipod4gBus {
 
         let mut intcon = IntCon::new();
         intcon
+            // .register(0, timer1_irq_rx)
+            // .register(1, timer2_irq_rx)
+            // .register(4, mailbox_irq_rx)
+            // .register(10, i2s_irq_rx)
+            // .register(20, usb_irq_rx)
             .register(23, ide_irq_rx)
+            // .register(25, firewire_irq_rx)
+            // .register(26, dma_irq_rx)
             .register(32, gpio0_irq_rx)
             .register(33, gpio1_irq_rx)
-            .register(34, gpio2_irq_rx);
+            .register(34, gpio2_irq_rx)
+            // .register(36, ser0_irq_rx)
+            // .register(37, ser1_irq_rx)
+            .register(40, i2c_irq_rx);
 
         use devices::*;
         Ipod4gBus {
@@ -356,7 +379,7 @@ impl Ipod4gBus {
             gpio_mirror_abcd: GpioBlockAtomicMirror::new(gpio_mirror_abcd),
             gpio_mirror_efgh: GpioBlockAtomicMirror::new(gpio_mirror_efgh),
             gpio_mirror_ijkl: GpioBlockAtomicMirror::new(gpio_mirror_ijkl),
-            i2c: I2CCon::new(),
+            i2c: I2CCon::new(i2c_irq_tx),
             ppcon: PPCon::new(),
             devcon: DevCon::new(),
             intcon,

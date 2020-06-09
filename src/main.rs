@@ -97,14 +97,27 @@ fn main() -> Result<(), Box<dyn StdError>> {
 
     // hook-up controls
     let minifb_controls = {
-        let Ipod4gControls { mut hold } = system.take_controls().unwrap();
+        use devices::platform::pp::KeypadSignals;
+        use minifb::Key;
+
+        let Ipod4gControls {
+            mut hold,
+            keypad:
+                KeypadSignals {
+                    mut action,
+                    mut up,
+                    mut down,
+                    mut left,
+                    mut right,
+                },
+        } = system.take_controls().unwrap();
 
         // set hold high by default
         hold.set_high();
 
         let mut controls: HashMap<_, gui::KeyCallback> = HashMap::new();
         controls.insert(
-            minifb::Key::H, // H for Hold
+            Key::H, // H for Hold
             Box::new(move |pressed| {
                 if pressed {
                     // toggle on and off
@@ -115,6 +128,28 @@ fn main() -> Result<(), Box<dyn StdError>> {
                 }
             }),
         );
+
+        macro_rules! connect_keypad_btn {
+            ($key:expr, $signal:expr) => {
+                controls.insert(
+                    $key,
+                    Box::new(move |pressed| {
+                        if pressed {
+                            $signal.assert()
+                        } else {
+                            $signal.clear()
+                        }
+                    }),
+                );
+            };
+        }
+
+        connect_keypad_btn!(Key::Up, up);
+        connect_keypad_btn!(Key::Down, down);
+        connect_keypad_btn!(Key::Left, left);
+        connect_keypad_btn!(Key::Right, right);
+        connect_keypad_btn!(Key::Enter, action);
+
         controls
     };
 
