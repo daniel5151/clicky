@@ -17,6 +17,13 @@ pub struct EIDECon {
     ide0_cfg: IdeDriveCfg,
     ide1_cfg: IdeDriveCfg,
     ide: IdeController,
+
+    // not sure if these are here, or under the generic IDE interface. we'll find out when I get
+    // around to implementing DMA I guess ¯\_(ツ)_/¯
+    dma_control: u32,
+    dma_length: u32,
+    dma_addr: u32,
+    unknown: u32,
 }
 
 impl EIDECon {
@@ -25,6 +32,11 @@ impl EIDECon {
             ide0_cfg: Default::default(),
             ide1_cfg: Default::default(),
             ide: IdeController::new(irq),
+
+            dma_control: 0,
+            dma_length: 0,
+            dma_addr: 0,
+            unknown: 0,
         }
     }
 
@@ -62,6 +74,12 @@ impl Device for EIDECon {
 
             0x3f8 => "AltStatus/DeviceControl",
             0x3fc => "Data Latch",
+
+            0x400 => "DMA Control",
+            0x408 => "DMA Length",
+            0x40c => "DMA Addr",
+            0x410 => "?",
+
             _ => return Probe::Unmapped,
         };
 
@@ -99,6 +117,11 @@ impl Memory for EIDECon {
 
             0x3f8 => self.ide.read8(IdeReg::AltStatus).map(|v| v as u32),
             0x3fc => self.ide.read8(IdeReg::DataLatch).map(|v| v as u32),
+
+            0x400 => Err(StubRead(Error, self.dma_control)),
+            0x408 => Err(StubRead(Error, self.dma_length)),
+            0x40c => Err(StubRead(Error, self.dma_addr)),
+            0x410 => Err(StubRead(Error, self.unknown)),
             _ => Err(Unexpected),
         }
     }
@@ -135,6 +158,12 @@ impl Memory for EIDECon {
 
             0x3f8 => self.ide.write8(IdeReg::DevControl, val as u8),
             0x3fc => self.ide.write8(IdeReg::DataLatch, val as u8),
+
+            0x400 => Err(StubWrite(Error, self.dma_control = val)),
+            0x408 => Err(StubWrite(Error, self.dma_length = val)),
+            0x40c => Err(StubWrite(Error, self.dma_addr = val)),
+            0x410 => Err(StubWrite(Error, self.unknown = val)),
+
             _ => Err(Unexpected),
         }
     }

@@ -172,6 +172,7 @@ impl Ipod4g {
                     reason: mem_except,
                 })
             }
+            Log(level, msg) => log!(level, "{} {}", ctx_str, msg),
 
             Misaligned => {
                 // FIXME: Misaligned access (i.e: Data Abort) should be a CPU exception.
@@ -262,10 +263,20 @@ impl Ipod4g {
         }
 
         if self.irq_pending.check_pending() {
-            // use armv4t_emu::Exception;
-            // TODO
+            use armv4t_emu::Exception;
 
-            // panic!("IRQ handling isn't implemented yet!");
+            let (cpu_status, cop_status) = self.devices.intcon.interrupt_status();
+
+            for (core, status) in
+                [(&mut self.cpu, cpu_status), (&mut self.cop, cop_status)].iter_mut()
+            {
+                if status.irq {
+                    core.exception(Exception::Interrupt)
+                }
+                if status.fiq {
+                    core.exception(Exception::FastInterrupt)
+                }
+            }
         }
 
         Ok(true)
@@ -324,10 +335,12 @@ pub struct Ipod4gBus {
     pub cachecon: devices::CacheCon,
     pub i2s: devices::I2SCon,
     pub mailbox: devices::Mailbox,
+    pub dma: devices::DmaCon,
 
     pub mystery_irq_con: devices::Stub,
     pub mystery_lcd_con: devices::Stub,
     pub mystery_flash_stub: devices::Stub,
+    pub total_mystery: devices::Stub,
 }
 
 impl Ipod4gBus {
@@ -389,10 +402,12 @@ impl Ipod4gBus {
             cachecon: CacheCon::new(),
             i2s: I2SCon::new(),
             mailbox: Mailbox::new(),
+            dma: DmaCon::new(),
 
             mystery_irq_con: Stub::new("Mystery IRQ Con?"),
             mystery_lcd_con: Stub::new("Mystery LCD Con?"),
             mystery_flash_stub: Stub::new("Mystery FlashROM Con?"),
+            total_mystery: Stub::new("<total mystery>"),
         }
     }
 }
@@ -468,6 +483,7 @@ mmap! {
     0x6000_5000..=0x6000_5fff => timers,
     0x6000_6000..=0x6000_6fff => devcon,
     0x6000_7000..=0x6000_7fff => cpucon,
+    0x6000_a000..=0x6000_bfff => dma,
     0x6000_c000..=0x6000_cfff => cachecon,
     0x6000_d000..=0x6000_d07f => gpio_abcd,
     0x6000_d080..=0x6000_d0ff => gpio_efgh,
@@ -475,19 +491,27 @@ mmap! {
     0x6000_d800..=0x6000_d87f => gpio_mirror_abcd,
     0x6000_d880..=0x6000_d8ff => gpio_mirror_efgh,
     0x6000_d900..=0x6000_d97f => gpio_mirror_ijkl,
+
+    0x6400_4000..=0x6400_41ff => intcon, // i guess there's a mirror?
+
     0x7000_0000..=0x7000_1fff => ppcon,
-    0x7000_3000..=0x7000_3fff => hd66753,
+    0x7000_3000..=0x7000_301f => hd66753,
     0x7000_a000..=0x7000_a003 => piezo,
     0x7000_c000..=0x7000_cfff => i2c,
     0x7000_2800..=0x7000_28ff => i2s,
     0xc300_0000..=0xc300_0fff => eidecon,
     0xf000_0000..=0xf000_ffff => memcon,
 
+    // all the stubs
+
     0x6000_1038 => mystery_irq_con,
     0x6000_111c => mystery_irq_con,
     0x6000_1128 => mystery_irq_con,
     0x6000_1138 => mystery_irq_con,
+    0x6000_3000..=0x6000_30ff => total_mystery,
+    0x6000_9000..=0x6000_90ff => total_mystery,
     0x7000_a010 => mystery_lcd_con,
+    0x7000_3800 => total_mystery,
     0xc031_b1d8 => mystery_flash_stub,
     0xc031_b1e8 => mystery_flash_stub,
     0xffff_fe00..=0xffff_ffff => mystery_flash_stub,

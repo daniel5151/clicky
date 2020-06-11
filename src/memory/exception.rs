@@ -14,6 +14,9 @@ pub enum MemException {
     StubWrite(log::Level, ()),
     /// An unrecoverable error which should immediately terminate execution.
     FatalError(String),
+    /// Success, but also log log a message.
+    // HACK: there should be some way to pipe context to the devices themselves?
+    Log(log::Level, String),
 
     // -- Guest Access Violations -- //
     /// Attempted to access a device at an invalid offset.

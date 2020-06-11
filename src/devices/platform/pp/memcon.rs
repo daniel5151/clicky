@@ -12,8 +12,6 @@ pub struct Protection {
 
 #[derive(Debug, Default)]
 struct Mmap {
-    // XXX: these shouldn't be options. I just don't know what the HLE vals at init are, and this
-    // is a hacky side-step for that issue.
     logical: u32,
     physical: u32,
 }
@@ -21,7 +19,7 @@ struct Mmap {
 /// PP5020 Memory Controller. Content varies based on which CPU/COP is
 /// performing the access.
 ///
-/// Shoutout to the mysterious MrH for reverse-engineering most of this info!
+/// Shoutout to the mysterious MrH for lots of helpful reverse-engineering.
 /// https://daniel.haxx.se/sansa/memory_controller.txt
 pub struct MemCon {
     cache_data: [u32; 0x2000],
@@ -76,50 +74,67 @@ impl MemCon {
     }
 
     pub fn virt_to_phys(&self, addr: u32) -> (u32, Protection) {
-        // TODO: debug this :(
+        for &Mmap { logical, physical } in self.mmap.iter() {
+            if logical == 0 || physical == 0 {
+                continue;
+            }
 
-        // use bit_field::BitField;
-        // for Mmap { logical, physical } in self.mmap.iter() {
-        //     // XXX: see note why these are options
-        //     let (logical, physical) = match (logical, physical) {
-        //         (Some(x), Some(y)) => (x, y),
-        //         _ => continue,
-        //     };
+            let mask = logical.get_bits(0..=13) << 16;
+            let virt_addr = logical.get_bits(16..=29) << 16;
+            let phys_addr = physical.get_bits(16..=29) << 16;
+            let prot = Protection {
+                r: physical.get_bit(8),
+                w: physical.get_bit(9),
+                d: physical.get_bit(10),
+                x: physical.get_bit(11),
+            };
 
-        //     let mask = logical.get_bits(0..=13) << 16;
-        //     let virt_addr = logical.get_bits(16..=29) << 16;
-        //     let phys_addr = physical.get_bits(16..=29) << 16;
-        //     let prot = Protection {
-        //         r: physical.get_bit(8),
-        //         w: physical.get_bit(9),
-        //         d: physical.get_bit(10),
-        //         x: physical.get_bit(11),
-        //     };
+            // debug!(
+            //     "[{:x?}:{:x?}|{:x?}] {:x?} ",
+            //     virt_addr, phys_addr, mask, addr
+            // );
 
-        //     debug!(
-        //         "[{:#010x?}:virt, {:#010x?}:phys] ({:#010x?}:addr & {:#010x?}:mask =
-        // {:x?}) ({:#010x?}:virt_addr & mask = {:x?})",         virt_addr,
-        //         phys_addr,
-        //         addr,
-        //         mask,
-        //         addr & mask,
-        //         virt_addr,
-        //         virt_addr & mask,
-        //     );
+            // This is how the translation is supposed to work according to MrH's doc.
+            // Unfortunately, it doesn't work, and I'm not sure why...
+            //
+            // let final_addr = {
+            //     if (addr & mask) != (virt_addr & mask) {
+            //         continue;
+            //     }
+            //     (addr & !mask) | (phys_addr & mask)
+            // };
+            //
+            // return (final_addr, prot);
 
-        //     // If I'm reading the docs right, then this is the code that aught to
-        // work.     // Unfortunately, it doesn't, and I'm not sure why...
-        //     let final_addr = {
-        //         if (addr & mask) != (virt_addr & mask) {
-        //             continue;
-        //         }
-        //         (addr & !mask) | (phys_addr & mask)
-        //     };
+            // This other approach is based off some random tidbit of info that hinted the
+            // minimum remapable size was 512k. It _also_ doesn't work...
+            //
+            // if (virt_addr..(virt_addr + mask / 2)).contains(&addr) {
+            //     let final_addr = addr - virt_addr + phys_addr;
+            //     return (final_addr, prot);
+            // }
 
-        //     debug!("{:x?} -> {:x?}", addr, final_addr);
+            // XXX: I've spent _way_ too much time trying to decipher how to
+            // mmap properly, so fuck it. I'm just hardcoding the few mappings
+            // software uses on a case-by-case basis.
+            let transform_range = match (mask, virt_addr, phys_addr) {
+                // ipodloader2: map SDRAM to 0x0
+                (0x3a00_0000, 0, 0x1000_0000) => Some(0..0x0200_0000),
+                // ipodloader2: map flash ROM to 0x2000_0000
+                (0x3a00_0000, 0x2000_0000, 0) => Some(0x2000_0000..0x2010_0000),
+                // flashROM: flashROM protection bits
+                (0x3bf0_0000, 0, 0) => Some(0..0),
+                _ => None,
+            };
 
-        //     return (final_addr, prot);
-        // }
+            if let Some(transform_range) = transform_range {
+                if transform_range.contains(&addr) {
+                    return (addr - virt_addr + phys_addr, prot);
+                }
+            } else {
+                panic!("unimplemented mmap: {:x?}", (mask, virt_addr, phys_addr))
+            }
+        }
 
         // no mapping, just use default options
         (
@@ -195,15 +210,31 @@ impl Memory for MemCon {
             0x8000..=0x9fff => Err(StubWrite(Info, ())),
             0xa000..=0xbfff => Err(StubWrite(Info, ())),
             0xc000..=0xdfff => Err(StubWrite(Info, ())),
-            0xf000..=0xf03f if offset & 0b100 == 0 => {
+            0xf000..=0xf03f if offset & 4 == 0 => {
                 let no = (offset - 0xf000) / 8;
                 self.mmap[no as usize].logical = val;
-                Err(FatalError("mmap not implemented".into()))
+
+                Err(Log(
+                    Debug,
+                    format!(
+                        "virt_addr:{:x}, mask:{:x}",
+                        val.get_bits(16..=29) << 16,
+                        val.get_bits(0..=13) << 16,
+                    ),
+                ))
             }
-            0xf000..=0xf03f if offset & 0b100 != 0 => {
+            0xf000..=0xf03f if offset & 4 != 0 => {
                 let no = (offset - 0xf000) / 8;
                 self.mmap[no as usize].physical = val;
-                Err(FatalError("mmap not implemented".into()))
+
+                Err(Log(
+                    Debug,
+                    format!(
+                        "phys_addr:{:x}, rwdx:{:04b}",
+                        val.get_bits(16..=29) << 16,
+                        val.get_bits(8..=11),
+                    ),
+                ))
             }
             0xf040 => Err(StubWrite(Info, self.cache_mask = val)),
             0xf044 => Err(StubWrite(Info, ())),

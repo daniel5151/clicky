@@ -5,9 +5,16 @@ use byteorder::{ByteOrder, LittleEndian};
 /// Internal iPod Flash ROM. Defaults to HLE mode (where only a few critical
 /// memory locations can be read). Use the `use_dump` method if you have a dump
 /// of a real iPod's flash ROM.
-#[derive(Debug)]
 pub struct Flash {
     dump: Option<Vec<u8>>,
+}
+
+impl std::fmt::Debug for Flash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Flash")
+            .field("dump", &self.dump.as_ref().map(|_| "[...]"))
+            .finish()
+    }
 }
 
 impl Flash {

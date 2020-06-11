@@ -23,7 +23,7 @@ impl Device for Stub {
     }
 
     fn probe(&self, _offset: u32) -> Probe {
-        Probe::Register("<stub>")
+        Probe::Unmapped
     }
 }
 

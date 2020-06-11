@@ -2,6 +2,38 @@ use crate::devices::prelude::*;
 
 use crate::signal::irq;
 
+pub struct IntStatus {
+    pub irq: bool,
+    pub fiq: bool,
+}
+
+macro_rules! impl_and_or {
+    ($op:tt, $kind:ident, $fn:ident) => {
+        impl core::ops::$kind for IntStatus {
+            type Output = Self;
+            fn $fn(self, other: Self) -> Self {
+                IntStatus {
+                    irq: self.irq $op other.irq,
+                    fiq: self.fiq $op other.fiq,
+                }
+            }
+        }
+
+        impl core::ops::$kind<bool> for IntStatus {
+            type Output = Self;
+            fn $fn(self, other: bool) -> Self {
+                IntStatus {
+                    irq: self.irq $op other,
+                    fiq: self.fiq $op other,
+                }
+            }
+        }
+    };
+}
+
+impl_and_or!(&, BitAnd, bitand);
+impl_and_or!(|, BitOr, bitor);
+
 #[derive(Debug, Default)]
 struct IntConCpuRegs {
     irq_stat: u32,
@@ -73,22 +105,18 @@ impl IntCon32 {
         // TODO: look into the "forced interrupt" functionality
     }
 
-    pub fn check_fiq(&mut self, is_cop: bool) -> bool {
+    pub fn interrupt_status(&mut self) -> (IntStatus, IntStatus) {
         self.update_regs();
-        let cpu = match is_cop {
-            true => &mut self.cop,
-            false => &mut self.cpu,
-        };
-        cpu.enabled & cpu.fiq_stat != 0
-    }
-
-    pub fn check_irq(&mut self, is_cop: bool) -> bool {
-        self.update_regs();
-        let cpu = match is_cop {
-            true => &mut self.cop,
-            false => &mut self.cpu,
-        };
-        cpu.enabled & cpu.irq_stat != 0
+        (
+            IntStatus {
+                irq: self.cpu.enabled & self.cpu.irq_stat != 0,
+                fiq: self.cpu.enabled & self.cpu.fiq_stat != 0,
+            },
+            IntStatus {
+                irq: self.cop.enabled & self.cop.irq_stat != 0,
+                fiq: self.cop.enabled & self.cop.fiq_stat != 0,
+            },
+        )
     }
 }
 
@@ -118,6 +146,11 @@ impl Device for IntCon32 {
             0x34 => "CopIntEnable",
             0x38 => "CopIntDisable",
             0x3c => "CopIntPriority",
+
+            // based off some random dude's comment in an IRC chat from 2008
+            // https://www.rockbox.org/irc/log-20080219
+            0x44 => "(?) <serial related?>",
+            0x4c => "(?) <serial related?>",
             _ => return Probe::Unmapped,
         };
 
@@ -147,6 +180,9 @@ impl Memory for IntCon32 {
             0x34 => Err(InvalidAccess),
             0x38 => Err(InvalidAccess),
             0x3c => Err(Unimplemented),
+
+            0x44 => Err(Unimplemented),
+            0x4c => Err(Unimplemented),
             _ => Err(Unexpected),
         }
     }
@@ -161,7 +197,7 @@ impl Memory for IntCon32 {
             0x10 => Err(Unimplemented),
             0x14 => Err(Unimplemented),
             0x18 => Err(Unimplemented),
-            0x1c => Err(Unimplemented),
+            0x1c => Err(StubWrite(Error, ())), // TODO: figure out what this does
 
             0x20 => Err(InvalidAccess),
             0x24 => Ok(self.cpu.enabled |= val),
@@ -172,6 +208,9 @@ impl Memory for IntCon32 {
             0x34 => Ok(self.cop.enabled |= val),
             0x38 => Ok(self.cop.enabled &= !val),
             0x3c => Ok(self.cop.priority = val),
+
+            0x44 => Err(StubWrite(Error, ())),
+            0x4c => Err(StubWrite(Error, ())),
             _ => Err(Unexpected),
         }
     }
@@ -212,21 +251,23 @@ impl IntCon {
         self
     }
 
-    fn hi_enabled(&self, is_cop: bool) -> bool {
-        match is_cop {
-            true => self.lo.cop.enabled.get_bit(30),
-            false => self.lo.cpu.enabled.get_bit(30),
-        }
+    fn hi_enabled(&self) -> (bool, bool) {
+        (
+            self.lo.cpu.enabled.get_bit(30),
+            self.lo.cop.enabled.get_bit(30),
+        )
     }
 
-    /// Check if an IRQ is being requested, updating registers appropriately.
-    pub fn check_irq(&mut self, is_cop: bool) -> bool {
-        self.lo.check_irq(is_cop) || (self.hi_enabled(is_cop) && self.hi.check_irq(is_cop))
-    }
+    /// Check if an IRQ/FIQ is being requested on the (cpu, cop)
+    pub fn interrupt_status(&mut self) -> (IntStatus, IntStatus) {
+        let (lo_cpu, lo_cop) = self.lo.interrupt_status();
+        let (hien_cpu, hien_cop) = self.hi_enabled();
+        let (hi_cpu, hi_cop) = self.hi.interrupt_status();
 
-    /// Check if a FIQ is being requested, updating registers appropriately.
-    pub fn check_fiq(&mut self, is_cop: bool) -> bool {
-        self.lo.check_fiq(is_cop) || (self.hi_enabled(is_cop) && self.hi.check_fiq(is_cop))
+        (
+            (lo_cpu | (hi_cpu & hien_cpu)),
+            (lo_cop | (hi_cop & hien_cop)),
+        )
     }
 }
 

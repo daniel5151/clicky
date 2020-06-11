@@ -136,7 +136,7 @@ The plan is to implement devices and hardware "just in time" throughout developm
             - LCD output, button input
             - basic CLI
         - Scaffold basic system architecture (step through CPU, system memory map, interact with devices)
-- [ ] Get through the more complex https://github.com/iPodLinux/ipodloader2/
+- [x] Get through the more complex https://github.com/iPodLinux/ipodloader2/
     - Touches even _more_ iPod-specific hardware (ATA-2)
     - Seems to do more in-depth system init (interrupt handling as well?)
     - **Goals:**

@@ -46,6 +46,9 @@ pub(super) fn run_hle_bootloader(
     ipod.cpu.reg_set(ArmMode::User, reg::CPSR, 0xd3); // supervisor mode
     ipod.cop = ipod.cpu;
 
+    // inject some HLE CPU state
+    ipod.cpu.reg_set(ArmMode::Irq, reg::SP, 0x40017bfc);
+
     // inject fake sysinfo into fastram.
     //
     // I threw my copy of the iPod 4g flashROM into Ghidra, and as far as I can

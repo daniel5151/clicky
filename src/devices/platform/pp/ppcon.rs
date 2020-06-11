@@ -3,7 +3,7 @@ use crate::devices::prelude::*;
 /// Poorly documented PP50XX controller
 #[derive(Debug)]
 pub struct PPCon {
-    dev_init: [u32; 5],
+    dev_init: [u32; 6],
     dev_timing: [u32; 3],
     bootstrap_maybe: [u32; 2],
 
@@ -15,7 +15,7 @@ pub struct PPCon {
 impl PPCon {
     pub fn new() -> PPCon {
         PPCon {
-            dev_init: [0; 5],
+            dev_init: [0; 6],
             dev_timing: [0; 3],
             bootstrap_maybe: [0; 2],
 
@@ -42,6 +42,7 @@ impl Device for PPCon {
             0x18 => "(?) Dev Init 1.2",
             0x1c => "(?) Dev Init 1.3",
             0x20 => "Dev Init 2",
+            0x24 => "(?) Dev Init 2.1",
             0x30 => "(?) Dev Timing 0",
             0x34 => "Dev Timing 1",
             0x3c => "(?) Dev Timing 1.1",
@@ -68,6 +69,7 @@ impl Memory for PPCon {
             0x18 => Err(StubRead(Info, self.dev_init[2])),
             0x1c => Err(StubRead(Info, self.dev_init[3])),
             0x20 => Err(StubRead(Info, self.dev_init[4])),
+            0x24 => Err(StubRead(Info, self.dev_init[5])),
             0x30 => Err(StubRead(Info, self.dev_timing[0])),
             0x34 => Err(StubRead(Info, self.dev_timing[1])),
             0x3c => Err(StubRead(Info, self.dev_timing[2])),
@@ -90,6 +92,7 @@ impl Memory for PPCon {
             0x18 => Err(StubWrite(Info, self.dev_init[2] = val)),
             0x1c => Err(StubWrite(Info, self.dev_init[3] = val)),
             0x20 => Err(StubWrite(Info, self.dev_init[4] = val)),
+            0x24 => Err(StubWrite(Info, self.dev_init[5] = val)),
             // HACK: that flag needs to be set to progress through the Flash ROM bootloader
             0x30 => Err(StubWrite(Info, self.dev_timing[0] = val | 0x8000000)),
             0x34 => Err(StubWrite(Info, self.dev_timing[1] = val)),
