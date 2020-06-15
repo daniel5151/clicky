@@ -2,7 +2,29 @@
 
 A WIP clickwheel iPod emulator.
 
-## Target Hardware
+Here's a clip of `clicky` emulating an iPod 4G running `ipodloader2` (a third-party bootloader for the iPod) and loading [Rockbox](https://www.rockbox.org/) into system memory.
+
+<img height="256px" src="screenshots/clicky-ipodloader2-lle.gif" alt="clicky booting ipodloader2 + rockbox">
+
+**This project is not ready for general use yet!**
+
+`clicky` is still in it's early stages, and there hasn't been much effort put into making it easy to use.
+
+That said, if you're a cool [hackerman](https://www.youtube.com/watch?v=V4MF2s6MLxY) who can [jam with the console cowboys in cyberspace](https://www.youtube.com/watch?v=BNtcWpY4YLY), check out the [Quickstart](#quickstart) guide on how to build `clicky` from source.
+
+---
+
+Are you someone with strong **reverse engineering** experience and wants to help preserve an iconic piece of early 2000s pop-culture? If so, read on!
+
+While I expect that I'll be able to get Rockbox and iPodLinux up and running, I worry that getting Apple's RetailOS working may prove difficult. While lots of reverse-engineering work has already been done by the iPodLinux and Rockbox projects back around 2007, it seems that there are still plenty of registers / memory blocks whose purpose is unknown. `clicky` can already boot into RetailOS, and I'm noticing lots of accesses to undocumented parts of the PP5020 memory space.
+
+Fortunately, now that we're living in 2020 (i.e: the future), we have access to newer, better tools that can aid in reverse-engineering the iPod. Free and powerful reverse engineering tools (like [Gridra](https://ghidra-sre.org/)), and emulation software (`clicky` itself) aught to make it easier to inspect and observe the state of the RetailOS binaries while they're being run, and gain insight into what the hardware is supposed to do.
+
+I've got some reverse engineering experience, but truth be told, it's not really my forte, so if you're interested in helping out, please get in touch!
+
+---
+
+## Emulated Hardware
 
 - MVP: [iPod 4g (Grayscale)](https://everymac.com/systems/apple/ipod/specs/ipod_4thgen.html)
 - End goal: [iPod 5g](https://everymac.com/systems/apple/ipod/specs/ipod_5thgen.html)
@@ -15,6 +37,10 @@ The 5g is the first iPod model to support [iPod Games](https://en.wikipedia.org/
 
 ## Quickstart
 
+`clicky` is primarily developed and tested on Linux, though it is being written with cross-platform support in mind. At some point, I do intend to set up a CI to ensure `clicky` compiles on Windows/macOS, but until that point, please file an issue if `clicky` doesn't compile on your system.
+
+_Note:_ All scripts and snippets below assume you're running a Unix-like environment. If you're on Windows, I recommend using WSL to create/manipulate iPod disk images.
+
 ### Building `clicky`
 
 `clicky` uses the standard `cargo` build flow, so running `cargo build --release` should do the trick.
@@ -25,13 +51,13 @@ cd clicky
 cargo build --release
 ```
 
-When building on Linux, you may encounter some build-script / linker errors related to missing `xkbcommon` and `wayland` libraries. On Debian/Ubuntu, you can install them via `apt install libxkbcommon-dev libwayland-dev`.
+#### Common Build Errors
+
+- (Linux) You may encounter some build-script / linker errors related to missing `xkbcommon` and `wayland` libraries. On Debian/Ubuntu, you can install them via `apt install libxkbcommon-dev libwayland-dev`.
 
 ### Building a test firmware
 
 While the end-goal is to boot into Rockbox, iPodLinux, and Apple's RetailOS, `clicky` isn't quite there yet.
-
-At the time of writing, `clicky` is (slowly but surely!) implementing the devices / features necessary to run `ipodloader2`, a third-party bootloader for the iPod. It is already capable of executing the original `ipodloader`.
 
 I've included the source of `ipodloader` and `ipodloader2` in-tree under `./resources/`, and fixed-up their makefiles / sources to compile under more recent gcc toolchains (namely: `gcc-arm-none-eabi`). Additionally, I've tweaked some compiler flags to disable optimizations + enable debug symbols, which should make debugging a lot easier.
 
@@ -56,11 +82,11 @@ make
 To get up-and-running with a basic test image, run the following commands:
 
 ```bash
-./scripts/mkipodhd_raw.sh # creates an `ipodhd.img` raw disk image
+./scripts/mkipodhd_raw.sh ./resources/ipodloader2 # creates an `ipodhd.img` raw disk image
 ./scripts/add_ipodloader_cfg_to_rawhd.sh
 ```
 
-The resulting disk image is only 64MiB in size. It follows WinPod formatting (MBR), and has two partitions: the iPod firmware partition, and a FAT32 partition.
+The resulting disk image is only 64MiB in size. It uses WinPod formatting (MBR) with two partitions: an iPod firmware partition, and a FAT32 partition.
 
 Getting data onto the disk image is a bit finicky. On Linux, you can run `sudo mount -o loop,offset=$((12288 * 512)) ipodhd.img tmp/` to mount the FAT32 partition. The specific offset number corresponds to the location of the FAT32 partition in the disk image. The offset value is determined by running `fdisk -lu ipodhd.img`.
 
@@ -75,15 +101,13 @@ cargo run -- ./resources/ipodloader/ipodloader_loops_unopt.bin --hdd=null:len=1G
 cargo run -- ./resources/ipodloader2/ipodloader2_loops.bin --hdd=raw:file=ipodhd.img
 ```
 
-`ipodloader_loops_unopt.bin` should display an image of the iPodLinux Tux and then loop forever.
+`ipodloader_loops_unopt.bin` should display an image of the iPodLinux Tux and then loop forever. It's not really useful other than as a smoke-test to make sure clicky built correctly.
 
 `ipodloader2_loops.bin` is what's currently being worked on, and output fluctuates every other commit :)
 
 ## Dev Guide
 
-If you're interested in helping preserve a piece of iconic hardware from the early 2000s, you're more than welcome to lend a hand!
-
-**Disclaimer:** `clicky` is still in the "one man project" phase of development, where I push to master, and every third commit is re-architecting fundamental aspects of the emulator's framework. If you interested, I'd recommend holding opening a PR for a while. I expect things to stabilize sometime around Rockbox starts working okay (namely, once I implement the plumbing for virtual memory + interrupts).
+**Disclaimer:** `clicky` is still in the "one man project" phase of development, where I'm pushing to master, and every third commit re-architects some fundamental aspects of the emulator's framework. If you interested, I'd recommend holding off on opening a PR until things stabilize a bit more (and I don't need to have this disclaimer anymore).
 
 ### Diving in
 
@@ -125,6 +149,8 @@ That said, if you're interested in helping out with `clicky`'s development, you 
 
 The plan is to implement devices and hardware "just in time" throughout development, instead of attempting to one-shot the entire SOC right off the bat. As such, the idea is to gradually test more and more complex software in the emulator, implementing more and more hardware as required.
 
+_Note:_ This roadmap was written fairly early in the project's development, and hasn't been updated in a while. It's still mostly accurate, though in hindsight, it seems to under/overestimate how complicated certain features are to implement.
+
 - [x] Execute something _really_ basic, such as https://github.com/iPodLinux/ipodloader/
     - This rough-little bit of software is simple enough to step through and understand fully, making it a great launching off point for the project.
     - It touches quite a bit of iPod-specific hardware (e.g: Timers, Buttons, LCD)
@@ -138,7 +164,7 @@ The plan is to implement devices and hardware "just in time" throughout developm
         - Scaffold basic system architecture (step through CPU, system memory map, interact with devices)
 - [x] Get through the more complex https://github.com/iPodLinux/ipodloader2/
     - Touches even _more_ iPod-specific hardware (ATA-2)
-    - Seems to do more in-depth system init (interrupt handling as well?)
+    - Seems to do more in-depth system init (i.e: interrupt handling, memory mapping)
     - **Goals:**
         - Expand on the system architecture + implemented devices
 - [ ] Boot / pass the Apple Diagnostics program
@@ -211,5 +237,6 @@ In fact, my initial inspiration for starting this project was actually hearing a
 This project would be dead in the waters without these folks and projects:
 
 - [The iPod Linux Project](http://www.ipodlinux.org/) - for invaluable iPod reverse engineering work
-- [Rockbox](https://www.rockbox.org/) - for additional iPod reverse engineering work
+- [Rockbox](https://www.rockbox.org/) - for additional iPod reverse engineering work (and preserving _years_ of IRC logs to search through)
+- [QEMU](https://www.qemu.org/) - for insights on how to structure the codebase, and how certain devices aught to work
 - [Sean Purcell](https://github.com/iburinoc/) - for writing the bulk of [armv4t_emu](https://github.com/daniel5151/armv4t_emu)
