@@ -63,7 +63,7 @@ impl Memory for CfgTimer {
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         match offset {
-            0x0 => Err(StubWrite(Warn, {
+            0x0 => Err(StubWrite(Error, {
                 self.counter = val.get_bits(0..=28);
                 self.unknown_cfg = val.get_bit(29);
                 self.repeat = val.get_bit(30);

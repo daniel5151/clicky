@@ -34,6 +34,7 @@ pub struct MemCon {
 
     mmap: [Mmap; 8],
     cache_mask: u32,
+    cache_control: u32,
     /// Set back to zero after use
     cache_flush_mask: u32,
 }
@@ -57,6 +58,7 @@ impl std::fmt::Debug for MemCon {
             )
             .field("mmap", &self.mmap)
             .field("cache_mask", &self.cache_mask)
+            .field("cache_control", &self.cache_control)
             .field("cache_flush_mask", &self.cache_flush_mask)
             .finish()
     }
@@ -69,6 +71,7 @@ impl MemCon {
             cache_status: [0; 0x2000],
             mmap: Default::default(),
             cache_mask: 0,
+            cache_control: 0,
             cache_flush_mask: 0,
         }
     }
@@ -195,7 +198,7 @@ impl Memory for MemCon {
                 Ok(self.mmap[no as usize].physical)
             }
             0xf040 => Err(StubRead(Info, self.cache_mask)),
-            0xf044 => Err(InvalidAccess),
+            0xf044 => Err(StubRead(Info, self.cache_control)),
             0xf048 => Err(Unimplemented),
             _ => Err(Unexpected),
         }
@@ -237,7 +240,7 @@ impl Memory for MemCon {
                 ))
             }
             0xf040 => Err(StubWrite(Info, self.cache_mask = val)),
-            0xf044 => Err(StubWrite(Info, ())),
+            0xf044 => Err(StubWrite(Info, self.cache_control = val)),
             0xf048 => Err(Unimplemented),
             _ => Err(Unexpected),
         }

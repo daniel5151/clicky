@@ -53,8 +53,8 @@ impl Device for DevCon {
 impl Memory for DevCon {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
-            0x04 => Err(InvalidAccess),
-            0x08 => Err(InvalidAccess),
+            0x04 => Err(StubRead(Error, self.reset[0])),
+            0x08 => Err(StubRead(Error, self.reset[1])),
             0x0c => Ok(self.enable[0]),
             0x10 => Ok(self.enable[1]),
             0x20 => Err(StubRead(Error, self.clock_source)),
@@ -69,8 +69,8 @@ impl Memory for DevCon {
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         match offset {
-            0x04 => Err(StubWrite(Warn, ())),
-            0x08 => Err(StubWrite(Warn, ())),
+            0x04 => Err(StubWrite(Error, self.reset[0] = val)),
+            0x08 => Err(StubWrite(Error, self.reset[1] = val)),
             0x0c => Err(StubWrite(Info, self.enable[0] = val)),
             0x10 => Err(StubWrite(Info, self.enable[1] = val)),
             0x20 => Err(StubWrite(Warn, self.clock_source = val)),

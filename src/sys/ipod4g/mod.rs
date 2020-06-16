@@ -7,7 +7,7 @@ use crate::devices::{Device, Probe};
 use crate::gui::RenderCallback;
 use crate::memory::{
     armv4t_adaptor::{MemoryAdapter, MemoryAdapterException},
-    MemAccess, MemAccessKind, MemException, MemResult, Memory,
+    MemAccess, MemException, MemResult, Memory,
 };
 use crate::signal::{self, gpio, irq};
 
@@ -158,45 +158,22 @@ impl Ipod4g {
 
         use MemException::*;
         match mem_except {
-            Unimplemented | Unexpected => {
-                return Err(SysError::FatalMemException {
-                    context: ctx,
-                    reason: mem_except,
-                })
-            }
             StubRead(level, _) => log!(level, "{} stubbed read ({})", ctx_str, access.val),
             StubWrite(level, ()) => log!(level, "{} stubbed write ({})", ctx_str, access.val),
-            FatalError(_) => {
-                return Err(SysError::FatalMemException {
-                    context: ctx,
-                    reason: mem_except,
-                })
-            }
             Log(level, msg) => log!(level, "{} {}", ctx_str, msg),
-
+            // FIXME?: Misaligned access (i.e: Data Abort) should be a CPU exception
             Misaligned => {
-                // FIXME: Misaligned access (i.e: Data Abort) should be a CPU exception.
                 return Err(SysError::FatalMemException {
                     context: ctx,
                     reason: mem_except,
                 });
-            }
-            InvalidAccess => match access.kind {
-                MemAccessKind::Read => error!("{} read from write-only register", ctx_str),
-                MemAccessKind::Write => error!("{} write to read-only register", ctx_str),
-            },
-            MmuViolation => {
-                return Err(SysError::FatalMemException {
-                    context: ctx,
-                    reason: mem_except,
-                })
             }
             ContractViolation {
                 msg,
                 severity,
                 stub_val,
             } => {
-                // TODO: use config option to decide if Error-level ContractViolation should
+                // TODO: add config to determine what Error-level ContractViolation should
                 // terminate execution
                 if severity == log::Level::Error {
                     return Err(SysError::FatalMemException {
@@ -210,6 +187,12 @@ impl Ipod4g {
                 } else {
                     log!(severity, "{} {}", ctx_str, msg)
                 }
+            }
+            _ => {
+                return Err(SysError::FatalMemException {
+                    context: ctx,
+                    reason: mem_except,
+                })
             }
         }
 
