@@ -12,10 +12,11 @@ fn parse_capacity(desc: &str) -> Option<u64> {
     }
 }
 
+/// Helper struct to parse Block Device configurations.
 pub enum BlockCfg {
-    /// null:len=<len>
+    /// `null:len=<len>`
     Null { len: u64 },
-    /// raw:file=/path/
+    /// `raw:file=/path/`
     Raw { path: String },
 }
 

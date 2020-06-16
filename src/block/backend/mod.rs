@@ -1,3 +1,5 @@
+//! Block device backends.
+
 mod null;
 mod raw;
 

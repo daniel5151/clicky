@@ -1,3 +1,5 @@
+//! Block device interface and backend implementations.
+
 use std::fmt::Debug;
 use std::io::{self, Read, Seek, Write};
 

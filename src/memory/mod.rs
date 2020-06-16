@@ -1,3 +1,5 @@
+//! Traits and types related to memory access.
+
 pub mod armv4t_adaptor;
 
 mod access;

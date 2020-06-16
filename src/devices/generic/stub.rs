@@ -1,7 +1,9 @@
 use crate::devices::prelude::*;
 
 /// Generic stub device. Reads/Writes result in Error-level StubRead/StubWrites.
-/// THIS DEVICE SHOULD BE USED SPARINGLY AS A WAY TO MAKE FORWARD PROGRESS!
+///
+/// THIS DEVICE SHOULD BE USED SPARINGLY AS A DEVELOPMENT AID! Please create
+/// _concrete_ devices when possible.
 #[derive(Debug)]
 pub struct Stub {
     label: &'static str,

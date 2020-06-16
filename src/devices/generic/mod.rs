@@ -1,3 +1,5 @@
+//! Platform-agnostic devices.
+
 pub mod asanram;
 pub mod ide;
 pub mod stub;

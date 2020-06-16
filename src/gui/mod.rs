@@ -1,3 +1,5 @@
+//! GUI frontend implementations.
+
 pub mod minifb;
 
 // NOTE: this indirection could be avoided once either feature(trait_alias) or

@@ -1,6 +1,6 @@
 use crate::devices::prelude::*;
 
-use crate::devices::util::arcmutex::ArcMutexDevice;
+use crate::devices::util::ArcMutexDevice;
 use crate::signal::{gpio, irq};
 
 /// 8-bit GPIO Port

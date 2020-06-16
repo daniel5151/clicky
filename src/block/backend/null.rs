@@ -2,7 +2,8 @@ use std::io::{self, Read, Seek, Write};
 
 use crate::block::BlockDev;
 
-/// Null block device.
+/// Null block device. Can be configured to report any size, where reads always
+/// return zero, and writes are a noop.
 #[derive(Debug)]
 pub struct Null {
     len: u64,

@@ -1,3 +1,5 @@
+//! Peripheral devices.
+
 #![allow(
     clippy::unit_arg,  // substantially reduces boilerplate
     clippy::match_bool, // can make things more clear at times

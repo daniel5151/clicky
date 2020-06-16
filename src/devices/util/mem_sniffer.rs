@@ -2,8 +2,8 @@ use crate::devices::prelude::*;
 
 use crate::memory::{MemAccess, MemAccessKind, ToMemAccess};
 
-/// [MemSniffer] wraps a [Memory] object, forwarding requests to the underlying
-/// memory object, while also recording accesses to the provided callback.
+/// `MemSniffer` wraps a `Memory` object, forwarding requests to the underlying
+/// memory object, while also logging accesses with the provided callback.
 #[derive(Debug)]
 pub struct MemSniffer<'a, M, F: FnMut(MemAccess)> {
     mem: &'a mut M,
