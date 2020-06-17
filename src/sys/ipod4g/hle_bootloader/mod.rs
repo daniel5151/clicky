@@ -49,24 +49,10 @@ pub(super) fn run_hle_bootloader(
     // inject some HLE CPU state
     ipod.cpu.reg_set(ArmMode::Irq, reg::SP, 0x40017bfc);
 
-    // inject fake sysinfo into fastram.
-    //
-    // I threw my copy of the iPod 4g flashROM into Ghidra, and as far as I can
-    // tell, the bootloader does indeed set this structure up somewhere in memory.
-    // I don't _fully_ understand where ipodloader got this magic pointer address
-    // from, because perusing the flash ROM disassembly didn't reveal any
-    // immediately obvious writes to that address.
-    //
-    // Anyhoo, I gave up on doing it "correctly" and kinda just futzed around with
-    // the addresses until the code managed to progress further. I _hope_ this
-    // structure isn't used past the init stage, since I picked the memory location
-    // to write it into somewhat arbitrarily, and there's no reason some other code
-    // might not come in and trash it...
-    //
-    // TODO?: add some sort of signaling system if the sysinfo struct is overwritten
+    // inject fake sysinfo_t into fastram.
+    // TODO: explore if this pointer changes between iPod models
     const SYSINFO_PTR: u32 = 0x4001_7f1c;
-    // SYSINFO_LOC is pulled out of my ass lol
-    const SYSINFO_LOC: u32 = 0x4001_7f00 - std::mem::size_of::<sysinfo_t>() as u32;
+    const SYSINFO_LOC: u32 = 0x4000_ff18;
     ipod.devices.w32(SYSINFO_PTR, SYSINFO_LOC).unwrap(); // pointer to sysinfo
     ipod.devices.fastram.bulk_write(
         SYSINFO_LOC - 0x4000_0000,
@@ -74,10 +60,18 @@ pub(super) fn run_hle_bootloader(
         bytemuck::bytes_of(&sysinfo_t {
             IsyS: u32::from_le_bytes(*b"IsyS"),
             len: 0x184,
-            boardHwSwInterfaceRev: 0x50000,
+            boardHwSwInterfaceRev: 0x50014,
             ..Default::default()
         }),
     );
+
+    // The bootloader enables the GPIOA:5 pin (i.e: the Hold button)
+    ipod.devices
+        .gpio_abcd
+        .lock()
+        .unwrap()
+        .w32(0x00, 0x20)
+        .unwrap();
 
     Ok(())
 }

@@ -36,7 +36,8 @@ struct Args {
 
     /// HDD image to use
     ///
-    /// At the moment, this should be `--hdd=raw:/path/to/ipodhd.img`
+    /// At the moment, this should most likely be set to
+    /// `--hdd=raw:/path/to/ipodhd.img`.
     #[structopt(long)]
     hdd: BlockCfg,
 
@@ -75,7 +76,6 @@ fn main() -> Result<(), Box<dyn StdError>> {
 
     let args = Args::from_args();
 
-    // TODO: properly expose HDD options to CLI
     let hdd: Box<dyn BlockDev> = match args.hdd {
         BlockCfg::Null { len } => Box::new(block::backend::Null::new(len)),
         BlockCfg::Raw { path } => {

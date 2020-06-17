@@ -112,8 +112,6 @@ impl Ipod4g {
         {
             let mut gpio_abcd = sys.devices.gpio_abcd.lock().unwrap();
             gpio_abcd.register_in(5, hold_rx.clone());
-            // HLE: I think the bootloader enables the GPIOA:5 pin (i.e: the Hold button)
-            gpio_abcd.w32(0x00, 0x20).unwrap();
         }
 
         {
