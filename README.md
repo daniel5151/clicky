@@ -127,7 +127,11 @@ FatalAccessViolation(
 
 Poking around the PP2050 documentation indicates that address `0x70003000` has something to do with the LCD controller.
 
-If you happen to be running code that's been compiled with debug symbols, you can use `gdb-multiarch` to poke around the offending code. Run `clicky` with the `-g` flag to spawn a local gdb server, and connect to it from `gdb-multiarch` by running `target remote :9001`. See the `.gdbinit` files under the `ipodloader` directory for more details.
+### Debugging using GDB
+
+If you happen to be running code that's been compiled with debug symbols, you can use `gdb-multiarch` (or `gdb-arm-none-eabi`) to poke around the offending code. Run `clicky` with the `-g` flag to spawn a local gdb server, and connect to it from `gdb` by running `target remote :9001`. See the `.gdbinit` files under the `ipodloader` directory for more details.
+
+`clicky` exposes additional custom debugging features using GDB's `monitor` command. Invoking `monitor help` will list available monitor commands.
 
 ### Resources
 

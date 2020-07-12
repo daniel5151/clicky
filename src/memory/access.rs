@@ -1,5 +1,5 @@
 /// A value associated with a read/write
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemAccessVal {
     U8(u8),
     U16(u16),
@@ -7,14 +7,14 @@ pub enum MemAccessVal {
 }
 
 /// Memory Access Kind (Read or Write)
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MemAccessKind {
     Read,
     Write,
 }
 
 /// Encodes a memory access (read/write)
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MemAccess {
     pub kind: MemAccessKind,
     pub offset: u32,

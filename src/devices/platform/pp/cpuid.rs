@@ -1,6 +1,6 @@
 use crate::devices::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CpuIdKind {
     Cpu,
     Cop,

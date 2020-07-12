@@ -1,6 +1,6 @@
 use std::io::{Read, Seek};
 
-use armv4t_emu::{reg, Cpu, Mode as ArmMode};
+use armv4t_emu::{reg, Cpu};
 
 use crate::block::BlockDev;
 use crate::devices::{Device, Probe};
@@ -14,9 +14,11 @@ use crate::signal::{self, gpio, irq};
 mod gdb;
 mod hle_bootloader;
 
+pub use gdb::Ipod4gGdb;
+
 use hle_bootloader::run_hle_bootloader;
 
-use crate::devices::util::ArcMutexDevice;
+use crate::devices::util::{ArcMutexDevice, MemSniffer};
 mod devices {
     pub use crate::devices::{
         display::hd66753::Hd66753,
@@ -25,14 +27,14 @@ mod devices {
     };
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MemExceptionCtx {
     pc: u32,
     access: MemAccess,
     in_device: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SysError {
     FatalMemException {
         context: MemExceptionCtx,
@@ -134,13 +136,12 @@ impl Ipod4g {
     }
 
     fn handle_mem_exception(
-        cpu: &Cpu,
+        pc: u32,
         mem: &impl Device,
         exception: MemoryAdapterException,
     ) -> Result<(), SysError> {
         let MemoryAdapterException { access, mem_except } = exception;
 
-        let pc = cpu.reg_get(ArmMode::User, reg::PC);
         let in_mem_space_of = format!("{}", mem.probe(access.offset));
 
         let ctx = MemExceptionCtx {
@@ -198,38 +199,46 @@ impl Ipod4g {
     }
 
     /// Run the system for a single CPU instruction, returning `true` if the
-    /// system is still running, or `false` upon exiting to the bootloader.
+    /// system is still running, or `false` upon reaching some sort of "graceful
+    /// exit" condition (e.g: power-off).
     pub fn step(
         &mut self,
-        _log_memory_access: impl FnMut(MemAccess),
         _halt_block_mode: BlockMode,
+        mut sniff_memory: (&[u32], impl FnMut(devices::cpuid::CpuIdKind, MemAccess)),
     ) -> Result<bool, SysError> {
         if self.frozen {
             return Ok(true);
         }
 
-        let run_cpu = self.devices.cpucon.is_cpu_running();
-        let run_cop = self.devices.cpucon.is_cop_running();
-
-        // XXX: armv4t_emu doesn't currently expose any way to differentiate between
-        // instruction-fetch reads, and regular reads. Therefore, it's impossible to
-        // enforce MMU "execute" protection bits...
-
-        if run_cpu {
-            self.devices.cpuid.set_cpuid(devices::cpuid::CpuIdKind::Cpu);
-            let mut mem = MemoryAdapter::new(&mut self.devices);
-            self.cpu.step(&mut mem);
-            if let Some(e) = mem.exception.take() {
-                Ipod4g::handle_mem_exception(&self.cpu, &self.devices, e)?;
+        for (cpu, cpuid, running) in &mut [
+            (
+                &mut self.cpu,
+                devices::cpuid::CpuIdKind::Cpu,
+                self.devices.cpucon.is_cpu_running(),
+            ),
+            (
+                &mut self.cop,
+                devices::cpuid::CpuIdKind::Cop,
+                self.devices.cpucon.is_cop_running(),
+            ),
+        ] {
+            if !*running {
+                continue;
             }
-        }
 
-        if run_cop {
-            self.devices.cpuid.set_cpuid(devices::cpuid::CpuIdKind::Cop);
-            let mut mem = MemoryAdapter::new(&mut self.devices);
-            self.cop.step(&mut mem);
+            // XXX: armv4t_emu doesn't currently expose any way to differentiate between
+            // instruction-fetch reads, and regular reads. Therefore, it's impossible to
+            // enforce MMU "execute" protection bits...
+
+            self.devices.cpuid.set_cpuid(*cpuid);
+            let mut sniffer = MemSniffer::new(&mut self.devices, sniff_memory.0, |access| {
+                sniff_memory.1(*cpuid, access)
+            });
+            let mut mem = MemoryAdapter::new(&mut sniffer);
+            cpu.step(&mut mem);
             if let Some(e) = mem.exception.take() {
-                Ipod4g::handle_mem_exception(&self.cop, &self.devices, e)?;
+                let pc = cpu.reg_get(cpu.mode(), reg::PC);
+                Ipod4g::handle_mem_exception(pc, &self.devices, e)?;
             }
         }
 
@@ -263,12 +272,10 @@ impl Ipod4g {
         Ok(true)
     }
 
-    /// Run the system, returning successfully on "graceful exit".
-    ///
-    /// In HLE mode, a "graceful exit" is when the PC points into the
-    /// bootloader's code.
+    /// Run the system, returning successfully on "graceful exit"
+    /// (e.g: power-off).
     pub fn run(&mut self) -> Result<(), SysError> {
-        while self.step(|_| (), BlockMode::Blocking)? {}
+        while self.step(BlockMode::Blocking, (&[], |_, _| {}))? {}
         Ok(())
     }
 

@@ -1,126 +1,292 @@
+use std::collections::HashMap;
+
 use armv4t_emu::reg;
-use gdbstub::{Access as GdbStubAccess, Target, TargetState};
+use gdbstub::{
+    arch, outputln, BreakOp, ConsoleOutput, OptResult, ResumeAction, StopReason, Target, Tid,
+    TidSelector, WatchKind,
+};
 
-use super::{BlockMode, Ipod4g, SysError};
-use crate::memory::{MemAccess, MemAccessKind, MemAccessVal, Memory};
+use super::{devices::CpuIdKind, BlockMode, Ipod4g, SysError};
+use crate::memory::{MemAccessKind, Memory};
 
-impl Target for Ipod4g {
-    type Usize = u32;
+pub struct Ipod4gGdb {
+    sys: Ipod4g,
+
+    selected_core: CpuIdKind,
+    watchpoints: Vec<u32>,
+    watchpoint_kinds: HashMap<u32, MemAccessKind>,
+    breakpoints: Vec<u32>,
+}
+
+impl Ipod4gGdb {
+    pub fn new(sys: Ipod4g) -> Ipod4gGdb {
+        Ipod4gGdb {
+            sys,
+            selected_core: CpuIdKind::Cpu,
+            watchpoints: Vec::new(),
+            watchpoint_kinds: HashMap::new(),
+            breakpoints: Vec::new(),
+        }
+    }
+
+    pub fn sys_ref(&self) -> &Ipod4g {
+        &self.sys
+    }
+
+    pub fn sys_mut(&mut self) -> &mut Ipod4g {
+        &mut self.sys
+    }
+
+    fn step(&mut self) -> Result<Option<(Tid, StopReason<u32>)>, SysError> {
+        let mut hit_watchpoint = None;
+
+        let watchpoint_kinds = &self.watchpoint_kinds;
+        self.sys.step(
+            BlockMode::NonBlocking,
+            (&self.watchpoints, |cpuid, access| {
+                if watchpoint_kinds.get(&access.offset) == Some(&access.kind) {
+                    hit_watchpoint = Some((cpuid, access))
+                }
+            }),
+        )?;
+
+        if let Some((id, access)) = hit_watchpoint {
+            let cpu = match id {
+                CpuIdKind::Cpu => &mut self.sys.cpu,
+                CpuIdKind::Cop => &mut self.sys.cop,
+            };
+
+            let pc = cpu.reg_get(cpu.mode(), reg::PC);
+            cpu.reg_set(
+                cpu.mode(),
+                reg::PC,
+                pc - if cpu.thumb_mode() { 2 } else { 4 },
+            );
+
+            let reason = match access.kind {
+                MemAccessKind::Read => StopReason::Watch {
+                    kind: WatchKind::Read,
+                    addr: access.offset,
+                },
+                MemAccessKind::Write => StopReason::Watch {
+                    kind: WatchKind::Write,
+                    addr: access.offset,
+                },
+            };
+            return Ok(Some((cpuid_to_tid(id), reason)));
+        }
+
+        for (id, cpu) in &mut [
+            (CpuIdKind::Cpu, &mut self.sys.cpu),
+            (CpuIdKind::Cop, &mut self.sys.cop),
+        ] {
+            let pc = cpu.reg_get(cpu.mode(), reg::PC);
+            if self.breakpoints.contains(&pc) {
+                return Ok(Some((cpuid_to_tid(*id), StopReason::SwBreak)));
+            }
+        }
+
+        Ok(None)
+    }
+}
+
+fn cpuid_to_tid(id: CpuIdKind) -> Tid {
+    match id {
+        CpuIdKind::Cpu => Tid::new(1).unwrap(),
+        CpuIdKind::Cop => Tid::new(2).unwrap(),
+    }
+}
+
+impl Target for Ipod4gGdb {
+    type Arch = arch::arm::Armv4t;
     type Error = SysError;
 
-    fn target_description_xml() -> Option<&'static str> {
-        Some(r#"<target version="1.0"><architecture>armv4t</architecture></target>"#)
-    }
-
-    fn step(
+    fn resume(
         &mut self,
-        mut log_mem_access: impl FnMut(GdbStubAccess<u32>),
-    ) -> Result<TargetState, Self::Error> {
-        // transform multi-byte accesses into their constituent
-        // single-byte accesses
-        let log_access_to_gdb = |access: MemAccess| {
-            let mut push = |offset, val| {
-                log_mem_access(GdbStubAccess {
-                    kind: match access.kind {
-                        MemAccessKind::Read => gdbstub::AccessKind::Read,
-                        MemAccessKind::Write => gdbstub::AccessKind::Write,
-                    },
-                    addr: offset,
-                    val,
-                })
-            };
+        actions: &mut dyn Iterator<Item = (TidSelector, ResumeAction)>,
+        check_gdb_interrupt: &mut dyn FnMut() -> bool,
+    ) -> Result<(Tid, StopReason<u32>), Self::Error> {
+        let action = actions.next().unwrap().1;
+        // FIXME: support cases where there is more than one action
+        assert!(actions.next().is_none());
 
-            match access.val {
-                MemAccessVal::U8(val) => push(access.offset, val),
-                MemAccessVal::U16(val) => val
-                    .to_le_bytes()
-                    .iter()
-                    .enumerate()
-                    .for_each(|(i, b)| push(access.offset + i as u32, *b)),
-                MemAccessVal::U32(val) => val
-                    .to_le_bytes()
-                    .iter()
-                    .enumerate()
-                    .for_each(|(i, b)| push(access.offset + i as u32, *b)),
-            }
-        };
+        match action {
+            ResumeAction::Step => match self.step()? {
+                Some(stop_reason) => Ok(stop_reason),
+                None => Ok((cpuid_to_tid(self.selected_core), StopReason::DoneStep)),
+            },
+            ResumeAction::Continue => {
+                let mut cycles: usize = 0;
+                loop {
+                    // check for GDB interrupt every 1024 instructions
+                    if cycles % 1024 == 0 && check_gdb_interrupt() {
+                        break Ok((cpuid_to_tid(self.selected_core), StopReason::GdbInterrupt));
+                    }
+                    cycles += 1;
 
-        if self.step(log_access_to_gdb, BlockMode::NonBlocking)? {
-            Ok(TargetState::Running)
-        } else {
-            Ok(TargetState::Halted)
-        }
-    }
-
-    // order specified in binutils-gdb/blob/master/gdb/features/arm/arm-core.xml
-    fn read_registers(&mut self, mut push_reg: impl FnMut(&[u8])) {
-        let mode = self.cpu.mode();
-        for i in 0..13 {
-            push_reg(&self.cpu.reg_get(mode, i).to_le_bytes());
-        }
-        push_reg(&self.cpu.reg_get(mode, reg::SP).to_le_bytes()); // 13
-        push_reg(&self.cpu.reg_get(mode, reg::LR).to_le_bytes()); // 14
-        push_reg(&self.cpu.reg_get(mode, reg::PC).to_le_bytes()); // 15
-
-        // Floating point registers, unused
-        for _ in 0..25 {
-            push_reg(&[0, 0, 0, 0]);
-        }
-
-        push_reg(&self.cpu.reg_get(mode, reg::CPSR).to_le_bytes());
-    }
-
-    fn write_registers(&mut self, regs: &[u8]) {
-        if regs.len() != (16 + 25 + 1) * 4 {
-            error!("Wrong data length for write_registers: {}", regs.len());
-            return;
-        }
-        let mut next = {
-            let mut idx: usize = 0;
-            move || {
-                use std::convert::TryInto;
-                idx += 4;
-                u32::from_le_bytes(regs[idx - 4..idx].try_into().unwrap())
-            }
-        };
-        let mode = self.cpu.mode();
-        for i in 0..13 {
-            self.cpu.reg_set(mode, i, next());
-        }
-        self.cpu.reg_set(mode, reg::SP, next());
-        self.cpu.reg_set(mode, reg::LR, next());
-        self.cpu.reg_set(mode, reg::PC, next());
-        // Floating point registers, unused
-        for _ in 0..25 {
-            next();
-        }
-
-        self.cpu.reg_set(mode, reg::CPSR, next());
-    }
-
-    fn read_pc(&mut self) -> u32 {
-        self.cpu.reg_get(self.cpu.mode(), reg::PC)
-    }
-
-    fn read_addrs(&mut self, addr: std::ops::Range<u32>, mut push_byte: impl FnMut(u8)) {
-        for addr in addr {
-            match self.devices.r8(addr) {
-                Ok(val) => push_byte(val),
-                Err(_) => {
-                    // the only errors that RAM emits are accessing uninitialized memory, which gdb
-                    // will do _a lot_. We'll just squelch these errors...
-                    push_byte(0x00)
+                    if let Some(stop_reason) = self.step()? {
+                        break Ok(stop_reason);
+                    };
                 }
-            };
+            }
         }
     }
 
-    fn write_addrs(&mut self, mut get_addr_val: impl FnMut() -> Option<(u32, u8)>) {
-        while let Some((addr, val)) = get_addr_val() {
-            match self.devices.w8(addr, val) {
+    fn read_registers(&mut self, regs: &mut arch::arm::reg::ArmCoreRegs) -> Result<(), SysError> {
+        let cpu = match self.selected_core {
+            CpuIdKind::Cpu => &mut self.sys.cpu,
+            CpuIdKind::Cop => &mut self.sys.cop,
+        };
+
+        let mode = cpu.mode();
+
+        for i in 0..13 {
+            regs.r[i] = cpu.reg_get(mode, i as u8);
+        }
+        regs.sp = cpu.reg_get(mode, reg::SP);
+        regs.lr = cpu.reg_get(mode, reg::LR);
+        regs.pc = cpu.reg_get(mode, reg::PC);
+        regs.cpsr = cpu.reg_get(mode, reg::CPSR);
+
+        Ok(())
+    }
+
+    fn write_registers(&mut self, regs: &arch::arm::reg::ArmCoreRegs) -> Result<(), SysError> {
+        let cpu = match self.selected_core {
+            CpuIdKind::Cpu => &mut self.sys.cpu,
+            CpuIdKind::Cop => &mut self.sys.cop,
+        };
+
+        let mode = cpu.mode();
+
+        for i in 0..13 {
+            cpu.reg_set(mode, i, regs.r[i as usize]);
+        }
+        cpu.reg_set(mode, reg::SP, regs.sp);
+        cpu.reg_set(mode, reg::LR, regs.lr);
+        cpu.reg_set(mode, reg::PC, regs.pc);
+        cpu.reg_set(mode, reg::CPSR, regs.cpsr);
+
+        Ok(())
+    }
+
+    fn read_addrs(
+        &mut self,
+        addr: std::ops::Range<u32>,
+        push_byte: &mut dyn FnMut(u8),
+    ) -> Result<(), SysError> {
+        for addr in addr {
+            match self.sys.devices.r8(addr) {
+                Ok(b) => push_byte(b),
+                // the only errors that RAM emits are accessing uninitialized memory, which gdb
+                // will do _a lot_. We'll just squelch these errors...
+                Err(_) => push_byte(0x00),
+            }
+        }
+        Ok(())
+    }
+
+    fn write_addrs(&mut self, start_addr: u32, data: &[u8]) -> Result<(), SysError> {
+        for (addr, val) in (start_addr..).zip(data.iter().copied()) {
+            match self.sys.devices.w8(addr, val) {
                 Ok(_) => {}
                 Err(e) => warn!("gdbstub write_addrs memory exception: {:?}", e),
             };
         }
+        Ok(())
+    }
+
+    fn update_sw_breakpoint(&mut self, addr: u32, op: BreakOp) -> Result<bool, SysError> {
+        match op {
+            BreakOp::Add => self.breakpoints.push(addr),
+            BreakOp::Remove => {
+                let pos = match self.breakpoints.iter().position(|x| *x == addr) {
+                    None => return Ok(false),
+                    Some(pos) => pos,
+                };
+                self.breakpoints.remove(pos);
+            }
+        }
+
+        Ok(true)
+    }
+
+    fn update_hw_watchpoint(
+        &mut self,
+        addr: u32,
+        op: BreakOp,
+        kind: WatchKind,
+    ) -> OptResult<bool, SysError> {
+        match op {
+            BreakOp::Add => {
+                let access_kind = match kind {
+                    WatchKind::Write => MemAccessKind::Write,
+                    WatchKind::Read => MemAccessKind::Read,
+                    // FIXME: properly support ReadWrite breakpoints
+                    WatchKind::ReadWrite => MemAccessKind::Read,
+                };
+                self.watchpoints.push(addr);
+                self.watchpoint_kinds.insert(addr, access_kind);
+            }
+            BreakOp::Remove => {
+                let pos = match self.watchpoints.iter().position(|x| *x == addr) {
+                    None => return Ok(false),
+                    Some(pos) => pos,
+                };
+                self.watchpoints.remove(pos);
+                self.watchpoint_kinds.remove(&addr);
+            }
+        }
+
+        Ok(true)
+    }
+
+    fn handle_monitor_cmd(
+        &mut self,
+        cmd: &[u8],
+        mut out: ConsoleOutput,
+    ) -> OptResult<(), Self::Error> {
+        let cmd = match core::str::from_utf8(cmd) {
+            Ok(cmd) => cmd,
+            Err(_) => {
+                outputln!(out, "command must be valid UTF-8");
+                return Ok(());
+            }
+        };
+
+        match cmd {
+            "" => outputln!(out, "Use `monitor help` to list all available commands."),
+            "dumpsys" => outputln!(out, "{:#?}", self.sys),
+            "help" => {
+                outputln!(out, "Available commands:");
+                outputln!(out, "-------------------");
+                outputln!(out, "  dumpsys - pretty-print a debug view of the system");
+                outputln!(out, "  help    - show this help message");
+            }
+            _ => {
+                outputln!(out, "Unsupported command '{}'.", cmd);
+                outputln!(out, "Use `monitor help` to list all available commands.");
+            }
+        }
+
+        Ok(())
+    }
+
+    fn list_active_threads(
+        &mut self,
+        register_thread: &mut dyn FnMut(Tid),
+    ) -> Result<(), Self::Error> {
+        register_thread(cpuid_to_tid(CpuIdKind::Cpu));
+        register_thread(cpuid_to_tid(CpuIdKind::Cop));
+        Ok(())
+    }
+
+    fn set_current_thread(&mut self, tid: Tid) -> OptResult<(), Self::Error> {
+        match tid.get() {
+            1 => self.selected_core = CpuIdKind::Cpu,
+            2 => self.selected_core = CpuIdKind::Cop,
+            _ => unreachable!(),
+        }
+        Ok(())
     }
 }

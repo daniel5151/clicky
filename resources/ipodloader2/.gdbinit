@@ -1,2 +1,2 @@
 file loader.elf
-target remote localhost:9001
+target remote /tmp/clicky

@@ -5,10 +5,10 @@ extern crate static_assertions;
 extern crate log;
 
 use std::collections::HashMap;
-use std::error::Error as StdError;
 use std::fs;
-use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
+
+pub type DynResult<T> = Result<T, Box<dyn std::error::Error>>;
 
 use structopt::StructOpt;
 
@@ -19,8 +19,11 @@ pub mod memory;
 pub mod signal;
 pub mod sys;
 
+mod gdb;
+use crate::gdb::{make_gdbstub, GdbCfg};
+
 use crate::block::{BlockCfg, BlockDev};
-use crate::sys::ipod4g::{BootKind, Ipod4g, Ipod4gControls};
+use crate::sys::ipod4g::{BootKind, Ipod4g, Ipod4gControls, Ipod4gGdb};
 
 const SYSDUMP_FILENAME: &str = "sysdump.log";
 
@@ -41,33 +44,54 @@ struct Args {
     #[structopt(long)]
     hdd: BlockCfg,
 
-    /// Flash ROM binary to use
+    /// Flash ROM binary to use.
     #[structopt(long)]
     flash_rom: Option<PathBuf>,
 
-    /// spawn a gdb server listening on the specified port
-    #[structopt(short)]
-    gdbport: Option<u16>,
-
-    /// spawn a gdb server if the guest triggers a fatal error
-    #[structopt(long, requires("gdbport"))]
-    gdb_fatal_err: bool,
+    /// Spawn a GDB server at system startup.
+    ///
+    /// Format: `-g <port/path>[,on-fatal-err[,and-on-start]]`
+    ///
+    /// If "on-fatal-err" is provided, the GDB server will only launch if the
+    /// system experiences a fatal error. Providing "and-on-start" will also
+    /// launch the GDB server at system startup.
+    ///
+    /// e.g: `-g 9001,on-fatal-err` will spawn a gdb server listening on port
+    /// 9001 if the system experiences a fatal error, `-g /tmp/clicky`
+    /// creates a new Unix Domain Socket at `/tmp/clicky`, and waits for a GDB
+    /// connection before starting execution.
+    #[structopt(short, long)]
+    gdb: Option<GdbCfg>,
 }
 
-fn new_tcp_gdbstub<T: gdbstub::Target>(
-    port: u16,
-) -> Result<gdbstub::GdbStub<T, TcpStream>, std::io::Error> {
-    let sockaddr = format!("127.0.0.1:{}", port);
-    info!("Waiting for a GDB connection on {:?}...", sockaddr);
-
-    let sock = TcpListener::bind(sockaddr)?;
-    let (stream, addr) = sock.accept()?;
-    info!("Debugger connected from {}", addr);
-
-    Ok(gdbstub::GdbStub::new(stream))
+enum System {
+    Bare(Ipod4g),
+    Debug { system_gdb: Ipod4gGdb, cfg: GdbCfg },
 }
 
-fn main() -> Result<(), Box<dyn StdError>> {
+impl core::ops::Deref for System {
+    type Target = Ipod4g;
+
+    fn deref(&self) -> &Ipod4g {
+        use self::System::*;
+        match self {
+            Bare(sys) => sys,
+            Debug { system_gdb, .. } => system_gdb.sys_ref(),
+        }
+    }
+}
+
+impl core::ops::DerefMut for System {
+    fn deref_mut(&mut self) -> &mut Ipod4g {
+        use self::System::*;
+        match self {
+            Bare(sys) => sys,
+            Debug { system_gdb, .. } => system_gdb.sys_mut(),
+        }
+    }
+}
+
+fn main() -> DynResult<()> {
     pretty_env_logger::formatted_builder()
         .filter(None, log::LevelFilter::Debug)
         .filter(Some("armv4t_emu"), log::LevelFilter::Debug)
@@ -157,48 +181,76 @@ fn main() -> Result<(), Box<dyn StdError>> {
     let _minifb_ui =
         gui::minifb::IPodMinifb::new((160, 128), system.render_callback(), minifb_controls);
 
-    // check if a debugger should be connected at boot
-    let debugger = match (args.gdb_fatal_err, args.gdbport) {
-        (false, Some(port)) => Some(new_tcp_gdbstub(port)?),
-        _ => None,
+    let mut system = match args.gdb {
+        Some(cfg) => System::Debug {
+            system_gdb: Ipod4gGdb::new(system),
+            cfg,
+        },
+        None => System::Bare(system),
     };
 
-    let system_result = match debugger {
-        // hand off control to the debugger
-        Some(mut debugger) => match debugger.run(&mut system) {
-            Ok(state) => {
-                eprintln!("Disconnected from GDB. Target state: {:?}", state);
-                if state == gdbstub::TargetState::Running {
-                    eprintln!("Target is still running. Resuming execution...");
-                    system.run()
-                } else {
-                    Ok(())
-                }
+    let mut debugger = None;
+
+    let system_result = match &mut system {
+        System::Bare(system) => system.run(),
+        System::Debug { system_gdb, cfg } => {
+            // check if a debugger should be connected at boot
+            if cfg.on_start {
+                debugger = Some(make_gdbstub(cfg.clone())?)
             }
-            Err(gdbstub::Error::TargetError(e)) => Err(e),
-            Err(e) => return Err(e.into()),
-        },
-        // just run the system until it finishes, or an error occurs
-        None => system.run(),
+
+            match debugger {
+                None => system.run(),
+                // hand off control to the debugger
+                Some(ref mut debugger) => match debugger.run(system_gdb) {
+                    Ok(dc_reason) => {
+                        eprintln!("Disconnected from GDB: {:?}", dc_reason);
+
+                        use gdbstub::DisconnectReason;
+                        match dc_reason {
+                            DisconnectReason::Disconnect => {
+                                eprintln!("Target is still running. Resuming execution...");
+                                system.run()
+                            }
+                            DisconnectReason::TargetHalted => {
+                                eprintln!("Target halted!");
+                                Ok(())
+                            }
+                            DisconnectReason::Kill => {
+                                eprintln!("GDB sent a kill command!");
+                                return Ok(());
+                            }
+                        }
+                    }
+                    Err(gdbstub::GdbStubError::TargetError(e)) => Err(e),
+                    Err(e) => return Err(e.into()),
+                },
+            }
+        }
     };
 
     if let Err(fatal_error) = system_result {
         eprintln!("Fatal Error! Caused by: {:#010x?}", fatal_error);
         eprintln!("Dumping system state to {}", SYSDUMP_FILENAME);
-        std::fs::write(SYSDUMP_FILENAME, format!("{:#x?}", system))?;
+        std::fs::write(SYSDUMP_FILENAME, format!("{:#x?}", *system))?;
 
-        if args.gdb_fatal_err {
-            let port = args
-                .gdbport
-                .expect("gbdport guaranteed to be present by structopt");
-            let mut debugger = new_tcp_gdbstub(port)?;
+        match &mut system {
+            System::Bare(_system) => {}
+            System::Debug { system_gdb, cfg } => {
+                if cfg.on_fatal_err {
+                    system_gdb.sys_mut().freeze();
 
-            system.freeze();
-            match debugger.run(&mut system) {
-                Ok(_) => eprintln!("Disconnected from post-mortem GDB session."),
-                Err(e) => return Err(e.into()),
+                    if debugger.is_none() {
+                        debugger = Some(make_gdbstub(cfg.clone())?)
+                    }
+
+                    match debugger.unwrap().run(system_gdb) {
+                        Ok(_) => eprintln!("Disconnected from post-mortem GDB session."),
+                        Err(e) => return Err(e.into()),
+                    }
+                }
             }
-        }
+        };
     }
 
     Ok(())
