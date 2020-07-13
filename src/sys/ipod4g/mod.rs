@@ -18,6 +18,7 @@ pub use gdb::Ipod4gGdb;
 
 use hle_bootloader::run_hle_bootloader;
 
+use crate::devices::platform::pp::common::*;
 use crate::devices::util::{ArcMutexDevice, MemSniffer};
 mod devices {
     pub use crate::devices::{
@@ -204,7 +205,7 @@ impl Ipod4g {
     pub fn step(
         &mut self,
         _halt_block_mode: BlockMode,
-        mut sniff_memory: (&[u32], impl FnMut(devices::cpuid::CpuIdKind, MemAccess)),
+        mut sniff_memory: (&[u32], impl FnMut(CpuId, MemAccess)),
     ) -> Result<bool, SysError> {
         if self.frozen {
             return Ok(true);
@@ -213,12 +214,12 @@ impl Ipod4g {
         for (cpu, cpuid, running) in &mut [
             (
                 &mut self.cpu,
-                devices::cpuid::CpuIdKind::Cpu,
+                CpuId::Cpu,
                 self.devices.cpucon.is_cpu_running(),
             ),
             (
                 &mut self.cop,
-                devices::cpuid::CpuIdKind::Cop,
+                CpuId::Cop,
                 self.devices.cpucon.is_cop_running(),
             ),
         ] {
@@ -302,7 +303,7 @@ impl Ipod4g {
 pub struct Ipod4gBus {
     pub sdram: devices::AsanRam,
     pub fastram: devices::AsanRam,
-    pub cpuid: devices::CpuId,
+    pub cpuid: devices::CpuIdReg,
     pub flash: devices::Flash,
     pub cpucon: devices::CpuCon,
     pub hd66753: devices::Hd66753,
@@ -369,7 +370,7 @@ impl Ipod4gBus {
         Ipod4gBus {
             sdram: AsanRam::new(32 * 1024 * 1024), // 32 MB
             fastram: AsanRam::new(96 * 1024),      // 96 KB
-            cpuid: CpuId::new(),
+            cpuid: CpuIdReg::new(),
             flash: Flash::new(),
             cpucon: CpuCon::new(),
             hd66753: Hd66753::new(),

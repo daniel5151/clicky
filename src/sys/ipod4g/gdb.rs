@@ -6,13 +6,13 @@ use gdbstub::{
     TidSelector, WatchKind,
 };
 
-use super::{devices::CpuIdKind, BlockMode, Ipod4g, SysError};
+use super::{BlockMode, CpuId, Ipod4g, SysError};
 use crate::memory::{MemAccessKind, Memory};
 
 pub struct Ipod4gGdb {
     sys: Ipod4g,
 
-    selected_core: CpuIdKind,
+    selected_core: CpuId,
     watchpoints: Vec<u32>,
     watchpoint_kinds: HashMap<u32, MemAccessKind>,
     breakpoints: Vec<u32>,
@@ -22,7 +22,7 @@ impl Ipod4gGdb {
     pub fn new(sys: Ipod4g) -> Ipod4gGdb {
         Ipod4gGdb {
             sys,
-            selected_core: CpuIdKind::Cpu,
+            selected_core: CpuId::Cpu,
             watchpoints: Vec::new(),
             watchpoint_kinds: HashMap::new(),
             breakpoints: Vec::new(),
@@ -52,8 +52,8 @@ impl Ipod4gGdb {
 
         if let Some((id, access)) = hit_watchpoint {
             let cpu = match id {
-                CpuIdKind::Cpu => &mut self.sys.cpu,
-                CpuIdKind::Cop => &mut self.sys.cop,
+                CpuId::Cpu => &mut self.sys.cpu,
+                CpuId::Cop => &mut self.sys.cop,
             };
 
             let pc = cpu.reg_get(cpu.mode(), reg::PC);
@@ -77,8 +77,8 @@ impl Ipod4gGdb {
         }
 
         for (id, cpu) in &mut [
-            (CpuIdKind::Cpu, &mut self.sys.cpu),
-            (CpuIdKind::Cop, &mut self.sys.cop),
+            (CpuId::Cpu, &mut self.sys.cpu),
+            (CpuId::Cop, &mut self.sys.cop),
         ] {
             let pc = cpu.reg_get(cpu.mode(), reg::PC);
             if self.breakpoints.contains(&pc) {
@@ -90,10 +90,10 @@ impl Ipod4gGdb {
     }
 }
 
-fn cpuid_to_tid(id: CpuIdKind) -> Tid {
+fn cpuid_to_tid(id: CpuId) -> Tid {
     match id {
-        CpuIdKind::Cpu => Tid::new(1).unwrap(),
-        CpuIdKind::Cop => Tid::new(2).unwrap(),
+        CpuId::Cpu => Tid::new(1).unwrap(),
+        CpuId::Cop => Tid::new(2).unwrap(),
     }
 }
 
@@ -134,8 +134,8 @@ impl Target for Ipod4gGdb {
 
     fn read_registers(&mut self, regs: &mut arch::arm::reg::ArmCoreRegs) -> Result<(), SysError> {
         let cpu = match self.selected_core {
-            CpuIdKind::Cpu => &mut self.sys.cpu,
-            CpuIdKind::Cop => &mut self.sys.cop,
+            CpuId::Cpu => &mut self.sys.cpu,
+            CpuId::Cop => &mut self.sys.cop,
         };
 
         let mode = cpu.mode();
@@ -153,8 +153,8 @@ impl Target for Ipod4gGdb {
 
     fn write_registers(&mut self, regs: &arch::arm::reg::ArmCoreRegs) -> Result<(), SysError> {
         let cpu = match self.selected_core {
-            CpuIdKind::Cpu => &mut self.sys.cpu,
-            CpuIdKind::Cop => &mut self.sys.cop,
+            CpuId::Cpu => &mut self.sys.cpu,
+            CpuId::Cop => &mut self.sys.cop,
         };
 
         let mode = cpu.mode();
@@ -276,15 +276,15 @@ impl Target for Ipod4gGdb {
         &mut self,
         register_thread: &mut dyn FnMut(Tid),
     ) -> Result<(), Self::Error> {
-        register_thread(cpuid_to_tid(CpuIdKind::Cpu));
-        register_thread(cpuid_to_tid(CpuIdKind::Cop));
+        register_thread(cpuid_to_tid(CpuId::Cpu));
+        register_thread(cpuid_to_tid(CpuId::Cop));
         Ok(())
     }
 
     fn set_current_thread(&mut self, tid: Tid) -> OptResult<(), Self::Error> {
         match tid.get() {
-            1 => self.selected_core = CpuIdKind::Cpu,
-            2 => self.selected_core = CpuIdKind::Cop,
+            1 => self.selected_core = CpuId::Cpu,
+            2 => self.selected_core = CpuId::Cop,
             _ => unreachable!(),
         }
         Ok(())

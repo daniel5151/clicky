@@ -1,21 +1,21 @@
 //! Platform support for the PortalPlayer 50xx line of SoCs.
 
-pub mod cachecon;
-pub mod cpucon;
-pub mod cpuid;
-pub mod devcon;
-pub mod dma;
-pub mod eide;
-pub mod flash;
-pub mod gpio;
-pub mod i2c;
-pub mod i2s;
-pub mod intcon;
-pub mod mailbox;
-pub mod memcon;
-pub mod piezo;
-pub mod ppcon;
-pub mod timers;
+mod cachecon;
+mod cpucon;
+mod cpuid;
+mod devcon;
+mod dma;
+mod eide;
+mod flash;
+mod gpio;
+mod i2c;
+mod i2s;
+mod intcon;
+mod mailbox;
+mod memcon;
+mod piezo;
+mod ppcon;
+mod timers;
 
 pub use cachecon::*;
 pub use cpucon::*;
@@ -33,3 +33,11 @@ pub use memcon::*;
 pub use piezo::*;
 pub use ppcon::*;
 pub use timers::*;
+
+pub mod common {
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    pub enum CpuId {
+        Cpu,
+        Cop,
+    }
+}

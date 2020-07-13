@@ -1,37 +1,31 @@
 use crate::devices::prelude::*;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum CpuIdKind {
-    Cpu,
-    Cop,
-}
+use super::common::CpuId;
 
 /// Returns different value based on which CPU accesses it.
 #[derive(Debug)]
-pub struct CpuId {
-    cpuid: CpuIdKind,
+pub struct CpuIdReg {
+    cpuid: CpuId,
 }
 
-impl CpuId {
-    pub fn new() -> CpuId {
-        CpuId {
-            cpuid: CpuIdKind::Cpu,
-        }
+impl CpuIdReg {
+    pub fn new() -> CpuIdReg {
+        CpuIdReg { cpuid: CpuId::Cpu }
     }
 
-    pub fn set_cpuid(&mut self, cpuid: CpuIdKind) {
+    pub fn set_cpuid(&mut self, cpuid: CpuId) {
         self.cpuid = cpuid
     }
 }
 
-impl Device for CpuId {
+impl Device for CpuIdReg {
     fn kind(&self) -> &'static str {
-        "CPU ID"
+        "CPU ID Register"
     }
 
     fn probe(&self, offset: u32) -> Probe {
         let reg = match offset {
-            0x0 => "CPU ID",
+            0x0 => "CPU ID Register",
             _ => return Probe::Unmapped,
         };
 
@@ -39,12 +33,12 @@ impl Device for CpuId {
     }
 }
 
-impl Memory for CpuId {
+impl Memory for CpuIdReg {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
             0x0 => match self.cpuid {
-                CpuIdKind::Cpu => Ok(0x55555555),
-                CpuIdKind::Cop => Ok(0xaaaaaaaa),
+                CpuId::Cpu => Ok(0x55555555),
+                CpuId::Cop => Ok(0xaaaaaaaa),
             },
             _ => Err(Unexpected),
         }
