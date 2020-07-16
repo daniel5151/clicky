@@ -2,11 +2,6 @@ use armv4t_emu::Memory as ArmMemory;
 
 use super::*;
 
-pub struct MemoryAdapterException {
-    pub access: MemAccess,
-    pub mem_except: MemException,
-}
-
 /// The CPU's Memory interface expects all memory accesses to succeed (i.e:
 /// return _some_ sort of value). As such, there needs to be some sort of shim
 /// between the emulator's fallible [Memory] interface and the CPU's infallible
@@ -19,7 +14,7 @@ pub struct MemoryAdapterException {
 /// if an exception occurred.
 pub struct MemoryAdapter<'a, M: Memory> {
     pub mem: &'a mut M,
-    pub exception: Option<MemoryAdapterException>,
+    pub exception: Option<(MemAccess, MemException)>,
 }
 
 impl<'a, M: Memory> MemoryAdapter<'a, M> {
@@ -48,10 +43,7 @@ macro_rules! impl_memadapter_r {
                         _ => 0x00,
                     };
                     // stash the exception
-                    self.exception = Some(MemoryAdapterException {
-                        access: ret.to_memaccess(addr, MemAccessKind::Read),
-                        mem_except: e,
-                    });
+                    self.exception = Some((ret.to_memaccess(addr, MemAccessKind::Read), e));
                     ret
                 }
             }
@@ -67,10 +59,7 @@ macro_rules! impl_memadapter_w {
                 Ok(()) => {}
                 Err(e) => {
                     // stash the exception
-                    self.exception = Some(MemoryAdapterException {
-                        access: val.to_memaccess(addr, MemAccessKind::Write),
-                        mem_except: e,
-                    });
+                    self.exception = Some((val.to_memaccess(addr, MemAccessKind::Write), e));
                 }
             }
         }

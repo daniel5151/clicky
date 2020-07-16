@@ -186,7 +186,7 @@ impl IdeDrive {
             } => (remaining_sectors, iobuf),
             _ => {
                 // FIXME: this should set some error bits
-                return Err(FatalError(format!(
+                return Err(Fatal(format!(
                     "cannot read data while drive is in an invalid state: {:?}",
                     self.state
                 )));
@@ -242,7 +242,7 @@ impl IdeDrive {
             } => (remaining_sectors, iobuf),
             _ => {
                 // FIXME: this should set some error bits
-                return Err(FatalError(format!(
+                return Err(Fatal(format!(
                     "cannot write data while drive is in an invalid state: {:?}",
                     self.state
                 )));
@@ -298,7 +298,7 @@ impl IdeDrive {
 
         macro_rules! unimplemented_cmd {
             () => {
-                return Err(FatalError(format!("unimplemented IDE command: {:?}", cmd)));
+                return Err(Fatal(format!("unimplemented IDE command: {:?}", cmd)));
             };
         }
 
@@ -347,7 +347,7 @@ impl IdeDrive {
                     Some(offset) => offset,
                     None => {
                         // XXX: actually set error bits
-                        return Err(FatalError("invalid offset".into()));
+                        return Err(Fatal("invalid offset".into()));
                     }
                 };
 
@@ -399,7 +399,7 @@ impl IdeDrive {
                     Some(offset) => offset,
                     None => {
                         // XXX: actually set error bits
-                        return Err(FatalError("invalid offset".into()));
+                        return Err(Fatal("invalid offset".into()));
                     }
                 };
 

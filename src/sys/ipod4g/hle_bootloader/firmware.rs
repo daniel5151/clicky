@@ -1,17 +1,8 @@
 use std::io::{self, Read, Seek, SeekFrom};
 
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt, LE};
-use thiserror::Error;
 
-#[derive(Error, Debug)]
-pub enum FirmwareParseError {
-    #[error("error during firmware file IO")]
-    Io(#[from] io::Error),
-    #[error("magic_hi != \"[hi]\" in the volume header")]
-    BadMagic,
-    #[error("HLE boot for firmware version {0} isn't (currently) supported")]
-    InvalidVersion(u16),
-}
+use super::HleBootloaderError;
 
 /// Firmware image metadata.
 ///
@@ -23,17 +14,17 @@ pub struct FirmwareMeta {
 }
 
 impl FirmwareMeta {
-    pub fn parse(fw: &mut (impl Read + Seek)) -> Result<FirmwareMeta, FirmwareParseError> {
+    pub fn parse(fw: &mut (impl Read + Seek)) -> Result<FirmwareMeta, HleBootloaderError> {
         // Volume Header
         let header = VolumeHeader::parse(fw)?;
         if header.magic_hi != BigEndian::read_u32(b"[hi]") {
-            return Err(FirmwareParseError::BadMagic);
+            return Err(HleBootloaderError::BadMagic);
         }
 
         // TODO: don't assume FW version is 3, as each fw uses slightly-different
         // offsets between things
         if header.format_version != 3 {
-            return Err(FirmwareParseError::InvalidVersion(header.format_version));
+            return Err(HleBootloaderError::InvalidVersion(header.format_version));
         }
 
         // Pull directory entries

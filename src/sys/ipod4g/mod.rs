@@ -4,12 +4,13 @@ use armv4t_emu::{reg, Cpu};
 
 use crate::block::BlockDev;
 use crate::devices::{Device, Probe};
+use crate::error::FatalError;
 use crate::gui::RenderCallback;
 use crate::memory::{
-    armv4t_adaptor::{MemoryAdapter, MemoryAdapterException},
-    MemAccess, MemException, MemResult, Memory,
+    armv4t_adaptor::MemoryAdapter, MemAccess, MemException, MemExceptionCtx, MemResult, Memory,
 };
 use crate::signal::{self, gpio, irq};
+use crate::DynResult;
 
 mod gdb;
 mod hle_bootloader;
@@ -26,21 +27,6 @@ mod devices {
         generic::{ide, AsanRam, Stub},
         platform::pp::*,
     };
-}
-
-#[derive(Debug, Clone)]
-pub struct MemExceptionCtx {
-    pc: u32,
-    access: MemAccess,
-    in_device: String,
-}
-
-#[derive(Debug, Clone)]
-pub enum SysError {
-    FatalMemException {
-        context: MemExceptionCtx,
-        reason: MemException,
-    },
 }
 
 pub enum BlockMode {
@@ -79,10 +65,7 @@ impl Ipod4g {
     }
 
     /// Returns a new Ipod4g instance.
-    pub fn new<F>(
-        hdd: Box<dyn BlockDev>,
-        boot_kind: BootKind<F>,
-    ) -> Result<Ipod4g, Box<dyn std::error::Error>>
+    pub fn new<F>(hdd: Box<dyn BlockDev>, boot_kind: BootKind<F>) -> DynResult<Ipod4g>
     where
         F: Read + Seek,
     {
@@ -136,69 +119,6 @@ impl Ipod4g {
         Ok(sys)
     }
 
-    fn handle_mem_exception(
-        pc: u32,
-        mem: &impl Device,
-        exception: MemoryAdapterException,
-    ) -> Result<(), SysError> {
-        let MemoryAdapterException { access, mem_except } = exception;
-
-        let in_mem_space_of = format!("{}", mem.probe(access.offset));
-
-        let ctx = MemExceptionCtx {
-            pc,
-            access,
-            in_device: in_mem_space_of,
-        };
-
-        let ctx_str = format!(
-            "[pc {:#010x?}][addr {:#010x?}][{}]",
-            ctx.pc, access.offset, ctx.in_device
-        );
-
-        use MemException::*;
-        match mem_except {
-            StubRead(level, _) => log!(level, "{} stubbed read ({})", ctx_str, access.val),
-            StubWrite(level, ()) => log!(level, "{} stubbed write ({})", ctx_str, access.val),
-            Log(level, msg) => log!(level, "{} {}", ctx_str, msg),
-            // FIXME?: Misaligned access (i.e: Data Abort) should be a CPU exception
-            Misaligned => {
-                return Err(SysError::FatalMemException {
-                    context: ctx,
-                    reason: mem_except,
-                });
-            }
-            ContractViolation {
-                msg,
-                severity,
-                stub_val,
-            } => {
-                // TODO: add config to determine what Error-level ContractViolation should
-                // terminate execution
-                if severity == log::Level::Error {
-                    return Err(SysError::FatalMemException {
-                        context: ctx,
-                        reason: ContractViolation {
-                            msg,
-                            severity,
-                            stub_val,
-                        },
-                    });
-                } else {
-                    log!(severity, "{} {}", ctx_str, msg)
-                }
-            }
-            _ => {
-                return Err(SysError::FatalMemException {
-                    context: ctx,
-                    reason: mem_except,
-                })
-            }
-        }
-
-        Ok(())
-    }
-
     /// Run the system for a single CPU instruction, returning `true` if the
     /// system is still running, or `false` upon reaching some sort of "graceful
     /// exit" condition (e.g: power-off).
@@ -206,7 +126,7 @@ impl Ipod4g {
         &mut self,
         _halt_block_mode: BlockMode,
         mut sniff_memory: (&[u32], impl FnMut(CpuId, MemAccess)),
-    ) -> Result<bool, SysError> {
+    ) -> Result<bool, FatalError> {
         if self.frozen {
             return Ok(true);
         }
@@ -237,9 +157,17 @@ impl Ipod4g {
             });
             let mut mem = MemoryAdapter::new(&mut sniffer);
             cpu.step(&mut mem);
-            if let Some(e) = mem.exception.take() {
+            if let Some((access, e)) = mem.exception.take() {
                 let pc = cpu.reg_get(cpu.mode(), reg::PC);
-                Ipod4g::handle_mem_exception(pc, &self.devices, e)?;
+                let in_device = format!("{}", self.devices.probe(access.offset));
+
+                let ctx = MemExceptionCtx {
+                    pc,
+                    access,
+                    in_device,
+                };
+
+                e.resolve(ctx)?;
             }
         }
 
@@ -275,7 +203,7 @@ impl Ipod4g {
 
     /// Run the system, returning successfully on "graceful exit"
     /// (e.g: power-off).
-    pub fn run(&mut self) -> Result<(), SysError> {
+    pub fn run(&mut self) -> Result<(), FatalError> {
         while self.step(BlockMode::Blocking, (&[], |_, _| {}))? {}
         Ok(())
     }

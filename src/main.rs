@@ -14,6 +14,7 @@ use structopt::StructOpt;
 
 pub mod block;
 pub mod devices;
+pub mod error;
 pub mod gui;
 pub mod memory;
 pub mod signal;

@@ -1,6 +1,8 @@
 use std::io::{Read, Seek, SeekFrom};
 
 use armv4t_emu::{reg, Mode as ArmMode};
+use std::io;
+use thiserror::Error;
 
 use crate::memory::Memory;
 
@@ -11,11 +13,23 @@ mod sysinfo;
 
 use sysinfo::sysinfo_t;
 
+#[derive(Error, Debug)]
+pub enum HleBootloaderError {
+    #[error("error while reading firmware file")]
+    Io(#[from] io::Error),
+    #[error("magic_hi != \"[hi]\" in the volume header")]
+    BadMagic,
+    #[error("HLE boot for firmware version {0} isn't (currently) supported")]
+    InvalidVersion(u16),
+    #[error("Couldn't find valid `osos` image")]
+    MissingOs,
+}
+
 /// Put the system into a state as though the bootloader in Flash ROM was run.
 pub(super) fn run_hle_bootloader(
     ipod: &mut Ipod4g,
     mut fw_file: impl Read + Seek,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), HleBootloaderError> {
     if ipod.devices.flash.is_hle() {
         warn!("Running HLE bootloader even though the system is using a real Flash ROM dump!");
     }
@@ -28,7 +42,7 @@ pub(super) fn run_hle_bootloader(
         .images
         .iter()
         .find(|img| img.name == *b"osos")
-        .ok_or("could not find OS image")?;
+        .ok_or(HleBootloaderError::MissingOs)?;
 
     // extract image from firmware file, and copy it into RAM
     fw_file.seek(SeekFrom::Start(os_image.dev_offset as u64 + 0x200))?;
@@ -50,7 +64,7 @@ pub(super) fn run_hle_bootloader(
     ipod.cpu.reg_set(ArmMode::Irq, reg::SP, 0x40017bfc);
 
     // inject fake sysinfo_t into fastram.
-    // TODO: explore if this pointer changes between iPod models
+    // TODO: look into how this pointer changes between iPod models
     const SYSINFO_PTR: u32 = 0x4001_7f1c;
     const SYSINFO_LOC: u32 = 0x4000_ff18;
     ipod.devices.w32(SYSINFO_PTR, SYSINFO_LOC).unwrap(); // pointer to sysinfo

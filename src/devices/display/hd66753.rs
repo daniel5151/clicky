@@ -320,13 +320,11 @@ impl Hd66753 {
                 // increment the ac appropriately
                 let dx_ac = match ireg.am {
                     0b00 => 1,
-                    0b01 => return Err(FatalError("unimplemented: vertical CGRAM write".into())),
+                    0b01 => return Err(Fatal("unimplemented: vertical CGRAM write".into())),
                     0b10 => {
-                        return Err(FatalError(
-                            "unimplemented: two-word vertical CGRAM write".into(),
-                        ))
+                        return Err(Fatal("unimplemented: two-word vertical CGRAM write".into()))
                     }
-                    0b11 => return Err(FatalError("EntryMode:AM cannot be set to 0b11".into())),
+                    0b11 => return Err(Fatal("EntryMode:AM cannot be set to 0b11".into())),
                     _ => unreachable!(),
                 };
 
@@ -348,7 +346,7 @@ impl Hd66753 {
                 self.ac %= 0x1080;
             }
             invalid_cmd => {
-                return Err(FatalError(format!(
+                return Err(Fatal(format!(
                     "attempted to execute invalid LCD command {:#x?}",
                     invalid_cmd
                 )))

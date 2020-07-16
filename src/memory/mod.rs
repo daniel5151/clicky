@@ -6,7 +6,7 @@ mod access;
 mod exception;
 
 pub use access::{MemAccess, MemAccessKind, MemAccessVal, ToMemAccess};
-pub use exception::{MemException, MemResult};
+pub use exception::{MemException, MemExceptionCtx, MemResult};
 
 /// Common memory trait used throughout the emulator.
 ///

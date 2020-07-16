@@ -1,4 +1,14 @@
+use crate::memory::MemAccess;
+
 pub type MemResult<T> = Result<T, MemException>;
+
+/// Context around a MemException.
+#[derive(Debug, Clone)]
+pub struct MemExceptionCtx {
+    pub pc: u32,
+    pub access: MemAccess,
+    pub in_device: String,
+}
 
 /// Exception resulting from a memory access.
 #[derive(Debug, Clone)]
@@ -18,7 +28,7 @@ pub enum MemException {
     /// Memory location hasn't been implemented.
     Unimplemented,
     /// An unrecoverable error which should immediately terminate execution.
-    FatalError(String),
+    Fatal(String),
 
     // -- Guest Access Violations -- //
     /// Attempted to access a device at an invalid offset.
@@ -42,6 +52,60 @@ pub enum MemException {
 // for now.
 impl From<std::io::Error> for MemException {
     fn from(e: std::io::Error) -> MemException {
-        MemException::FatalError(format!("I/O Error: {}", e))
+        MemException::Fatal(format!("I/O Error: {}", e))
+    }
+}
+
+use crate::error::FatalError;
+
+impl MemException {
+    /// Handle the memory exception, potentially returning a FatalError.
+    pub fn resolve(self, ctx: MemExceptionCtx) -> Result<(), FatalError> {
+        let ctx_str = format!(
+            "[pc {:#010x?}][addr {:#010x?}][{}]",
+            ctx.pc, ctx.access.offset, ctx.in_device
+        );
+
+        use MemException::*;
+        match self {
+            StubRead(level, _) => log!(level, "{} stubbed read ({})", ctx_str, ctx.access.val),
+            StubWrite(level, ()) => log!(level, "{} stubbed write ({})", ctx_str, ctx.access.val),
+            Log(level, msg) => log!(level, "{} {}", ctx_str, msg),
+            // FIXME?: Misaligned access (i.e: Data Abort) should be a CPU exception
+            Misaligned => {
+                return Err(FatalError::MemException {
+                    context: ctx,
+                    reason: self,
+                });
+            }
+            ContractViolation {
+                msg,
+                severity,
+                stub_val,
+            } => {
+                // TODO: use config to determine what Error-level ContractViolation should
+                // terminate execution
+                if severity == log::Level::Error {
+                    return Err(FatalError::MemException {
+                        context: ctx,
+                        reason: ContractViolation {
+                            msg,
+                            severity,
+                            stub_val,
+                        },
+                    });
+                } else {
+                    log!(severity, "{} {}", ctx_str, msg)
+                }
+            }
+            Unexpected | Unimplemented | Fatal(_) | MmuViolation | InvalidAccess => {
+                return Err(FatalError::MemException {
+                    context: ctx,
+                    reason: self,
+                })
+            }
+        }
+
+        Ok(())
     }
 }
