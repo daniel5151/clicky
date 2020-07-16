@@ -30,7 +30,7 @@ pub(super) fn run_hle_bootloader(
     ipod: &mut Ipod4g,
     mut fw_file: impl Read + Seek,
 ) -> Result<(), HleBootloaderError> {
-    if ipod.devices.flash.is_hle() {
+    if !ipod.devices.flash.is_hle() {
         warn!("Running HLE bootloader even though the system is using a real Flash ROM dump!");
     }
 

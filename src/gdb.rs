@@ -23,15 +23,19 @@ pub enum ConnKind {
 }
 
 impl std::str::FromStr for GdbCfg {
-    type Err = &'static str;
+    type Err = String;
 
-    fn from_str(s: &str) -> Result<GdbCfg, &'static str> {
+    fn from_str(s: &str) -> Result<GdbCfg, String> {
         let mut s = s.split(',');
         let kind = s.next().unwrap().parse::<ConnKind>()?;
 
         let on_fatal_err = s.next() == Some("on-fatal-err");
         let on_start = if on_fatal_err {
-            s.next() == Some("and-on-start")
+            match s.next() {
+                Some("and-on-start") => true,
+                Some(o) => return Err(format!("unknown option `{}`", o)),
+                None => false,
+            }
         } else {
             true
         };

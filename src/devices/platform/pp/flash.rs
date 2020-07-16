@@ -6,7 +6,7 @@ use byteorder::{ByteOrder, LittleEndian};
 /// memory locations can be read). Use the `use_dump` method if you have a dump
 /// of a real iPod's flash ROM.
 pub struct Flash {
-    dump: Option<Vec<u8>>,
+    dump: Option<Box<[u8]>>,
 }
 
 impl std::fmt::Debug for Flash {
@@ -22,7 +22,7 @@ impl Flash {
         Flash { dump: None }
     }
 
-    pub fn use_dump(&mut self, dump: Vec<u8>) -> Result<(), &'static str> {
+    pub fn use_dump(&mut self, dump: Box<[u8]>) -> Result<(), &'static str> {
         if dump.len() != 0x100000 {
             return Err("Flash ROM dump must be exactly 1MB");
         }

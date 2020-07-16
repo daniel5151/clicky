@@ -82,7 +82,8 @@ make
 To get up-and-running with a basic test image, run the following commands:
 
 ```bash
-./scripts/mkipodhd_raw.sh ./resources/ipodloader2 # creates an `ipodhd.img` raw disk image
+# creates an `ipodhd.img` raw disk image with `ipodloader2_loop.bin`
+./scripts/mkipodhd_raw.sh ./resources/ipodloader2/ipodloader2_loop.bin
 ./scripts/add_ipodloader_cfg_to_rawhd.sh
 ```
 
@@ -97,13 +98,13 @@ Alternatively, you can use `mtools` to copy files/folders over without having to
 Now that you have some iPod firmware images, you can finally run clicky:
 
 ```bash
-cargo run -- ./resources/ipodloader/ipodloader_loops_unopt.bin --hdd=null:len=1GiB # doesn't require a hdd image
-cargo run -- ./resources/ipodloader2/ipodloader2_loops.bin --hdd=raw:file=ipodhd.img
+cargo run -- --hle=./resources/ipodloader/ipodloader_loops_unopt.bin --hdd=null:len=1GiB # doesn't require a hdd image
+cargo run -- --hle=./resources/ipodloader2/ipodloader2_loop.bin --hdd=raw:file=ipodhd.img
 ```
 
 `ipodloader_loops_unopt.bin` should display an image of the iPodLinux Tux and then loop forever. It's not really useful other than as a smoke-test to make sure clicky built correctly.
 
-`ipodloader2_loops.bin` is what's currently being worked on, and output fluctuates every other commit :)
+`ipodloader2_loop.bin` is what's currently being worked on, and output tends to fluctuate every other commit :)
 
 ## Dev Guide
 
@@ -141,13 +142,13 @@ Any useful resources I stumble across during development are stashed away under 
 
 A proper Low Level Emulation (LLE) boot process would involve booting the CPU from address 0 and having it execute whatever bootloader code is present in Flash ROM. This code includes some basic device setup, toggling certain interrupts, and of course, loading the actual firmware image from the HDD into executable memory.
 
-The code contained in Flash ROM is copyrighted by Apple, and as such, `clicky` cannot legally redistribute any copies of it. To work around this, `clicky` includes a High Level Emulation (HLE) bootloader. `clicky` will manually set the state of certain devices, toggle certain interrupts, load the firmware image into memory, and set the Program Counter to the load address of the firmware image. If any code attempts to access the memory locations mapped to flash ROM (e.g: to determine which iPod version it's running on), the `Flash` device implements a limited set of memory locations which can be accessed to complete initialization.
+The code contained in Flash ROM is copyrighted by Apple, and as such, `clicky` cannot legally redistribute any copies of it. To work around this, `clicky` includes a High Level Emulation (HLE) bootloader. `clicky` will manually set the state of certain devices, toggle certain interrupts, load the firmware image into memory, and set the Program Counter to the load address of the firmware image. If any code attempts to access the memory locations mapped to flash ROM (e.g: to determine which iPod version it's running on), an incredibly simple HLE flash device implements a few hard-coded addresses required to continue execution.
 
-As the project matures, it should be possible to perform a "cold boot" using a dumped Flash ROM image. This setting is supported via the `--flash-rom` flag.
+That said, if you happen to have an old iPod 4G lying around, it's possible to dump a copy of it's Flash ROM (as described [here](https://www.rockbox.org/wiki/IpodFlash#Apple_39s_flash_code)), which can be passed to `clicky` via the `--flash-rom` flag. If a valid Flash ROM image is detected, the `--hle` flag can be omitted, and `clicky` will perform a proper "cold boot" using the dumped Flash ROM.
 
-**NOTE:** At this stage in development, having a Flash ROM image is **not** required to run `clicky`. I plan to maintain the HLE bootloader so that `clicky` is as easy to use as possible.
+**NOTE:** At this stage in development, having a Flash ROM image is **not** required to run `clicky`! It should be possible to run most\* iPod software using the HLE bootloader.
 
-That said, if you're interested in helping out with `clicky`'s development, you might want to try to get your hands on a flash ROM image. If you happen to still have an old iPod lying around, you can dump the contents of it's flash ROM using Rockbox, as described [here](https://www.rockbox.org/wiki/IpodFlash#Apple_39s_flash_code).
+\* While there's nothing stopping software from accessing the Flash ROM post-initialization (e.g: RockBox includes a utility to dump the Flash ROM), there doesn't seem to be anything particularly "useful" on the Flash ROM that software would want to access.
 
 ## Roadmap
 

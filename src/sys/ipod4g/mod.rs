@@ -41,7 +41,7 @@ pub struct Ipod4gControls {
 }
 
 pub enum BootKind<F: Read + Seek> {
-    ColdBoot { flash_rom: Vec<u8> },
+    ColdBoot,
     HLEBoot { fw_file: F },
 }
 
@@ -65,7 +65,11 @@ impl Ipod4g {
     }
 
     /// Returns a new Ipod4g instance.
-    pub fn new<F>(hdd: Box<dyn BlockDev>, boot_kind: BootKind<F>) -> DynResult<Ipod4g>
+    pub fn new<F>(
+        hdd: Box<dyn BlockDev>,
+        flash_rom: Option<Box<[u8]>>,
+        boot_kind: BootKind<F>,
+    ) -> DynResult<Ipod4g>
     where
         F: Read + Seek,
     {
@@ -91,6 +95,11 @@ impl Ipod4g {
             .as_ide()
             .attach(devices::ide::IdeIdx::IDE0, hdd);
 
+        // Set up flash_rom (if available)
+        if let Some(flash_rom) = flash_rom {
+            sys.devices.flash.use_dump(flash_rom)?
+        }
+
         // hook-up external controls
         let (hold_tx, hold_rx) = gpio::new(gpio_changed, "Hold");
         let (keypad_tx, keypad_rx) = devices::KeypadSignals::new_tx_rx(i2c_changed);
@@ -109,11 +118,9 @@ impl Ipod4g {
             keypad: keypad_tx,
         });
 
-        // depending on the kind of boot, either install the provided flash ROM dump, or
-        // run the HLE bootloader.
-        match boot_kind {
-            BootKind::ColdBoot { flash_rom } => sys.devices.flash.use_dump(flash_rom)?,
-            BootKind::HLEBoot { fw_file } => run_hle_bootloader(&mut sys, fw_file)?,
+        // Run the HLE bootloader if an HLE boot was requested
+        if let BootKind::HLEBoot { fw_file } = boot_kind {
+            run_hle_bootloader(&mut sys, fw_file)?
         }
 
         Ok(sys)

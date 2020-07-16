@@ -35,9 +35,13 @@ const SYSDUMP_FILENAME: &str = "sysdump.log";
 An emulator for the classic clickwheel iPod 4g.
 "#)]
 struct Args {
-    /// Firmware file to load.
-    #[structopt(parse(from_os_str))]
-    firmware: PathBuf,
+    /// Load a firmware file using the HLE bootloader.
+    #[structopt(long, parse(from_os_str))]
+    hle: Option<PathBuf>,
+
+    /// Path to dumped Flash ROM binary.
+    #[structopt(long, parse(from_os_str), required_unless("hle"))]
+    flash_rom: Option<PathBuf>,
 
     /// HDD image to use.
     ///
@@ -46,10 +50,6 @@ struct Args {
     /// `mem:file=/path/to/ipodhd.img` (for testing).
     #[structopt(long)]
     hdd: BlockCfg,
-
-    /// Flash ROM binary to use.
-    #[structopt(long)]
-    flash_rom: Option<PathBuf>,
 
     /// Spawn a GDB server at system startup.
     ///
@@ -125,16 +125,19 @@ fn main() -> DynResult<()> {
         }
     };
 
-    let boot_kind = match args.flash_rom {
-        Some(path) => BootKind::ColdBoot {
-            flash_rom: fs::read(path)?,
+    let boot_kind = match args.hle {
+        Some(fw_file) => BootKind::HLEBoot {
+            fw_file: fs::File::open(fw_file)?,
         },
-        None => BootKind::HLEBoot {
-            fw_file: fs::File::open(args.firmware)?,
-        },
+        None => BootKind::ColdBoot,
     };
 
-    let mut system = Ipod4g::new(hdd, boot_kind)?;
+    let flash_rom = match args.flash_rom {
+        Some(path) => Some(fs::read(path)?.into_boxed_slice()),
+        None => None,
+    };
+
+    let mut system = Ipod4g::new(hdd, flash_rom, boot_kind)?;
 
     // hook-up controls
     let minifb_controls = {
