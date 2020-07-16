@@ -18,6 +18,8 @@ pub enum BlockCfg {
     Null { len: u64 },
     /// `raw:file=/path/`
     Raw { path: String },
+    /// `mem:file=/path/[,truncate=<len>]`
+    Mem { path: String, truncate: Option<u64> },
 }
 
 impl FromStr for BlockCfg {
@@ -68,6 +70,34 @@ impl FromStr for BlockCfg {
 
                 BlockCfg::Raw {
                     path: file.ok_or("missing `file` parameter")?,
+                }
+            }
+            "mem" => {
+                let s = s.next().ok_or("missing required options")?.split(',');
+
+                let mut file = None;
+                let mut truncate = None;
+
+                for arg in s {
+                    let mut s = arg.split('=');
+                    let kind = s.next().unwrap();
+                    match kind {
+                        "file" => {
+                            file = Some(s.next().ok_or("missing argument for `file`")?.into())
+                        }
+                        "truncate" => {
+                            truncate = Some(
+                                parse_capacity(s.next().ok_or("missing argument for `truncate`")?)
+                                    .ok_or("could not parse `truncate`")?,
+                            )
+                        }
+                        _ => return Err("unknown `len` option"),
+                    }
+                }
+
+                BlockCfg::Mem {
+                    path: file.ok_or("missing `file` parameter")?,
+                    truncate,
                 }
             }
             _ => return Err("invalid block kind"),

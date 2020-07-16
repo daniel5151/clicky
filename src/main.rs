@@ -6,6 +6,7 @@ extern crate log;
 
 use std::collections::HashMap;
 use std::fs;
+use std::io::Read;
 use std::path::PathBuf;
 
 pub type DynResult<T> = Result<T, Box<dyn std::error::Error>>;
@@ -34,14 +35,15 @@ const SYSDUMP_FILENAME: &str = "sysdump.log";
 An emulator for the classic clickwheel iPod 4g.
 "#)]
 struct Args {
-    /// Firmware file to load
+    /// Firmware file to load.
     #[structopt(parse(from_os_str))]
     firmware: PathBuf,
 
-    /// HDD image to use
+    /// HDD image to use.
     ///
-    /// At the moment, this should most likely be set to
-    /// `--hdd=raw:/path/to/ipodhd.img`.
+    /// At the moment, this should most likely be set to either
+    /// `raw:file=/path/to/ipodhd.img` (for persistence) or
+    /// `mem:file=/path/to/ipodhd.img` (for testing).
     #[structopt(long)]
     hdd: BlockCfg,
 
@@ -106,6 +108,20 @@ fn main() -> DynResult<()> {
         BlockCfg::Raw { path } => {
             let file = fs::OpenOptions::new().read(true).write(true).open(path)?;
             Box::new(block::backend::Raw::new(file))
+        }
+        BlockCfg::Mem { path, truncate } => {
+            let mut file = fs::File::open(path)?;
+            let mut data = Vec::new();
+            match truncate {
+                Some(len) => {
+                    data.resize(len as usize, 0);
+                    file.read_exact(&mut data)?;
+                }
+                None => {
+                    file.read_to_end(&mut data)?;
+                }
+            }
+            Box::new(block::backend::Mem::new(data.into_boxed_slice()))
         }
     };
 
