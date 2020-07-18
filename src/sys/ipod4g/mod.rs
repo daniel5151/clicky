@@ -158,7 +158,10 @@ impl Ipod4g {
             // instruction-fetch reads, and regular reads. Therefore, it's impossible to
             // enforce MMU "execute" protection bits...
 
+            // FIXME: this approach is kinda gross. Maybe add a some "ctx" to `Memory`?
             self.devices.cpuid.set_cpuid(*cpuid);
+            self.devices.memcon.set_cpuid(*cpuid);
+
             let mut sniffer = MemSniffer::new(&mut self.devices, sniff_memory.0, |access| {
                 sniff_memory.1(*cpuid, access)
             });

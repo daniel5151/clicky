@@ -1,5 +1,7 @@
 use crate::devices::prelude::*;
 
+use super::common::CpuId;
+
 /// Memory Protection Bits
 #[derive(Debug)]
 pub struct Protection {
@@ -18,10 +20,68 @@ struct Mmap {
 
 /// PP5020 Memory Controller. Content varies based on which CPU/COP is
 /// performing the access.
+#[derive(Debug)]
+pub struct MemCon {
+    selected: CpuId,
+    cpucon: MemConImpl,
+    copcon: MemConImpl,
+}
+
+impl MemCon {
+    pub fn new() -> MemCon {
+        MemCon {
+            selected: CpuId::Cpu,
+            cpucon: MemConImpl::new(),
+            copcon: MemConImpl::new(),
+        }
+    }
+
+    pub fn virt_to_phys(&self, addr: u32) -> (u32, Protection) {
+        match self.selected {
+            CpuId::Cpu => self.cpucon.virt_to_phys(addr),
+            CpuId::Cop => self.copcon.virt_to_phys(addr),
+        }
+    }
+
+    pub fn set_cpuid(&mut self, cpu: CpuId) {
+        self.selected = cpu
+    }
+}
+
+impl Device for MemCon {
+    fn kind(&self) -> &'static str {
+        "<cpu/cop router>"
+    }
+
+    fn probe(&self, offset: u32) -> Probe {
+        match self.selected {
+            CpuId::Cpu => Probe::from_device(&self.cpucon, offset),
+            CpuId::Cop => Probe::from_device(&self.copcon, offset),
+        }
+    }
+}
+
+impl Memory for MemCon {
+    fn r32(&mut self, offset: u32) -> MemResult<u32> {
+        match self.selected {
+            CpuId::Cpu => self.cpucon.r32(offset),
+            CpuId::Cop => self.copcon.r32(offset),
+        }
+    }
+
+    fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
+        match self.selected {
+            CpuId::Cpu => self.cpucon.w32(offset, val),
+            CpuId::Cop => self.copcon.w32(offset, val),
+        }
+    }
+}
+
+/// PP5020 Memory Controller.
 ///
 /// Shoutout to the mysterious MrH for lots of helpful reverse-engineering.
 /// https://daniel.haxx.se/sansa/memory_controller.txt
-pub struct MemCon {
+struct MemConImpl {
     cache_data: [u32; 0x2000],
     /// A status word is 32 bits and is mirrored four times for each cache line
     ///
@@ -39,9 +99,9 @@ pub struct MemCon {
     cache_flush_mask: u32,
 }
 
-impl std::fmt::Debug for MemCon {
+impl std::fmt::Debug for MemConImpl {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        f.debug_struct("MemCon")
+        f.debug_struct("MemConImpl")
             .field(
                 "cache_data",
                 &format!(
@@ -64,9 +124,9 @@ impl std::fmt::Debug for MemCon {
     }
 }
 
-impl MemCon {
-    pub fn new() -> MemCon {
-        MemCon {
+impl MemConImpl {
+    pub fn new() -> MemConImpl {
+        MemConImpl {
             cache_data: [0; 0x2000],
             cache_status: [0; 0x2000],
             mmap: Default::default(),
@@ -76,7 +136,7 @@ impl MemCon {
         }
     }
 
-    pub fn virt_to_phys(&self, addr: u32) -> (u32, Protection) {
+    fn virt_to_phys(&self, addr: u32) -> (u32, Protection) {
         for &Mmap { logical, physical } in self.mmap.iter() {
             if logical == 0 || physical == 0 {
                 continue;
@@ -127,6 +187,11 @@ impl MemCon {
                 (0x3a00_0000, 0x2000_0000, 0) => Some(0x2000_0000..0x2010_0000),
                 // flashROM: flashROM protection bits
                 (0x3bf0_0000, 0, 0) => Some(0..0),
+
+                // rockbox: like ipodloader2, but with different masks
+                (0x3e00_0000, 0, 0x1000_0000) => Some(0..0x0200_0000),
+                (0x3c00_0000, 0x2000_0000, 0) => Some(0x2000_0000..0x2010_0000),
+
                 _ => None,
             };
 
@@ -152,7 +217,7 @@ impl MemCon {
     }
 }
 
-impl Device for MemCon {
+impl Device for MemConImpl {
     fn kind(&self) -> &'static str {
         "Memory Controller"
     }
@@ -179,7 +244,7 @@ impl Device for MemCon {
     }
 }
 
-impl Memory for MemCon {
+impl Memory for MemConImpl {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
             0x0000..=0x1fff => Err(Unimplemented),

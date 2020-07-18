@@ -1,0 +1,295 @@
+// retrieved from https://daniel.haxx.se/sansa/memory_controller.txt
+
+PortalPlayer PP5024 memory controller & cache(s) v0.4
+
+by MrH 2007
+
+
+
+Disclaimer
+----------
+
+All this information is either from the public PP5024 product brief and
+IpodLinux documentation or gathered by examining the original Sansa e200
+series firmware and by running small test programs on the actual
+hardware. I have never had any access to any private PortalPlayer
+documentation.
+
+This information may or may not be also applicable to other PortalPlayer
+processors.
+
+This document may and most certainly will contain errors and/or
+omissions. If you choose to use this information for any purpose
+whatsoever you do so on your own responsibility.
+
+
+
+Basic facts about the cache(s)
+------------------------------
+
+* 8 kB of private cache for both CPU and COP
+* 4-way set associative
+* 16-byte cache line
+* operates on virtual addresses i.e. can have aliases if memory
+  remapping is used
+* seems to not cache addresses above 0x40000000 i.e. caches only SDRAM
+* seems to have no cache coherency with DMA or the other cache at all
+  (has to be handled in software)
+
+
+
+Cache hardware addresses
+------------------------
+
+The cache hardware is located at 0xf0000000. Since both CPU and COP have
+their own caches the data and register contents in this range can have
+different values depending on which core is reading/writing them.
+
+
+
+Cache data & status
+-------------------
+
+0xf0000000 - 0xf0001fff cached data
+0xf0002000 - 0xf0003fff cached data (mirror)
+
+0xf0004000 - 0xf0005fff cache status words
+0xf0006000 - 0xf0007fff cache status words (mirror)
+
+A status word is 32 bits and is mirrored four times for each cache line
+
+    bit 0-20    line_address >> 11
+    bit 21      unused?
+    bit 22      line_dirty
+    bit 23      line_valid
+    bit 24-31   unused?
+
+
+As the cache is 4-way set associative, the address where the data
+is stored is calculated like:
+
+cache_addr = 0xf0000000 + (addr & 0x7ff) + (way * 0x800)
+
+, where 'way' is 0-3
+
+
+So e.g. data from address 0x100001c8 can be cached at 0xf00001c8,
+0xf00009c8, 0xf00011c8 or 0xf00019c8. The location of the corresponding
+status word is calculated the same way.
+
+
+0xf0008000 - 0xf000efff mirror(s) of the cache data
+
+This range seems to hold multiple read-only mirrors of the cache data.
+IpodLinux wiki seems to suggest that PP5020 has some way of flushing
+and/or invalidating individual cache lines here, but at least I have
+not found any way to trigger such a behaviour on a Sansa (PP5024).
+
+
+
+Control registers
+------------------
+
+0xf000f000  mmap0 mask
+
+    bit 0-13    mask
+    bit 14-15   unused
+    bit 16-29   match
+    bit 30-31   unused
+
+    I.e. address is mapped if
+
+    (addr & (mask << 16)) == (match & (mask << 16))
+
+0xf000f004  mmap0 target & flags
+
+    bit 0-1     unused?
+    bit 2       unknown (set to 1)
+    bit 3       unknown (set to 0, access hangs on Sansa if set to 1)
+    bit 4-6     unused?
+    bit 7       unknown (set to 1)
+    bit 8       read mask
+    bit 9       write mask
+    bit 10      data mask
+    bit 11      code mask
+    bit 12-15   unused?
+    bit 16-29   target_addr
+    bit 30-31   unused
+
+    I.e. the operation type must match the mask bits for the
+    mapping to take effect. The final accessed address is
+
+    (addr & ~(mask << 16)) | (target_addr & (mask << 16))
+
+    ***  The 'unknown' bits might have something to do with memory
+    ***  (access) types. E.g. the PP OF maps data writes at
+    ***  range 0-1 MB back to 0 with flags 0x3a88. Now sansa is a
+    ***  special case (since it boots from an i2c ROM) so it probably
+    ***  does not have anything in there,  but I suspect the models
+    ***  with a NOR flash (H10, Elio) have it at 0.
+
+0xf000f008  mmap1 mask
+0xf000f00c  mmap1 target & flags
+
+0xf000f010  mmap2 mask
+0xf000f014  mmap2 target & flags
+
+0xf000f018  mmap3 mask
+0xf000f01c  mmap3 target & flags
+
+0xf000f020  mmap4 mask
+0xf000f024  mmap4 target & flags
+
+0xf000f028  mmap5 mask
+0xf000f02c  mmap5 target & flags
+
+0xf000f030  mmap6 mask
+0xf000f034  mmap6 target & flags
+
+0xf000f038  mmap7 mask
+0xf000f03c  mmap7 target & flags
+
+    ***  When resolving the address the mapping with the lowest
+    ***  number has the highest priority i.e. the first matching
+    ***  mapping is always used.
+
+
+0xf000f040  cache mask
+
+    bit 0-13    mask
+    bit 14-15   unused
+    bit 16-29   match
+    bit 30-31   unused
+
+    I.e. data is cached if
+
+    (addr & (mask << 16)) == (match & (mask << 16))
+
+
+0xf000f044  cache control
+
+    bit 0       unknown
+    bit 1       cache flush
+    bit 2       cache invalidate (only works in 'flush & invalidate'?)
+    bit 3-5     unused?
+    bit 6-11    unknown (OF writes something here in cache init)
+    bit 12-31   unused?
+
+
+0xf000f048  cache flush mask
+
+    bit 0-13    mask
+    bit 14-15   unused
+    bit 16-29   match
+    bit 30-31   unused
+
+    I.e. data is flushed/invalidated if
+
+    (addr & (mask << 16)) == (match & (mask << 16))
+
+    Set back to zero after use.
+
+    ***  Interestingly it seems that the mask only prevents the
+    ***  actual data write-back but the cache line is still marked
+    ***  as clean and/or invalid even when the mask does not match.
+    ***  If this is indeed true it really limits what this mask can
+    ***  be used for. It can be used to implement a proper cache
+    ***  invalidate without flush but it cannot be used to do
+    ***  partial cache flushes. Hopefully I am just understanding
+    ***  something wrong here.
+
+
+
+Other related registers
+-----------------------
+
+0x60006044  'master' cache enable?
+
+    bit 4       enable CPU cache
+    bit 5       enable COP cache
+
+
+
+0x6000c000  cache enable (CPU & COP have their own copy of this reg)
+
+    bit 0       cache enable
+    bit 1       unknown (set in OF cache enable)
+    bit 2       unknown (set in OF cache enable/disable)
+    bit 3       unknown (API for (re)setting this bit exists in OF)
+    bit 4-14    unknown
+    bit 15      cache busy (flushing)
+    bit 16-31   unknown
+
+
+
+Simple memory access speed test
+-------------------------------
+
+I implemented a trivial memory access test and measured the execution
+time. The tests were run multiple times and the results were very
+very stable.
+
+
+Memory access times on 24MHz CPU clock
+
+op  data    code         time        relative time
+------------------------------------------------------------------
+read    cached  iram         2708334     100.0%
+read    iram    cached       2708334     100.0&
+read    cached  cached       2708334     100.0%
+read    iram    iram         2708334     100.0%
+read    not iram         8780489     324.2%
+read    not cached       8780489     324.2%
+read    iram    not     10301209     380.4%
+read    cached  not     11162795     412.2%
+read    not not     23035719     850.5%
+
+write   cached  iram         1916667     100.0%
+write   iram    cached       1916667     100.0%
+write   cached  cached       2750001     143.5%
+write   iram    iram         2750001     143.5%
+write   not iram         3717950     194.0%
+write   not cached       4565218     238.2%
+write   iram    not      9814818     512.1%
+write   cached  not     10714290     559.0%
+write   not not     19615389    1023.4%
+
+nop n/a iram         1041667     100.0%
+nop n/a cached       1041667     100.0%
+nop n/a not      8620693     827.6%
+
+
+CPU clock vs. SDRAM speed (data in uncached SDRAM, code in iram)
+
+clock   op        time      relative time
+-------------------------------------------------------------
+96MHz   read         2142858    100.0%
+48MHz   read         4329897    202.1%
+24MHz   read         8780489    409.8%
+12MHz   read        18133334    846.2%
+
+96MHz   write         903615    100.0&
+48MHz   write        1823529    201.8%
+24MHz   write        3717950    411.5%
+12MHz   write        7680001    849.9%
+
+96MHz   nop       260417    100.0%
+48MHz   nop       520834    200.0%
+24MHz   nop      1041667    400.0%
+12MHz   nop      2083334    800.0%
+
+
+Some thoughts:
+
+* Writing (especially in uncached case) is faster than reading (no
+  surprise there).
+* Combining both cache and iram seems to be the fastest combination (it
+  probably can do something in parallel on the HW level).
+* Generally it seems to be more important to cache code than data to get
+  the best possible performance.
+* Missing the cache can cause upto 2x-10x slowdown in some operations.
+* The execution time of a nop is strictly linear to the CPU clock
+  frequency.
+* The speedup of memory access is even a bit more than linear when the
+  CPU clock is increased. This suggests that the SDRAM clock may be
+  related to the CPU clock.

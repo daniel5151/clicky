@@ -287,6 +287,10 @@ impl Target for Ipod4gGdb {
             2 => self.selected_core = CpuId::Cop,
             _ => unreachable!(),
         }
+
+        self.sys.devices.cpuid.set_cpuid(self.selected_core);
+        self.sys.devices.memcon.set_cpuid(self.selected_core);
+
         Ok(())
     }
 }

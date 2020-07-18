@@ -292,7 +292,6 @@ pub struct IdeDriveMeta<'a> {
 impl IdeDriveMeta<'_> {
     /// Populate a `struct hd_driveid` using the provided metadata.
     // NOTE: this method (currently) implements up-to the ATA-2 spec.
-    // TODO: add multi-sector support...
     pub fn to_hd_driveid(&self) -> hd_driveid {
         // Some values were cargo-culted from QEMU's source
         // (/hw/ide/core.c:ide_identify).
@@ -309,6 +308,7 @@ impl IdeDriveMeta<'_> {
             // serial_no: self.serial, // no ergonomic way to init [u8; N] from &[u8]
             // fw_rev: self.fw_version,
             // model: self.model,
+            max_multsect: 1,    // TODO: add proper multi-sector support
             capability: 0b0111, // DMA and LBA supported, IORDY supported
             field_valid: 0b11,  // words 54-58,64-70 are valid
             cur_cyls: self.cylinders,

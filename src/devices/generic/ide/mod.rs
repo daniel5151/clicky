@@ -97,6 +97,7 @@ enum IdeCmd {
     StandbyImmediateAlt = 0x94,
     WriteSectors = 0x30,
     WriteSectorsNoRetry = 0x31,
+    SetMultipleMode = 0xc6,
 
     // not strictly ATA-2, but the iPod flash ROM seems to use this cmd?
     FlushCache = 0xe7,
@@ -142,10 +143,12 @@ enum IdeDriveState {
 #[derive(Debug)]
 struct IdeDrive {
     state: IdeDriveState,
-    eightbit: bool, // FIXME?: I think this can be derived from reg.features?
     reg: IdeRegs,
     blockdev: Box<dyn BlockDev>,
     irq: irq::Sender, // shared between both drives
+
+    eightbit: bool, // TODO: update this based on SetFeatures (0xef) command
+    multi_sect: u8,
 }
 
 impl IdeDrive {
@@ -296,12 +299,6 @@ impl IdeDrive {
             stub_val: None,
         })?;
 
-        macro_rules! unimplemented_cmd {
-            () => {
-                return Err(Fatal(format!("unimplemented IDE command: {:?}", cmd)));
-            };
-        }
-
         (self.reg.status)
             .set_bit(reg::STATUS::ERR, false)
             .set_bit(reg::STATUS::BSY, true);
@@ -341,7 +338,22 @@ impl IdeDrive {
 
                 Ok(())
             }
-            ReadMultiple => unimplemented_cmd!(),
+            ReadMultiple => {
+                if self.multi_sect == 0 {
+                    // TODO?: use the ATA abort mechanism instead of loudly failing
+                    return Err(ContractViolation {
+                        msg: "Called ReadMultiple before successful call to SetMultipleMode".into(),
+                        severity: Error,
+                        stub_val: None,
+                    });
+                }
+
+                if self.multi_sect != 1 {
+                    Err(Fatal("(stubbed Multi-Sector support) cannot ReadMultiple (0xc4) with multi_sect > 1".into()))
+                } else {
+                    self.exec_cmd(ReadSectors as u8)
+                }
+            }
             ReadSectors | ReadSectorsNoRetry => {
                 let offset = match self.get_sector_offset() {
                     Some(offset) => offset,
@@ -393,7 +405,7 @@ impl IdeDrive {
                 Ok(())
             }
             WriteSectors | WriteSectorsNoRetry => {
-                // NOTE: this code is UNTESTED
+                // NOTE: this code is somewhat UNTESTED
 
                 let offset = match self.get_sector_offset() {
                     Some(offset) => offset,
@@ -428,6 +440,21 @@ impl IdeDrive {
 
                 Ok(())
             }
+
+            SetMultipleMode => {
+                self.multi_sect = self.reg.sector_count;
+
+                // TODO: implement proper multi-sector support
+                if self.multi_sect > 1 {
+                    return Err(Fatal (
+                        "(stubbed Multi-Sector support) SetMultipleMode (0xc6) must be either 0 or 1".into(),
+                    ));
+                }
+
+                (self.reg.status).set_bit(reg::STATUS::BSY, false);
+                Ok(())
+            }
+
             FlushCache => {
                 // uhh, we don't implement caching
                 (self.reg.status)
@@ -500,13 +527,15 @@ impl IdeController {
 
         let new_drive = IdeDrive {
             state: IdeDriveState::Idle,
-            eightbit: false,
             reg: IdeRegs {
                 status: *0u8.set_bit(reg::STATUS::DRDY, true),
                 ..IdeRegs::default()
             },
             blockdev,
             irq: self.common_irq_line.clone(),
+
+            eightbit: false,
+            multi_sect: 0,
         };
 
         *ide = Some(new_drive);

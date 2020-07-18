@@ -1,38 +1,41 @@
 use crate::devices::prelude::*;
 
+pub use super::common::CpuId;
+
 /// PP5020 CPU controller
 #[derive(Debug)]
 pub struct CpuCon {
     cpuctl: u32,
     copctl: u32,
-
-    // HACK: used to turn the cop off during init, but never turning it on ever again.
-    hack_only_turn_off_cop: bool,
 }
 
 #[allow(dead_code)]
-mod cpuctl_flags {
+mod flags {
+    type Range = std::ops::RangeInclusive<usize>;
+
     /* Control flags, can be ORed together */
-    pub const FLOW_MASK: u32 = 0b1110 << 28;
+    pub const FLOW_MASK: Range = 29..=31;
 
     /// Sleep until an interrupt occurs
-    pub const PROC_SLEEP: u32 = 0x8000_0000;
+    pub const PROC_SLEEP: usize = 31;
     /// Sleep until end of countdown
-    pub const PROC_WAIT_CNT: u32 = 0x4000_0000;
+    pub const PROC_WAIT_CNT: usize = 30;
     /// Fire interrupt on wake-up. Auto-clears.
-    pub const PROC_WAKE_INT: u32 = 0x2000_0000;
+    pub const PROC_WAKE_INT: usize = 29;
 
     /* Counter source, select one */
     // !! not sure what happens if multiple are set !!
 
     /// Counter Source - Clock cycles
-    pub const PROC_CNT_CLKS: u32 = 0x0800_0000;
+    pub const PROC_CNT_CLKS: usize = 27;
     /// Counter Source - Microseconds
-    pub const PROC_CNT_USEC: u32 = 0x0200_0000;
+    pub const PROC_CNT_USEC: usize = 25;
     /// Counter Source - Milliseconds
-    pub const PROC_CNT_MSEC: u32 = 0x0100_0000;
+    pub const PROC_CNT_MSEC: usize = 24;
     /// Counter Source - Seconds. Works on PP5022+ only!
-    pub const PROC_CNT_SEC: u32 = 0x0080_0000;
+    pub const PROC_CNT_SEC: usize = 23;
+
+    pub const COUNTER: Range = 0..=7;
 }
 
 impl CpuCon {
@@ -40,25 +43,52 @@ impl CpuCon {
         CpuCon {
             cpuctl: 0x0000_0000,
             copctl: 0x0000_0000,
-            hack_only_turn_off_cop: false,
         }
     }
 
     pub fn is_cpu_running(&self) -> bool {
         // this ain't it chief
-        self.cpuctl & cpuctl_flags::FLOW_MASK == 0
+        self.cpuctl.get_bits(flags::FLOW_MASK) == 0
     }
 
     pub fn is_cop_running(&self) -> bool {
-        if self.hack_only_turn_off_cop {
-            false
-        } else {
-            self.copctl & cpuctl_flags::FLOW_MASK == 0
-        }
+        // this ain't it chief
+        self.copctl.get_bits(flags::FLOW_MASK) == 0
     }
 
-    fn update_cpuctl(&mut self) {
+    fn update_cpuctl(&mut self, cpu: CpuId) -> MemResult<()> {
+        let reg = match cpu {
+            CpuId::Cpu => &mut self.cpuctl,
+            CpuId::Cop => &mut self.copctl,
+        };
+
+        if reg.get_bit(flags::PROC_CNT_CLKS)
+            || reg.get_bit(flags::PROC_CNT_USEC)
+            || reg.get_bit(flags::PROC_CNT_MSEC)
+            || reg.get_bit(flags::PROC_CNT_SEC)
+        {
+            return Err(Fatal(format!(
+                "unimplemented: tried to set cpuctl counter for {:?}",
+                cpu
+            )));
+        }
+
+        if reg.get_bit(flags::PROC_WAIT_CNT) {
+            return Err(Fatal(format!(
+                "unimplemented: 'Sleep until end of countdown' for {:?}",
+                cpu
+            )));
+        }
+
+        if reg.get_bit(flags::PROC_WAKE_INT) {
+            return Err(Fatal(format!(
+                "unimplemented: 'Fire interrupt on wake-up' for {:?}",
+                cpu
+            )));
+        }
+
         // TODO: check flow bits and setup timers to wake CPU
+        Ok(())
     }
 }
 
@@ -90,19 +120,16 @@ impl Memory for CpuCon {
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         match offset {
             0x0 => {
-                log::debug!("updated CPU Control: {:#010x?}", val);
                 self.cpuctl = val;
-                self.update_cpuctl();
+                self.update_cpuctl(CpuId::Cpu)?;
+                Err(Log(Debug, format!("updated CPU Control: {:#010x?}", val)))
             }
             0x4 => {
-                log::debug!("updated COP Control: {:#010x?}", val);
                 self.copctl = val;
-                self.hack_only_turn_off_cop = true;
-                self.update_cpuctl();
+                self.update_cpuctl(CpuId::Cop)?;
+                Err(Log(Debug, format!("updated COP Control: {:#010x?}", val)))
             }
-            _ => return Err(Unexpected),
+            _ => Err(Unexpected),
         }
-
-        Ok(())
     }
 }
