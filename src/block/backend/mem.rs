@@ -4,10 +4,18 @@ use crate::block::BlockDev;
 
 /// Memory-backed block device. No fancy features, just raw 1:1 access to an
 /// in-memory buffer.
-#[derive(Debug)]
 pub struct Mem {
     len: usize,
     data: Cursor<Box<[u8]>>,
+}
+
+impl std::fmt::Debug for Mem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Mem")
+            .field("len", &self.len)
+            .field("data", &"[...]")
+            .finish()
+    }
 }
 
 impl Mem {
