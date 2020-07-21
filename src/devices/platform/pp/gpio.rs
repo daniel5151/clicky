@@ -249,9 +249,14 @@ impl Memory for GpioBlock {
 ///
 /// Bits 8..15 of the written word define which bits are changed, bits 0..7
 /// define the value of those bits.
-#[derive(Debug)]
 pub struct GpioBlockAtomicMirror {
     block: ArcMutexDevice<GpioBlock>,
+}
+
+impl std::fmt::Debug for GpioBlockAtomicMirror {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "GpioBlockAtomicMirror {{ .. }}")
+    }
 }
 
 impl GpioBlockAtomicMirror {

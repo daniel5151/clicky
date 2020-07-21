@@ -7,6 +7,8 @@ pub mod usec_timer;
 use cfg_timer::CfgTimer;
 use usec_timer::UsecTimer;
 
+use crate::signal::irq;
+
 /// PP5020 timer block
 #[derive(Debug)]
 pub struct Timers {
@@ -16,11 +18,11 @@ pub struct Timers {
 }
 
 impl Timers {
-    pub fn new() -> Timers {
+    pub fn new(timer1_irq: irq::Sender, timer2_irq: irq::Sender) -> Timers {
         Timers {
             usec: UsecTimer::new(),
-            cfg_timer1: CfgTimer::new("1"),
-            cfg_timer2: CfgTimer::new("2"),
+            cfg_timer1: CfgTimer::new("1", timer1_irq),
+            cfg_timer2: CfgTimer::new("2", timer2_irq),
         }
     }
 }

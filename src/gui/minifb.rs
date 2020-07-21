@@ -1,7 +1,7 @@
 use std::collections::HashMap;
+use std::sync::mpsc as chan;
 use std::thread;
 
-use crossbeam_channel as chan;
 use minifb::{Key, Window, WindowOptions};
 
 use crate::gui::{KeyCallback, RenderCallback};
@@ -19,7 +19,7 @@ impl IPodMinifb {
         mut update_fb: RenderCallback,
         mut controls: HashMap<Key, KeyCallback>,
     ) -> IPodMinifb {
-        let (kill_tx, kill_rx) = chan::bounded(1);
+        let (kill_tx, kill_rx) = chan::channel();
 
         let thread = move || {
             let mut buffer: Vec<u32> = vec![0; width * height];
@@ -40,7 +40,7 @@ impl IPodMinifb {
             // ~60 fps
             window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
 
-            'ui_loop: while window.is_open() && kill_rx.is_empty() {
+            'ui_loop: while window.is_open() && kill_rx.try_recv().is_err() {
                 if let Some(keys) = window.get_keys_pressed(minifb::KeyRepeat::Yes) {
                     for k in keys {
                         if k == Key::Escape {

@@ -274,6 +274,8 @@ impl Ipod4gBus {
     #[allow(clippy::redundant_clone)] // Makes the code cleaner in this case
     fn new(irq_pending: irq::Pending) -> Ipod4gBus {
         let (ide_irq_tx, ide_irq_rx) = irq::new(irq_pending.clone(), "IDE");
+        let (timer1_irq_tx, timer1_irq_rx) = irq::new(irq_pending.clone(), "Timer1");
+        let (timer2_irq_tx, timer2_irq_rx) = irq::new(irq_pending.clone(), "Timer2");
         let (gpio0_irq_tx, gpio0_irq_rx) = irq::new(irq_pending.clone(), "GPIO0");
         let (gpio1_irq_tx, gpio1_irq_rx) = irq::new(irq_pending.clone(), "GPIO1");
         let (gpio2_irq_tx, gpio2_irq_rx) = irq::new(irq_pending.clone(), "GPIO2");
@@ -289,8 +291,8 @@ impl Ipod4gBus {
 
         let mut intcon = IntCon::new();
         intcon
-            // .register(0, timer1_irq_rx)
-            // .register(1, timer2_irq_rx)
+            .register(0, timer1_irq_rx)
+            .register(1, timer2_irq_rx)
             // .register(4, mailbox_irq_rx)
             // .register(10, i2s_irq_rx)
             // .register(20, usb_irq_rx)
@@ -312,7 +314,7 @@ impl Ipod4gBus {
             flash: Flash::new(),
             cpucon: CpuCon::new(),
             hd66753: Hd66753::new(),
-            timers: Timers::new(),
+            timers: Timers::new(timer1_irq_tx, timer2_irq_tx),
             gpio_abcd,
             gpio_efgh,
             gpio_ijkl,

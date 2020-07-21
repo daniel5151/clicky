@@ -20,7 +20,7 @@ impl UsecTimer {
 
 impl Device for UsecTimer {
     fn kind(&self) -> &'static str {
-        "UsecTimer"
+        "Microsecond Timer"
     }
 
     fn probe(&self, offset: u32) -> Probe {
@@ -39,11 +39,11 @@ impl Memory for UsecTimer {
             0x0 => {
                 let now = Instant::now();
                 let elapsed = now.duration_since(self.last);
-                let elapsed_as_millis = elapsed.as_micros() as u32;
-                if elapsed_as_millis != 0 {
-                    self.val = self.val.wrapping_add(elapsed_as_millis);
+                let elapsed_as_micros = elapsed.as_micros() as u32;
+                // Reading the timer value in a tight loop could result in a delta time of 0
+                if elapsed_as_micros != 0 {
+                    self.val = self.val.wrapping_add(elapsed_as_micros);
                     self.last = now;
-                    // eprintln!("{}", self.val);
                 }
 
                 Ok(self.val)
