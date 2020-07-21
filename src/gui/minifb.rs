@@ -4,21 +4,24 @@ use std::thread;
 
 use minifb::{Key, Window, WindowOptions};
 
-use crate::gui::{KeyCallback, RenderCallback};
+use crate::gui::RenderCallback;
+
+pub type MinifbKeymap = HashMap<Key, Box<dyn FnMut(bool) + Send>>;
 
 #[derive(Debug)]
-pub struct IPodMinifb {
+pub struct MinifbRenderer {
     kill_tx: chan::Sender<()>,
 }
 
-impl IPodMinifb {
-    /// (width, height) crops the framebuffer to the specific iPod model's
-    /// screen size.
+impl MinifbRenderer {
+    /// (width, height) crops the framebuffer to the specified screen size
+    /// (starting from the top-left corner)
     pub fn new(
+        title: &'static str,
         (width, height): (usize, usize),
         mut update_fb: RenderCallback,
-        mut controls: HashMap<Key, KeyCallback>,
-    ) -> IPodMinifb {
+        mut controls: MinifbKeymap,
+    ) -> MinifbRenderer {
         let (kill_tx, kill_rx) = chan::channel();
 
         let thread = move || {
@@ -26,7 +29,7 @@ impl IPodMinifb {
             let mut emu_buffer = Vec::new();
 
             let mut window = Window::new(
-                "iPod 4g",
+                title,
                 width,
                 height,
                 WindowOptions {
@@ -86,11 +89,11 @@ impl IPodMinifb {
             .spawn(thread)
             .unwrap();
 
-        IPodMinifb { kill_tx }
+        MinifbRenderer { kill_tx }
     }
 }
 
-impl Drop for IPodMinifb {
+impl Drop for MinifbRenderer {
     fn drop(&mut self) {
         let _ = self.kill_tx.send(());
     }

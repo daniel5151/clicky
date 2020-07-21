@@ -4,7 +4,6 @@ extern crate static_assertions;
 #[macro_use]
 extern crate log;
 
-use std::collections::HashMap;
 use std::fs;
 use std::io::Read;
 use std::path::PathBuf;
@@ -25,7 +24,8 @@ mod gdb;
 use crate::gdb::{make_gdbstub, GdbCfg};
 
 use crate::block::{BlockCfg, BlockDev};
-use crate::sys::ipod4g::{BootKind, Ipod4g, Ipod4gControls, Ipod4gGdb};
+use crate::gui::TakeKeymap;
+use crate::sys::ipod4g::{BootKind, Ipod4g, Ipod4gGdb};
 
 const SYSDUMP_FILENAME: &str = "sysdump.log";
 
@@ -139,67 +139,20 @@ fn main() -> DynResult<()> {
 
     let mut system = Ipod4g::new(hdd, flash_rom, boot_kind)?;
 
-    // hook-up controls
-    let minifb_controls = {
-        use devices::platform::pp::KeypadSignals;
-        use minifb::Key;
-
-        let Ipod4gControls {
-            mut hold,
-            keypad:
-                KeypadSignals {
-                    mut action,
-                    mut up,
-                    mut down,
-                    mut left,
-                    mut right,
-                },
-        } = system.take_controls().unwrap();
-
-        // set hold high by default
-        hold.set_high();
-
-        let mut controls: HashMap<_, gui::KeyCallback> = HashMap::new();
-        controls.insert(
-            Key::H, // H for Hold
-            Box::new(move |pressed| {
-                if pressed {
-                    // toggle on and off
-                    match hold.is_set_high() {
-                        false => hold.set_high(),
-                        true => hold.set_low(),
-                    }
-                }
-            }),
-        );
-
-        macro_rules! connect_keypad_btn {
-            ($key:expr, $signal:expr) => {
-                controls.insert(
-                    $key,
-                    Box::new(move |pressed| {
-                        if pressed {
-                            $signal.assert()
-                        } else {
-                            $signal.clear()
-                        }
-                    }),
-                );
-            };
-        }
-
-        connect_keypad_btn!(Key::Up, up);
-        connect_keypad_btn!(Key::Down, down);
-        connect_keypad_btn!(Key::Left, left);
-        connect_keypad_btn!(Key::Right, right);
-        connect_keypad_btn!(Key::Enter, action);
-
-        controls
-    };
-
     // spawn the UI thread
-    let _minifb_ui =
-        gui::minifb::IPodMinifb::new((160, 128), system.render_callback(), minifb_controls);
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "minifb")] {
+            let _minifb_ui = gui::minifb::MinifbRenderer::new(
+                "iPod 4g",
+                (160, 128),
+                system.render_callback(),
+                system.take_keymap().unwrap(),
+            );
+        } else {
+            system.take_keymap().unwrap();
+            info!("No GUI selected, running in headless mode!");
+        }
+    };
 
     let mut system = match args.gdb {
         Some(cfg) => System::Debug {

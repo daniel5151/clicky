@@ -13,6 +13,7 @@ use crate::signal::{self, gpio, irq};
 use crate::DynResult;
 
 mod gdb;
+mod gui;
 mod hle_bootloader;
 
 pub use gdb::Ipod4gGdb;
@@ -29,20 +30,20 @@ mod devices {
     };
 }
 
-pub enum BlockMode {
+enum BlockMode {
     Blocking,
     NonBlocking,
-}
-
-#[derive(Debug)]
-pub struct Ipod4gControls {
-    pub hold: gpio::Sender,
-    pub keypad: devices::KeypadSignals<signal::Master>,
 }
 
 pub enum BootKind<F: Read + Seek> {
     ColdBoot,
     HLEBoot { fw_file: F },
+}
+
+#[derive(Debug)]
+struct Ipod4gControls {
+    pub hold: gpio::Sender,
+    pub keypad: devices::KeypadSignals<signal::Master>,
 }
 
 /// A Ipod4g system
@@ -60,10 +61,6 @@ pub struct Ipod4g {
 }
 
 impl Ipod4g {
-    pub fn take_controls(&mut self) -> Option<Ipod4gControls> {
-        self.controls.take()
-    }
-
     /// Returns a new Ipod4g instance.
     pub fn new<F>(
         hdd: Box<dyn BlockDev>,
@@ -101,7 +98,7 @@ impl Ipod4g {
         }
 
         // hook-up external controls
-        let (hold_tx, hold_rx) = gpio::new(gpio_changed, "Hold");
+        let (mut hold_tx, hold_rx) = gpio::new(gpio_changed, "Hold");
         let (keypad_tx, keypad_rx) = devices::KeypadSignals::new_tx_rx(i2c_changed);
 
         {
@@ -112,6 +109,9 @@ impl Ipod4g {
         {
             sys.devices.i2c.register_keypad(keypad_rx, hold_rx)
         }
+
+        // HACK: Hold is active-low, so set it to high by default
+        hold_tx.set_high();
 
         sys.controls = Some(Ipod4gControls {
             hold: hold_tx,
@@ -129,7 +129,7 @@ impl Ipod4g {
     /// Run the system for a single CPU instruction, returning `true` if the
     /// system is still running, or `false` upon reaching some sort of "graceful
     /// exit" condition (e.g: power-off).
-    pub fn step(
+    fn step(
         &mut self,
         _halt_block_mode: BlockMode,
         mut sniff_memory: (&[u32], impl FnMut(CpuId, MemAccess)),

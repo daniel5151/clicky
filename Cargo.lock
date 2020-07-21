@@ -176,6 +176,7 @@ dependencies = [
  "bit_field",
  "bytemuck",
  "byteorder",
+ "cfg-if",
  "futures",
  "futures-executor",
  "gdbstub",

@@ -1,5 +1,5 @@
 use std::net::{TcpListener, TcpStream};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[cfg(unix)]
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -71,8 +71,8 @@ fn wait_for_tcp(port: u16) -> std::io::Result<TcpStream> {
 }
 
 #[cfg(unix)]
-fn wait_for_uds(path: &Path) -> std::io::Result<UnixStream> {
-    match std::fs::remove_file(path) {
+fn wait_for_uds(path: PathBuf) -> std::io::Result<UnixStream> {
+    match std::fs::remove_file(&path) {
         Ok(_) => {}
         Err(e) => match e.kind() {
             std::io::ErrorKind::NotFound => {}
@@ -101,11 +101,12 @@ where
         ConnKind::Uds(path) => {
             #[cfg(not(unix))]
             {
+                let _ = path;
                 return Err("Unix Domain Sockets can only be used on Unix".into());
             }
             #[cfg(unix)]
             {
-                Box::new(wait_for_uds(&path)?)
+                Box::new(wait_for_uds(path)?)
             }
         }
     };
