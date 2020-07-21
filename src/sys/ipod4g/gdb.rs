@@ -7,6 +7,7 @@ use gdbstub::{
 };
 
 use super::{BlockMode, CpuId, FatalError, Ipod4g};
+use crate::devices::Device;
 use crate::memory::{MemAccessKind, Memory};
 
 pub struct Ipod4gGdb {
@@ -87,6 +88,48 @@ impl Ipod4gGdb {
         }
 
         Ok(None)
+    }
+
+    fn exec_dbg_command(&mut self, cmd: &str, out: &mut ConsoleOutput) -> Result<(), String> {
+        const HELP: &str = r"
+Available commands:
+-------------------
+  dumpsys      - pretty-print a debug view of the system
+  probe <addr> - probe what device is at the specified address
+  help         - show this help message
+";
+
+        let mut s = cmd.split(' ');
+        let cmd = match s.next() {
+            None | Some("") => {
+                outputln!(out, "Use `monitor help` to list all available commands.");
+                return Ok(());
+            }
+            Some(cmd) => cmd,
+        };
+
+        match cmd {
+            "help" => outputln!(out, "{}", HELP),
+            "dumpsys" => outputln!(out, "{:#?}", self.sys),
+            "probe" => {
+                let addr = s.next().ok_or("no addr provided")?;
+                let addr = match addr.as_bytes() {
+                    [b'0', b'x', ..] => u32::from_str_radix(addr.trim_start_matches("0x"), 16),
+                    _ => u32::from_str_radix(addr, 10),
+                }
+                .map_err(|_| "couldn't parse addr")?;
+
+                outputln!(out, "{}", self.sys.devices.probe(addr))
+            }
+            _ => {
+                return Err(format!(
+                    "Unsupported command '{}'.\nUse `monitor help` to list all available commands.",
+                    cmd
+                ))
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -247,26 +290,15 @@ impl Target for Ipod4gGdb {
         mut out: ConsoleOutput,
     ) -> OptResult<(), Self::Error> {
         let cmd = match core::str::from_utf8(cmd) {
-            Ok(cmd) => cmd,
+            Ok(s) => s,
             Err(_) => {
                 outputln!(out, "command must be valid UTF-8");
                 return Ok(());
             }
         };
 
-        match cmd {
-            "" => outputln!(out, "Use `monitor help` to list all available commands."),
-            "dumpsys" => outputln!(out, "{:#?}", self.sys),
-            "help" => {
-                outputln!(out, "Available commands:");
-                outputln!(out, "-------------------");
-                outputln!(out, "  dumpsys - pretty-print a debug view of the system");
-                outputln!(out, "  help    - show this help message");
-            }
-            _ => {
-                outputln!(out, "Unsupported command '{}'.", cmd);
-                outputln!(out, "Use `monitor help` to list all available commands.");
-            }
+        if let Err(e) = self.exec_dbg_command(cmd, &mut out) {
+            outputln!(out, "ERROR: {}", e)
         }
 
         Ok(())
