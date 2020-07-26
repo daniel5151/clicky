@@ -1,4 +1,8 @@
 use std::io::{self, Cursor, Read, Seek, Write};
+use std::pin::Pin;
+use std::task::{Context, Poll};
+
+use futures::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
 use crate::block::BlockDev;
 
@@ -29,8 +33,8 @@ impl Mem {
 }
 
 impl BlockDev for Mem {
-    fn len(&self) -> io::Result<u64> {
-        Ok(self.len as u64)
+    fn len(&self) -> u64 {
+        self.len as u64
     }
 }
 
@@ -53,5 +57,43 @@ impl Write for Mem {
 impl Seek for Mem {
     fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
         self.data.seek(pos)
+    }
+}
+
+impl AsyncRead for Mem {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<io::Result<usize>> {
+        Poll::Ready(io::Read::read(&mut *self, buf))
+    }
+}
+
+impl AsyncWrite for Mem {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        Poll::Ready(io::Write::write(&mut *self, buf))
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Poll::Ready(io::Write::flush(&mut *self))
+    }
+
+    fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+}
+
+impl AsyncSeek for Mem {
+    fn poll_seek(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        pos: io::SeekFrom,
+    ) -> Poll<io::Result<u64>> {
+        Poll::Ready(io::Seek::seek(&mut *self, pos))
     }
 }

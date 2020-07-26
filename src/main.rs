@@ -107,7 +107,7 @@ fn main() -> DynResult<()> {
         BlockCfg::Null { len } => Box::new(block::backend::Null::new(len)),
         BlockCfg::Raw { path } => {
             let file = fs::OpenOptions::new().read(true).write(true).open(path)?;
-            Box::new(block::backend::Raw::new(file))
+            Box::new(block::backend::Raw::new(file)?)
         }
         BlockCfg::Mem { path, truncate } => {
             let mut file = fs::File::open(path)?;

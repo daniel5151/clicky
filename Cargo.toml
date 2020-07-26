@@ -35,12 +35,13 @@ gdbstub = "0.2"
 # async/await
 async-channel = "1.1"
 async-timer = "1.0.0-beta.4"
-futures-executor = "0.3" # TEMP?
+blocking = "0.5"
+futures-executor = { version = "0.3", features = ["thread-pool"] } # TEMP
 pin-utils = "0.1"
 [dependencies.futures]
 version = "0.3"
 default-features = false
-features = []
+features = ["std"]
 
 [profile.dev.package."*"]
 opt-level = 3
