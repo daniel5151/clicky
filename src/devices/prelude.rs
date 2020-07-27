@@ -11,3 +11,4 @@ pub use crate::memory::{
     MemException::{self, *},
     MemResult, Memory,
 };
+pub use crate::signal::irq;

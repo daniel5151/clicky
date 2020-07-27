@@ -1,6 +1,6 @@
 use crate::devices::prelude::*;
 
-use crate::signal::{self, gpio, irq};
+use crate::signal::{self, gpio};
 
 #[derive(Debug)]
 pub struct KeypadSignals<T> {
@@ -107,7 +107,7 @@ impl Memory for I2CCon {
             0x010 => Err(StubRead(Warn, 0)),
             0x014 => Err(StubRead(Warn, 0)),
             0x018 => Err(StubRead(Warn, 0)),
-            0x01c => Ok(1 << 6), // never busy
+            0x01c => Ok(0 << 6), // never busy
             0x100 => Err(StubRead(Warn, 0)),
             0x104 => Err(StubRead(Warn, self.keypad_status | 0x0400_0000)), // never busy
             0x120 => Err(StubRead(Warn, 0)),

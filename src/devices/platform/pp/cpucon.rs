@@ -1,13 +1,10 @@
 use crate::devices::prelude::*;
 
-pub use super::common::CpuId;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
 
-/// PP5020 CPU controller
-#[derive(Debug)]
-pub struct CpuCon {
-    cpuctl: u32,
-    copctl: u32,
-}
+pub use super::common::CpuId;
 
 #[allow(dead_code)]
 mod flags {
@@ -35,52 +32,120 @@ mod flags {
     /// Counter Source - Seconds. Works on PP5022+ only!
     pub const PROC_CNT_SEC: usize = 23;
 
+    pub const PROC_CNT_MASK: Range = 23..=27;
     pub const COUNTER: Range = 0..=7;
+}
+
+enum CounterSource {
+    Sysclock,
+    Micros,
+    Millis,
+    Sec,
+}
+
+impl CounterSource {
+    fn into_duration(self, counter: u8) -> Duration {
+        match self {
+            // XXX: sysclock duration is wildly incorrect lol
+            CounterSource::Sysclock => Duration::from_nanos(counter as _),
+            CounterSource::Micros => Duration::from_micros(counter as _),
+            CounterSource::Millis => Duration::from_millis(counter as _),
+            CounterSource::Sec => Duration::from_secs(counter as _),
+        }
+    }
+}
+
+/// PP5020 CPU controller
+#[derive(Debug)]
+pub struct CpuCon {
+    cpuctl: Arc<AtomicU32>,
+    copctl: Arc<AtomicU32>,
 }
 
 impl CpuCon {
     pub fn new() -> CpuCon {
         CpuCon {
-            cpuctl: 0x0000_0000,
-            copctl: 0x0000_0000,
+            cpuctl: Arc::new(0x0000_0000.into()),
+            copctl: Arc::new(0x0000_0000.into()),
         }
     }
 
-    pub fn is_cpu_running(&self) -> bool {
-        // this ain't it chief
-        self.cpuctl.get_bits(flags::FLOW_MASK) == 0
+    pub fn is_cpu_running(&mut self) -> bool {
+        // this might not be it chief
+        self.cpuctl
+            .load(Ordering::SeqCst)
+            .get_bits(flags::FLOW_MASK)
+            == 0
     }
 
-    pub fn is_cop_running(&self) -> bool {
-        // this ain't it chief
-        self.copctl.get_bits(flags::FLOW_MASK) == 0
+    pub fn is_cop_running(&mut self) -> bool {
+        // this might not be it chief
+        self.copctl
+            .load(Ordering::SeqCst)
+            .get_bits(flags::FLOW_MASK)
+            == 0
     }
 
-    fn update_cpuctl(&mut self, cpu: CpuId) -> MemResult<()> {
-        let reg = match cpu {
-            CpuId::Cpu => &mut self.cpuctl,
-            CpuId::Cop => &mut self.copctl,
-        };
+    fn on_update_cpuctl(&self, cpu: CpuId, val: u32) -> MemResult<()> {
+        if val.get_bit(flags::PROC_WAIT_CNT) {
+            match val.get_bits(flags::PROC_CNT_MASK).count_ones() {
+                0 => return Ok(()), // TODO: double check if this is a synonym for sleep?
+                1 => {}             // expected case
+                _ => {
+                    return Err(ContractViolation {
+                        msg: "set more than one counter source".into(),
+                        severity: Error,
+                        stub_val: None,
+                    });
+                }
+            }
+            let source = match val {
+                _ if val.get_bit(flags::PROC_CNT_CLKS) => CounterSource::Sysclock,
+                _ if val.get_bit(flags::PROC_CNT_USEC) => CounterSource::Micros,
+                _ if val.get_bit(flags::PROC_CNT_MSEC) => CounterSource::Millis,
+                _ if val.get_bit(flags::PROC_CNT_SEC) => CounterSource::Sec,
+                _ => {
+                    return Err(ContractViolation {
+                        msg: "set invalid counter source (bit 26)".into(),
+                        severity: Error,
+                        stub_val: None,
+                    })
+                }
+            };
 
-        if reg.get_bit(flags::PROC_CNT_CLKS)
-            || reg.get_bit(flags::PROC_CNT_USEC)
-            || reg.get_bit(flags::PROC_CNT_MSEC)
-            || reg.get_bit(flags::PROC_CNT_SEC)
-        {
-            return Err(Fatal(format!(
-                "unimplemented: tried to set cpuctl counter for {:?}",
-                cpu
-            )));
+            let duration = source.into_duration(val.get_bits(flags::COUNTER) as u8);
+
+            // XXX: use a proper async executor instead of spawning a thread!
+            std::thread::spawn({
+                let reg = Arc::clone(match cpu {
+                    CpuId::Cpu => &self.cpuctl,
+                    CpuId::Cop => &self.copctl,
+                });
+                // create timer outside of the task for slightly improved accuracy
+                let timer = async_timer::new_timer(duration);
+
+                move || {
+                    futures_executor::block_on(async {
+                        timer.await;
+                        // TODO: check if flags::PROC_WAKE_INT is set, and fire an interrupt
+                        reg.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |mut reg| {
+                            let reg = *reg.set_bits(flags::FLOW_MASK, 0);
+                            Some(reg)
+                        })
+                        .unwrap();
+                    })
+                }
+            });
         }
 
-        if reg.get_bit(flags::PROC_WAIT_CNT) {
-            return Err(Fatal(format!(
-                "unimplemented: 'Sleep until end of countdown' for {:?}",
-                cpu
-            )));
+        if val.get_bit(flags::PROC_SLEEP) {
+            return Err(Log(
+                Warn,
+                format!("Wake on interrupt not implemented for {:?} yet!", cpu),
+            ));
         }
 
-        if reg.get_bit(flags::PROC_WAKE_INT) {
+        if val.get_bit(flags::PROC_WAKE_INT) {
             return Err(Fatal(format!(
                 "unimplemented: 'Fire interrupt on wake-up' for {:?}",
                 cpu
@@ -111,8 +176,8 @@ impl Device for CpuCon {
 impl Memory for CpuCon {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
-            0x0 => Ok(self.cpuctl),
-            0x4 => Ok(self.copctl),
+            0x0 => Ok(self.cpuctl.load(Ordering::SeqCst)),
+            0x4 => Ok(self.copctl.load(Ordering::SeqCst)),
             _ => Err(Unexpected),
         }
     }
@@ -120,13 +185,13 @@ impl Memory for CpuCon {
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         match offset {
             0x0 => {
-                self.cpuctl = val;
-                self.update_cpuctl(CpuId::Cpu)?;
+                self.cpuctl.store(val, Ordering::SeqCst);
+                self.on_update_cpuctl(CpuId::Cpu, val)?;
                 Err(Log(Debug, format!("updated CPU Control: {:#010x?}", val)))
             }
             0x4 => {
-                self.copctl = val;
-                self.update_cpuctl(CpuId::Cop)?;
+                self.copctl.store(val, Ordering::SeqCst);
+                self.on_update_cpuctl(CpuId::Cop, val)?;
                 Err(Log(Debug, format!("updated COP Control: {:#010x?}", val)))
             }
             _ => Err(Unexpected),
