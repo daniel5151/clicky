@@ -110,7 +110,7 @@ Available commands:
 
         match cmd {
             "help" => outputln!(out, "{}", HELP),
-            "dumpsys" => outputln!(out, "{:#?}", self.sys),
+            "dumpsys" => outputln!(out, "{:#x?}", self.sys),
             "probe" => {
                 let addr = s.next().ok_or("no addr provided")?;
                 let addr = match addr.as_bytes() {

@@ -33,8 +33,8 @@ impl Changed {
     }
 
     /// Checks if any connected GPIO lines have changed since the last call to
-    /// `check_changed`.
-    pub fn check_changed(&self) -> bool {
+    /// `check_and_clear`.
+    pub fn check_and_clear(&self) -> bool {
         self.trigger.check_and_clear()
     }
 }

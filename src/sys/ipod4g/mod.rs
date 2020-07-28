@@ -138,19 +138,10 @@ impl Ipod4g {
             return Ok(true);
         }
 
-        for (cpu, cpuid, running) in &mut [
-            (
-                &mut self.cpu,
-                CpuId::Cpu,
-                self.devices.cpucon.is_cpu_running(),
-            ),
-            (
-                &mut self.cop,
-                CpuId::Cop,
-                self.devices.cpucon.is_cop_running(),
-            ),
-        ] {
-            if !*running {
+        // TODO: if neither CPU is running, efficiently block until the next IRQ
+
+        for (cpu, cpuid) in [(&mut self.cpu, CpuId::Cpu), (&mut self.cop, CpuId::Cop)].iter_mut() {
+            if !self.devices.cpucon.is_cpu_running(*cpuid) {
                 continue;
             }
 
@@ -161,6 +152,7 @@ impl Ipod4g {
             // FIXME: this approach is kinda gross. Maybe add a some "ctx" to `Memory`?
             self.devices.cpuid.set_cpuid(*cpuid);
             self.devices.memcon.set_cpuid(*cpuid);
+            self.devices.mailbox.set_cpuid(*cpuid);
 
             let mut sniffer = MemSniffer::new(&mut self.devices, sniff_memory.0, |access| {
                 sniff_memory.1(*cpuid, access)
@@ -182,7 +174,7 @@ impl Ipod4g {
         }
 
         // TODO?: explore adding callbacks to the signaling system
-        if self.gpio_changed.check_changed() {
+        if self.gpio_changed.check_and_clear() {
             self.devices.gpio_abcd.lock().unwrap().update();
             self.devices.gpio_efgh.lock().unwrap().update();
             self.devices.gpio_ijkl.lock().unwrap().update();
@@ -191,19 +183,32 @@ impl Ipod4g {
             self.devices.i2c.on_change();
         }
 
-        if self.irq_pending.check_pending() {
+        if self.irq_pending.check() {
             use armv4t_emu::Exception;
 
             let (cpu_status, cop_status) = self.devices.intcon.interrupt_status();
 
-            for (core, status) in
-                [(&mut self.cpu, cpu_status), (&mut self.cop, cop_status)].iter_mut()
+            for (core, cpuid, status) in [
+                (&mut self.cpu, CpuId::Cpu, cpu_status),
+                (&mut self.cop, CpuId::Cop, cop_status),
+            ]
+            .iter_mut()
             {
                 if status.irq {
-                    core.exception(Exception::Interrupt)
+                    self.devices.cpucon.wake_on_interrupt(*cpuid);
+                    core.exception(Exception::Interrupt);
+
+                    if core.irq_enable() {
+                        self.irq_pending.clear();
+                    }
                 }
                 if status.fiq {
-                    core.exception(Exception::FastInterrupt)
+                    self.devices.cpucon.wake_on_interrupt(*cpuid);
+                    core.exception(Exception::FastInterrupt);
+
+                    if core.fiq_enable() {
+                        self.irq_pending.clear();
+                    }
                 }
             }
         }
@@ -281,6 +286,10 @@ impl Ipod4gBus {
         let (gpio2_irq_tx, gpio2_irq_rx) = irq::new(irq_pending.clone(), "GPIO2");
         let (i2c_irq_tx, i2c_irq_rx) = irq::new(irq_pending.clone(), "I2C");
 
+        // mailbox is the only core-specific IRQ in the system, which is kinda neat
+        let (mbx_cpu_irq_tx, mbx_cpu_irq_rx) = irq::new(irq_pending.clone(), "Mailbox (CPU)");
+        let (mbx_cop_irq_tx, mbx_cop_irq_rx) = irq::new(irq_pending.clone(), "Mailbox (COP)");
+
         let gpio_abcd = ArcMutexDevice::new(GpioBlock::new(gpio0_irq_tx, ["A", "B", "C", "D"]));
         let gpio_efgh = ArcMutexDevice::new(GpioBlock::new(gpio1_irq_tx, ["E", "F", "G", "H"]));
         let gpio_ijkl = ArcMutexDevice::new(GpioBlock::new(gpio2_irq_tx, ["I", "J", "K", "L"]));
@@ -293,7 +302,7 @@ impl Ipod4gBus {
         intcon
             .register(0, timer1_irq_rx)
             .register(1, timer2_irq_rx)
-            // .register(4, mailbox_irq_rx)
+            .register_core_specific(4, mbx_cpu_irq_rx, mbx_cop_irq_rx)
             // .register(10, i2s_irq_rx)
             // .register(20, usb_irq_rx)
             .register(23, ide_irq_rx)
@@ -330,7 +339,7 @@ impl Ipod4gBus {
             piezo: Piezo::new(),
             cachecon: CacheCon::new(),
             i2s: I2SCon::new(),
-            mailbox: Mailbox::new(),
+            mailbox: Mailbox::new(mbx_cpu_irq_tx, mbx_cop_irq_tx),
             dma: DmaCon::new(),
 
             mystery_irq_con: Stub::new("Mystery IRQ Con?"),

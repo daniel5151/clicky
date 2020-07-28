@@ -20,7 +20,7 @@ pub fn new(
 
     let sender = Master {
         trigger,
-        own_signal: false,
+        own_signal: Arc::new(false.into()),
         signal: Arc::clone(&signal),
         debug_group,
         debug_label,
@@ -82,6 +82,16 @@ impl Trigger {
     pub fn check_and_clear(&self) -> bool {
         self.trigger.fetch_and(false, Ordering::SeqCst)
     }
+
+    /// Retrieves the trigger.
+    pub fn check(&self) -> bool {
+        self.trigger.load(Ordering::SeqCst)
+    }
+
+    /// Un-sets the trigger.
+    pub fn clear(&self) {
+        self.trigger.store(false, Ordering::SeqCst)
+    }
 }
 
 /// The receiving side of a signal line. Able to query the signal level, but not
@@ -105,7 +115,7 @@ impl Slave {
 #[derive(Debug, Clone)]
 pub struct Master {
     trigger: Trigger,
-    own_signal: bool,
+    own_signal: Arc<AtomicBool>,
     signal: Arc<AtomicIsize>,
     debug_group: &'static str,
     debug_label: &'static str,
@@ -114,7 +124,7 @@ pub struct Master {
 impl Master {
     /// Set the signal high.
     pub fn assert(&mut self) {
-        if self.own_signal {
+        if self.own_signal.load(Ordering::SeqCst) {
             return;
         }
 
@@ -122,7 +132,7 @@ impl Master {
             trace!(target: self.debug_group, "Asserted {}:{}", self.debug_group, self.debug_label);
         }
 
-        self.own_signal = true;
+        self.own_signal.store(true, Ordering::SeqCst);
         let old_val = self.signal.fetch_add(1, Ordering::SeqCst);
         assert!(old_val >= 0);
         self.trigger.update(old_val != 0, true);
@@ -130,7 +140,7 @@ impl Master {
 
     /// Set the signal low.
     pub fn clear(&mut self) {
-        if !self.own_signal {
+        if !self.own_signal.load(Ordering::SeqCst) {
             return;
         }
 
@@ -138,7 +148,7 @@ impl Master {
             trace!(target: self.debug_group, "Cleared {}:{}", self.debug_group, self.debug_label);
         }
 
-        self.own_signal = false;
+        self.own_signal.store(false, Ordering::SeqCst);
         let old_val = self.signal.fetch_sub(1, Ordering::SeqCst);
         assert!(old_val > 0);
         self.trigger.update(old_val != 0, false);
@@ -146,6 +156,6 @@ impl Master {
 
     /// Check if this Master is asserting the signal.
     pub fn is_asserting(&self) -> bool {
-        self.own_signal
+        self.own_signal.load(Ordering::SeqCst)
     }
 }

@@ -31,10 +31,15 @@ impl Pending {
         }
     }
 
+    /// Checks if any connected IRQs have been fired.
+    pub fn check(&self) -> bool {
+        self.trigger.check()
+    }
+
     /// Checks if any connected IRQs have been fired since the last call to
     /// `check_pending`.
-    pub fn check_pending(&self) -> bool {
-        self.trigger.check_and_clear()
+    pub fn clear(&self) -> bool {
+        self.trigger.check()
     }
 }
 

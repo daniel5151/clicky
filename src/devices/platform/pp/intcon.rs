@@ -1,7 +1,5 @@
 use crate::devices::prelude::*;
 
-use crate::signal::irq;
-
 pub struct IntStatus {
     pub irq: bool,
     pub fiq: bool,
@@ -42,11 +40,28 @@ struct IntConCpuRegs {
     priority: u32,
 }
 
+#[derive(Debug)]
+enum IrqKind {
+    Unregistered,
+    Shared(irq::Reciever),
+    // i.e: mailbox
+    CoreSpecific {
+        cpu_irq: irq::Reciever,
+        cop_irq: irq::Reciever,
+    },
+}
+
+impl Default for IrqKind {
+    fn default() -> IrqKind {
+        IrqKind::Unregistered
+    }
+}
+
 /// Half of the PP5020 Interrupt Controller.
 #[derive(Debug, Default)]
 struct IntCon32 {
     label: &'static str,
-    irqs: [Option<irq::Reciever>; 32],
+    irqs: [IrqKind; 32],
 
     cpu: IntConCpuRegs,
     cop: IntConCpuRegs,
@@ -80,21 +95,39 @@ impl IntCon32 {
     /// Panics if `idx >= 32`
     pub fn register(&mut self, idx: usize, irq: irq::Reciever) -> &mut Self {
         assert!(idx < 32, "idx must be less than 32");
-        self.irqs[idx] = Some(irq);
+        self.irqs[idx] = IrqKind::Shared(irq);
+        self
+    }
+
+    /// Register core specific device IRQs to a specific index.
+    ///
+    /// Returns `&mut self` to support chaining registrations.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `idx >= 32`
+    pub fn register_core_specific(
+        &mut self,
+        idx: usize,
+        cpu_irq: irq::Reciever,
+        cop_irq: irq::Reciever,
+    ) -> &mut Self {
+        assert!(idx < 32, "idx must be less than 32");
+        self.irqs[idx] = IrqKind::CoreSpecific { cpu_irq, cop_irq };
         self
     }
 
     /// Iterate through `self.irqs`, updating registers accordingly
     fn update_regs(&mut self) {
         for (i, irq) in self.irqs.iter().enumerate() {
-            let irq = match irq {
-                Some(irq) => irq,
-                None => continue,
+            let (cpu_irq, cop_irq) = match irq {
+                IrqKind::Unregistered => continue,
+                IrqKind::Shared(irq) => (irq, irq),
+                IrqKind::CoreSpecific { cpu_irq, cop_irq } => (cpu_irq, cop_irq),
             };
 
-            let status = irq.asserted();
-
-            for cpu in [&mut self.cpu, &mut self.cop].iter_mut() {
+            for (cpu, irq) in [(&mut self.cpu, cpu_irq), (&mut self.cop, cop_irq)].iter_mut() {
+                let status = irq.asserted();
                 let enabled = cpu.enabled.get_bit(i);
                 let is_fiq = cpu.priority.get_bit(i);
                 cpu.fiq_stat.set_bit(i, enabled && is_fiq && status);
@@ -246,6 +279,31 @@ impl IntCon {
             self.lo.register(idx, irq);
         } else {
             self.hi.register(idx - 32, irq);
+        }
+
+        self
+    }
+
+    /// Register core specific device IRQs to a specific index.
+    ///
+    /// Returns `&mut self` to support chaining registrations.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `idx >= 64 || idx == 30` (IRQ 30 is a "master toggle"
+    /// for all hi IRQs, i.e: IRQs with `idx >= 32`)
+    pub fn register_core_specific(
+        &mut self,
+        idx: usize,
+        cpu_irq: irq::Reciever,
+        cop_irq: irq::Reciever,
+    ) -> &mut Self {
+        assert!(idx < 64, "idx must be less than 64");
+        assert!(idx != 30, "idx 30 is reserved for internal use");
+        if idx < 32 {
+            self.lo.register_core_specific(idx, cpu_irq, cop_irq);
+        } else {
+            self.hi.register_core_specific(idx - 32, cpu_irq, cop_irq);
         }
 
         self

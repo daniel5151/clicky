@@ -7,7 +7,7 @@ use pin_utils::pin_mut;
 
 use crate::signal::irq;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 enum InterrupterState {
     Oneshot { next: Instant },
     Repeating { next: Instant, period: Duration },
@@ -71,6 +71,7 @@ pub struct CfgTimer {
     val: u32,
 
     last: Instant,
+    last_interrupter_state: Option<InterrupterState>,
     interrupter_tx: async_channel::Sender<InterrupterState>,
 }
 
@@ -96,6 +97,7 @@ impl CfgTimer {
             val: 0,
 
             last: Instant::now(),
+            last_interrupter_state: None,
             interrupter_tx,
         }
     }
@@ -189,6 +191,7 @@ impl Memory for CfgTimer {
                 };
 
                 if let Some(new_state) = new_state {
+                    self.last_interrupter_state = Some(new_state);
                     self.interrupter_tx
                         .try_send(new_state)
                         .map_err(|e| Fatal(format!("couldn't set new timer state: {}", e)))?

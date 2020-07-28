@@ -70,20 +70,29 @@ impl CpuCon {
         }
     }
 
-    pub fn is_cpu_running(&mut self) -> bool {
+    pub fn is_cpu_running(&mut self, cpu: CpuId) -> bool {
+        let cpuctl = match cpu {
+            CpuId::Cpu => &self.cpuctl,
+            CpuId::Cop => &self.copctl,
+        };
+
         // this might not be it chief
-        self.cpuctl
-            .load(Ordering::SeqCst)
-            .get_bits(flags::FLOW_MASK)
-            == 0
+        cpuctl.load(Ordering::SeqCst).get_bits(flags::FLOW_MASK) == 0
     }
 
-    pub fn is_cop_running(&mut self) -> bool {
+    pub fn wake_on_interrupt(&mut self, cpu: CpuId) {
+        let cpuctl = match cpu {
+            CpuId::Cpu => &self.cpuctl,
+            CpuId::Cop => &self.copctl,
+        };
+
         // this might not be it chief
-        self.copctl
-            .load(Ordering::SeqCst)
-            .get_bits(flags::FLOW_MASK)
-            == 0
+        let _ = cpuctl.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |mut reg| {
+            if reg.get_bit(flags::PROC_SLEEP) {
+                reg = *reg.set_bits(flags::FLOW_MASK, 0);
+            }
+            Some(reg)
+        });
     }
 
     fn on_update_cpuctl(&self, cpu: CpuId, val: u32) -> MemResult<()> {
@@ -138,13 +147,6 @@ impl CpuCon {
             });
         }
 
-        if val.get_bit(flags::PROC_SLEEP) {
-            return Err(Log(
-                Warn,
-                format!("Wake on interrupt not implemented for {:?} yet!", cpu),
-            ));
-        }
-
         if val.get_bit(flags::PROC_WAKE_INT) {
             return Err(Fatal(format!(
                 "unimplemented: 'Fire interrupt on wake-up' for {:?}",
@@ -185,14 +187,22 @@ impl Memory for CpuCon {
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         match offset {
             0x0 => {
-                self.cpuctl.store(val, Ordering::SeqCst);
+                let old_val = self.cpuctl.swap(val, Ordering::SeqCst);
                 self.on_update_cpuctl(CpuId::Cpu, val)?;
-                Err(Log(Debug, format!("updated CPU Control: {:#010x?}", val)))
+                if old_val != val {
+                    Err(Log(Debug, format!("updated CPU Control: {:#010x?}", val)))
+                } else {
+                    Ok(())
+                }
             }
             0x4 => {
-                self.copctl.store(val, Ordering::SeqCst);
+                let old_val = self.copctl.swap(val, Ordering::SeqCst);
                 self.on_update_cpuctl(CpuId::Cop, val)?;
-                Err(Log(Debug, format!("updated COP Control: {:#010x?}", val)))
+                if old_val != val {
+                    Err(Log(Debug, format!("updated COP Control: {:#010x?}", val)))
+                } else {
+                    Ok(())
+                }
             }
             _ => Err(Unexpected),
         }
