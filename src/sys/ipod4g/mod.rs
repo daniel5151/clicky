@@ -268,6 +268,8 @@ pub struct Ipod4gBus {
     pub i2s: devices::I2SCon,
     pub mailbox: devices::Mailbox,
     pub dma: devices::DmaCon,
+    pub serial0: devices::Serial,
+    pub serial1: devices::Serial,
 
     pub mystery_irq_con: devices::Stub,
     pub mystery_lcd_con: devices::Stub,
@@ -341,6 +343,8 @@ impl Ipod4gBus {
             i2s: I2SCon::new(),
             mailbox: Mailbox::new(mbx_cpu_irq_tx, mbx_cop_irq_tx),
             dma: DmaCon::new(),
+            serial0: Serial::new("0"),
+            serial1: Serial::new("1"),
 
             mystery_irq_con: Stub::new("Mystery IRQ Con?"),
             mystery_lcd_con: Stub::new("Mystery LCD Con?"),
@@ -434,6 +438,8 @@ mmap! {
 
     0x7000_0000..=0x7000_1fff => ppcon,
     0x7000_3000..=0x7000_301f => hd66753,
+    0x7000_6000..=0x7000_6020 => serial0,
+    0x7000_6040..=0x7000_6060 => serial1,
     0x7000_a000..=0x7000_a003 => piezo,
     0x7000_c000..=0x7000_cfff => i2c,
     0x7000_2800..=0x7000_28ff => i2s,

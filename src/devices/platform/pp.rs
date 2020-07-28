@@ -15,6 +15,7 @@ mod mailbox;
 mod memcon;
 mod piezo;
 mod ppcon;
+mod serial;
 mod timers;
 
 pub use cachecon::*;
@@ -32,6 +33,7 @@ pub use mailbox::*;
 pub use memcon::*;
 pub use piezo::*;
 pub use ppcon::*;
+pub use serial::*;
 pub use timers::*;
 
 pub mod common {
