@@ -4,9 +4,13 @@ A WIP clickwheel iPod emulator.
 
 **Current focus:** Getting [Rockbox](https://www.rockbox.org/) up and running.
 
-Here's a clip of `clicky` emulating an iPod 4G running `ipodloader2` (a third-party bootloader for the iPod) and loading [Rockbox](https://www.rockbox.org/) into system memory.
+Here's a clip of `clicky` emulating an iPod 4G running `ipodloader2` (a third-party bootloader for the iPod) and attempting to load [Rockbox](https://www.rockbox.org/) into system memory.
 
-<img height="256px" src="screenshots/clicky-ipodloader2-lle.gif" alt="clicky booting ipodloader2 + rockbox">
+<img height="256px" src="screenshots/clicky-ipodloader2-lle.gif" alt="clicky booting ipodloader2">
+
+Here's another clip of `clicky` successfully booting into `Rockbox`.
+
+<img height="256px" src="screenshots/clicky-rockbox-boot.gif" alt="clicky booting rockbox">
 
 **This project is not ready for general use yet!**
 

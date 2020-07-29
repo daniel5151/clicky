@@ -47,6 +47,7 @@ pub struct I2CCon {
     keypad: Option<KeypadSignals<signal::Slave>>,
     hold: Option<gpio::Reciever>,
 
+    busy: bool,
     control: u32,
     keypad_status: u32,
 }
@@ -55,10 +56,12 @@ impl I2CCon {
     pub fn new(irq: irq::Sender) -> I2CCon {
         I2CCon {
             irq,
-            control: 0,
-            keypad_status: 0,
             keypad: None,
             hold: None,
+
+            busy: false,
+            control: 0,
+            keypad_status: 0,
         }
     }
 
@@ -107,7 +110,11 @@ impl Memory for I2CCon {
             0x010 => Err(StubRead(Warn, 0)),
             0x014 => Err(StubRead(Warn, 0)),
             0x018 => Err(StubRead(Warn, 0)),
-            0x01c => Ok(0 << 6), // never busy
+            0x01c => {
+                // jiggle the busy status bit
+                self.busy = !self.busy;
+                Ok((self.busy as u32) << 6)
+            }
             0x100 => Err(StubRead(Warn, 0)),
             0x104 => Err(StubRead(Warn, self.keypad_status | 0x0400_0000)), // never busy
             0x120 => Err(StubRead(Warn, 0)),
