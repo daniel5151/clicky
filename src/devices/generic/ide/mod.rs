@@ -81,6 +81,7 @@ enum IdeCmd {
     WriteSectors = 0x30,
     WriteSectorsNoRetry = 0x31,
     SetMultipleMode = 0xc6,
+    SetFeatures = 0xef,
 
     // not strictly ATA-2, but the iPod flash ROM seems to use this cmd...
     FlushCache = 0xe7,
@@ -146,6 +147,44 @@ enum IdeDriveState {
     WriteAsyncFlush,
 }
 
+/// Transfer Mode set by the "Set Transfer Mode" (0x03) subcommand of the "Set
+/// Features" command.
+#[derive(Debug)]
+enum IdeTransferMode {
+    Pio,
+    PioNoIORDY,
+    PioFlowControl(u8),
+    DMASingleWord(u8),
+    DMAMultiWord(u8),
+    Reserved,
+    Invalid,
+}
+
+impl From<u8> for IdeTransferMode {
+    fn from(val: u8) -> IdeTransferMode {
+        IdeTransferMode::from_u8(val)
+    }
+}
+
+impl IdeTransferMode {
+    fn from_u8(val: u8) -> IdeTransferMode {
+        use self::IdeTransferMode::*;
+
+        match val.leading_zeros() {
+            8 => Pio,
+            7 => PioNoIORDY,
+            6 => Invalid,
+            5 => Invalid,
+            4 => PioFlowControl(val & 7),
+            3 => DMASingleWord(val & 7),
+            2 => DMAMultiWord(val & 7),
+            1 => Reserved,
+            0 => Reserved,
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 struct IdeRegs {
     error: u8,
@@ -164,6 +203,16 @@ struct IdeRegs {
     nein: bool,
 }
 
+/// Various IDE toggles and features.
+#[derive(Debug)]
+struct IdeDriveConfig {
+    eightbit: bool,
+    multi_sect: u8,
+    // NOTE: from what I understand, the transfer mode is only used for hardware timings, and
+    // doesn't actually impact emulation?
+    transfer_mode: IdeTransferMode,
+}
+
 #[derive(Debug)]
 struct IdeDrive {
     blockdev: Box<dyn BlockDev>,
@@ -174,9 +223,7 @@ struct IdeDrive {
 
     iobuf: IdeIoBuf,
     reg: IdeRegs,
-
-    eightbit: bool, // TODO: update this based on SetFeatures (0xef) command
-    multi_sect: u8,
+    cfg: IdeDriveConfig,
 }
 
 impl IdeDrive {
@@ -194,8 +241,11 @@ impl IdeDrive {
             blockdev,
             irq,
 
-            eightbit: false,
-            multi_sect: 0,
+            cfg: IdeDriveConfig {
+                eightbit: false,
+                multi_sect: 0,
+                transfer_mode: IdeTransferMode::Pio,
+            },
         }
     }
 
@@ -399,7 +449,7 @@ impl IdeDrive {
                 Ok(())
             }
             ReadMultiple => {
-                if self.multi_sect == 0 {
+                if self.cfg.multi_sect == 0 {
                     // TODO?: use the ATA abort mechanism instead of loudly failing
                     return Err(ContractViolation {
                         msg: "Called ReadMultiple before successful call to SetMultipleMode".into(),
@@ -408,7 +458,7 @@ impl IdeDrive {
                     });
                 }
 
-                if self.multi_sect != 1 {
+                if self.cfg.multi_sect != 1 {
                     Err(Fatal("(stubbed Multi-Sector support) cannot ReadMultiple (0xc4) with multi_sect > 1".into()))
                 } else {
                     (self.reg.status).set_bit(reg::STATUS::BSY, false);
@@ -509,16 +559,37 @@ impl IdeDrive {
             }
 
             SetMultipleMode => {
-                self.multi_sect = self.reg.sector_count;
+                self.cfg.multi_sect = self.reg.sector_count;
 
                 // TODO: implement proper multi-sector support
-                if self.multi_sect > 1 {
+                if self.cfg.multi_sect > 1 {
                     return Err(Fatal (
                         "(stubbed Multi-Sector support) SetMultipleMode (0xc6) must be either 0 or 1".into(),
                     ));
                 }
 
                 (self.reg.status).set_bit(reg::STATUS::BSY, false);
+                Ok(())
+            }
+
+            SetFeatures => {
+                match self.reg.feature {
+                    // Enable 8-bit data transfers
+                    0x01 => self.cfg.eightbit = true,
+                    // Set transfer mode based on value in Sector Count register
+                    0x03 => self.cfg.transfer_mode = IdeTransferMode::from(self.reg.sector_count),
+                    // Disable 8-bit data transfers
+                    0x81 => self.cfg.eightbit = false,
+                    other => {
+                        return Err(Fatal(format!(
+                            "SetFeatures (0xef) subcommand not implemented: {:#04x?}",
+                            other
+                        )))
+                    }
+                };
+
+                (self.reg.status).set_bit(reg::STATUS::BSY, false);
+
                 Ok(())
             }
 
@@ -642,7 +713,7 @@ impl IdeController {
                 let ide = selected_ide!(self)?;
 
                 let val = ide.data_read8()?;
-                let ret = if ide.eightbit {
+                let ret = if ide.cfg.eightbit {
                     val as u16
                 } else {
                     let hi_val = ide.data_read8()?;
@@ -665,7 +736,7 @@ impl IdeController {
             IdeReg::Data => {
                 let ide = selected_ide!(self)?;
 
-                if ide.eightbit {
+                if ide.cfg.eightbit {
                     ide.data_write8(val as u8)?;
                 } else {
                     ide.data_write8(val as u8)?;
