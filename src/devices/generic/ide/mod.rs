@@ -74,6 +74,7 @@ pub enum IdeReg {
 enum IdeCmd {
     IdentifyDevice = 0xec,
     ReadMultiple = 0xc4,
+    WriteMultiple = 0xc5,
     ReadSectors = 0x20,
     ReadSectorsNoRetry = 0x21,
     StandbyImmediate = 0xe0,
@@ -123,11 +124,13 @@ mod iobuf {
             Some(())
         }
 
-        pub fn reset(&mut self) {
+        /// Reset internal cursor to start of buffer.
+        pub fn new_transfer(&mut self) {
             self.idx = 0;
         }
 
-        pub fn full(&self) -> bool {
+        /// Checked if the transfer is done
+        pub fn is_done_transfer(&self) -> bool {
             self.idx >= 512
         }
 
@@ -294,7 +297,7 @@ impl IdeDrive {
             .read8()
             .ok_or_else(|| Fatal("assert: read past end of IDE iobuf".into()))?;
 
-        if self.iobuf.full() {
+        if self.iobuf.is_done_transfer() {
             // check if there are no more sectors remaining
             self.remaining_sectors -= 1; // TODO: this varies under `ReadMultiple`
             if self.remaining_sectors == 0 {
@@ -315,16 +318,16 @@ impl IdeDrive {
 
                 futures_executor::block_on(async {
                     // TODO: async this!
-                    self.iobuf.reset();
                     if let Err(e) = self.blockdev.read_exact(self.iobuf.as_raw()).await {
                         // XXX: actually set error bits
                         return Err(e);
                     }
 
+                    self.iobuf.new_transfer();
+                    self.state = IdeDriveState::ReadReady;
                     (self.reg.status)
                         .set_bit(reg::STATUS::DRQ, true)
                         .set_bit(reg::STATUS::BSY, false);
-                    self.state = IdeDriveState::ReadReady;
 
                     self.irq.assert();
 
@@ -350,10 +353,10 @@ impl IdeDrive {
 
         self.iobuf
             .write8(val)
-            .ok_or_else(|| Fatal("assert: read past end of IDE iobuf".into()))?;
+            .ok_or_else(|| Fatal("assert: write past end of IDE iobuf".into()))?;
 
         // check if the sector needs to be flushed to disk
-        if self.iobuf.full() {
+        if self.iobuf.is_done_transfer() {
             assert!(self.remaining_sectors != 0);
 
             (self.reg.status)
@@ -364,16 +367,16 @@ impl IdeDrive {
 
             // TODO: async this!
             futures_executor::block_on(async {
-                self.iobuf.reset();
                 if let Err(e) = self.blockdev.write_all(self.iobuf.as_raw()).await {
                     // XXX: actually set error bits
                     return Err(e);
                 }
 
+                self.iobuf.new_transfer();
+                self.state = IdeDriveState::WriteReady;
                 (self.reg.status)
                     .set_bit(reg::STATUS::DRQ, true)
                     .set_bit(reg::STATUS::BSY, false);
-                self.state = IdeDriveState::WriteReady;
 
                 self.irq.assert();
 
@@ -383,8 +386,7 @@ impl IdeDrive {
                     self.state = IdeDriveState::Idle;
                     (self.reg.status)
                         .set_bit(reg::STATUS::DRDY, true)
-                        .set_bit(reg::STATUS::DRQ, false)
-                        .set_bit(reg::STATUS::BSY, false);
+                        .set_bit(reg::STATUS::DRQ, false);
                 }
 
                 Ok(())
@@ -434,9 +436,10 @@ impl IdeDrive {
 
                 // won't panic, since `hd_driveid` is statically asserted to be
                 // exactly 512 bytes long.
-                self.iobuf.reset();
                 (self.iobuf.as_raw())
                     .copy_from_slice(bytemuck::bytes_of(&drive_meta.to_hd_driveid()));
+
+                self.iobuf.new_transfer();
                 self.state = IdeDriveState::ReadReady;
                 self.remaining_sectors = 1;
 
@@ -485,7 +488,6 @@ impl IdeDrive {
                     // Read the first sector from the blockdev
                     // TODO: this should be done asynchronously, with a separate task/thread
                     // notifying the IDE device when the read is completed.
-                    self.iobuf.reset();
                     if let Err(e) = self.blockdev.read_exact(self.iobuf.as_raw()).await {
                         // XXX: actually set error bits
                         return Err(e);
@@ -497,12 +499,13 @@ impl IdeDrive {
                         self.reg.sector_count as usize
                     };
 
+                    self.iobuf.new_transfer();
+                    self.state = IdeDriveState::ReadReady;
                     (self.reg.status)
                         .set_bit(reg::STATUS::BSY, false)
                         .set_bit(reg::STATUS::DSC, true)
                         .set_bit(reg::STATUS::DRDY, true)
                         .set_bit(reg::STATUS::DRQ, true);
-                    self.state = IdeDriveState::ReadReady;
 
                     // TODO: fire interrupt?
 
@@ -517,6 +520,24 @@ impl IdeDrive {
 
                 // TODO: fire interrupt
                 Ok(())
+            }
+            WriteMultiple => {
+                if self.cfg.multi_sect == 0 {
+                    // TODO?: use the ATA abort mechanism instead of loudly failing
+                    return Err(ContractViolation {
+                        msg: "Called WriteMultiple before successful call to SetMultipleMode"
+                            .into(),
+                        severity: Error,
+                        stub_val: None,
+                    });
+                }
+
+                if self.cfg.multi_sect != 1 {
+                    Err(Fatal("(stubbed Multi-Sector support) cannot WriteMultiple (0xc4) with multi_sect > 1".into()))
+                } else {
+                    (self.reg.status).set_bit(reg::STATUS::BSY, false);
+                    self.exec_cmd(WriteSectors as u8)
+                }
             }
             WriteSectors | WriteSectorsNoRetry => {
                 // NOTE: this code is somewhat UNTESTED
@@ -537,13 +558,14 @@ impl IdeDrive {
                         return Err(e);
                     }
 
-                    self.state = IdeDriveState::WriteReady;
                     self.remaining_sectors = if self.reg.sector_count == 0 {
                         256
                     } else {
                         self.reg.sector_count as usize
                     };
 
+                    self.iobuf.new_transfer();
+                    self.state = IdeDriveState::WriteReady;
                     (self.reg.status)
                         .set_bit(reg::STATUS::BSY, false)
                         .set_bit(reg::STATUS::DSC, true)
