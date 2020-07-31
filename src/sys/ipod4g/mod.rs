@@ -320,8 +320,8 @@ impl Ipod4gBus {
 
         use devices::*;
         Ipod4gBus {
-            sdram: AsanRam::new(32 * 1024 * 1024), // 32 MB
-            fastram: AsanRam::new(96 * 1024),      // 96 KB
+            sdram: AsanRam::new(32 * 1024 * 1024, true), // 32 MB
+            fastram: AsanRam::new(96 * 1024, true),      // 96 KB
             cpuid: CpuIdReg::new(),
             flash: Flash::new(),
             cpucon: CpuCon::new(),

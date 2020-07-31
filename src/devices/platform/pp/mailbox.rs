@@ -51,7 +51,7 @@ impl Device for Mailbox {
 impl Memory for Mailbox {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
-            0x00 => Err(StubRead(Warn, {
+            0x00 => Ok({
                 // notice how the IRQ for the _selected_ core is asserted?
                 match self.selected_core {
                     CpuId::Cpu => self.cpu_irq.clear(),
@@ -59,7 +59,7 @@ impl Memory for Mailbox {
                 }
 
                 self.shared_bits
-            })),
+            }),
             0x04 => Err(InvalidAccess),
             0x08 => Err(InvalidAccess),
             0x0c => Err(Unimplemented),
@@ -82,14 +82,14 @@ impl Memory for Mailbox {
 
         match offset {
             0x00 => Err(InvalidAccess),
-            0x04 => Err(StubWrite(Warn, {
+            0x04 => Ok({
                 self.shared_bits |= val;
                 fire_irq!()
-            })),
-            0x08 => Err(StubWrite(Warn, {
+            }),
+            0x08 => Ok({
                 self.shared_bits &= !val;
                 fire_irq!()
-            })),
+            }),
             0x0c => Err(Unimplemented),
             0x10..=0x1f => Err(StubWrite(Error, ())),
             0x20..=0x2f => Err(StubWrite(Error, ())),

@@ -9,6 +9,7 @@ use byteorder::{ByteOrder, LittleEndian};
 pub struct AsanRam {
     mem: Vec<u8>,
     initialized: Vec<bool>,
+    only_warn_once: bool,
 }
 
 impl std::fmt::Debug for AsanRam {
@@ -21,11 +22,16 @@ impl std::fmt::Debug for AsanRam {
 }
 
 impl AsanRam {
-    /// size in bytes
-    pub fn new(size: usize) -> AsanRam {
+    /// Create a new AsanRAM.
+    ///
+    /// - `size` is the size in bytes.
+    /// - Setting `only_warn_once` will only emit a warning the _first_ time
+    ///   uninitialized memory is read.
+    pub fn new(size: usize, only_warn_once: bool) -> AsanRam {
         AsanRam {
             mem: vec![b'-'; size], // non-zero value to make it easier to spot bugs
             initialized: vec![false; size],
+            only_warn_once,
         }
     }
 
@@ -83,7 +89,11 @@ impl Memory for AsanRam {
         let offset = offset as usize;
         let val = self.mem[offset];
         if !self.initialized[offset] {
-            return Err(self.uninit_read(offset, 1, val as u32));
+            let err = Err(self.uninit_read(offset, 1, val as u32));
+            if self.only_warn_once {
+                self.initialized[offset] = true;
+            }
+            return err;
         }
         Ok(val)
     }
@@ -92,7 +102,11 @@ impl Memory for AsanRam {
         let offset = offset as usize;
         let val = LittleEndian::read_u16(&self.mem[offset..offset + 2]);
         if self.initialized[offset..offset + 2] != [true; 2] {
-            return Err(self.uninit_read(offset, 2, val as u32));
+            let err = Err(self.uninit_read(offset, 2, val as u32));
+            if self.only_warn_once {
+                self.initialized[offset..offset + 2].copy_from_slice(&[true; 2]);
+            }
+            return err;
         }
         Ok(val)
     }
@@ -107,7 +121,11 @@ impl Memory for AsanRam {
             if self.initialized[offset & !0x3] {
                 return Ok(val);
             } else {
-                return Err(self.uninit_read(offset, 4, val));
+                let err = Err(self.uninit_read(offset, 4, val));
+                if self.only_warn_once {
+                    self.initialized[offset..offset + 4].copy_from_slice(&[true; 4]);
+                }
+                return err;
             }
         }
         Ok(val)

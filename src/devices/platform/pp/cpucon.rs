@@ -186,24 +186,14 @@ impl Memory for CpuCon {
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         match offset {
-            0x0 => {
-                let old_val = self.cpuctl.swap(val, Ordering::SeqCst);
+            0x0 => Ok({
+                self.cpuctl.store(val, Ordering::SeqCst);
                 self.on_update_cpuctl(CpuId::Cpu, val)?;
-                if old_val != val {
-                    Err(Log(Debug, format!("updated CPU Control: {:#010x?}", val)))
-                } else {
-                    Ok(())
-                }
-            }
-            0x4 => {
-                let old_val = self.copctl.swap(val, Ordering::SeqCst);
+            }),
+            0x4 => Ok({
+                self.copctl.store(val, Ordering::SeqCst);
                 self.on_update_cpuctl(CpuId::Cop, val)?;
-                if old_val != val {
-                    Err(Log(Debug, format!("updated COP Control: {:#010x?}", val)))
-                } else {
-                    Ok(())
-                }
-            }
+            }),
             _ => Err(Unexpected),
         }
     }
