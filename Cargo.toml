@@ -33,7 +33,7 @@ armv4t_emu = "0.1"
 gdbstub = "0.2"
 
 # async/await
-async-channel = "1.1"
+async-channel = "1.4"
 async-timer = "1.0.0-beta.4"
 blocking = "0.5"
 futures-executor = { version = "0.3", features = ["thread-pool"] } # TEMP
