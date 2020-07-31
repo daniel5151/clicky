@@ -18,14 +18,26 @@ async fn interrupter_task(mut irq: irq::Sender, msg_rx: async_channel::Receiver<
     let mut state = InterrupterState::Disabled;
 
     loop {
-        let interrupt = match state {
-            InterrupterState::Disabled => Either::Left(future::pending()),
-            InterrupterState::Oneshot { next } => {
-                Either::Right(async_timer::new_timer(next - Instant::now()))
-            }
-            InterrupterState::Repeating { next, .. } => {
-                Either::Right(async_timer::new_timer(next - Instant::now()))
-            }
+        let duration = match state {
+            InterrupterState::Disabled => None,
+
+            // If the period is set low enough, and there's a lag spike which causes the interrupter
+            // task to not be polled for a while, it's possible for `next` to have already passed,
+            // resulting in a panic when doing a naive `next - Instant::now()`. In that case, we
+            // simply play "catch up" and immediately fire the interrupt.
+            InterrupterState::Oneshot { next } => Some(
+                next.checked_duration_since(Instant::now())
+                    .unwrap_or_else(|| Duration::from_secs(0)),
+            ),
+            InterrupterState::Repeating { next, .. } => Some(
+                next.checked_duration_since(Instant::now())
+                    .unwrap_or_else(|| Duration::from_secs(0)),
+            ),
+        };
+
+        let interrupt = match duration {
+            None => Either::Left(future::pending()),
+            Some(duration) => Either::Right(async_timer::new_timer(duration)),
         };
 
         let msg_fut = msg_rx.recv();

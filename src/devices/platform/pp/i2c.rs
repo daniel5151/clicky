@@ -89,7 +89,7 @@ impl Device for I2CCon {
             0x014 => "Data2",
             0x018 => "Data3",
             0x01c => "Status",
-            0x100 => "?",
+            0x100 => "(?) Keypad IRQ clear",
             0x104 => "(?) Keypad Status",
             0x120 => "?",
             0x124 => "?",
@@ -152,7 +152,10 @@ impl Memory for I2CCon {
             0x014 => Err(StubWrite(Warn, ())),
             0x018 => Err(StubWrite(Warn, ())),
             0x01c => Err(InvalidAccess),
-            0x100 => Err(StubWrite(Warn, ())),
+            0x100 => Err(StubWrite(Warn, {
+                // TODO: cross-reference this with other software (not just Rockbox)
+                self.irq.clear()
+            })),
             0x104 => Err(StubWrite(Warn, self.keypad_status = val)),
             0x120 => Err(StubWrite(Warn, ())),
             0x124 => Err(StubWrite(Warn, ())),
