@@ -182,7 +182,7 @@ impl Hd66753 {
         })
     }
 
-    fn handle_data(&mut self, val: u16) -> MemResult<()> {
+    fn handle_data_write(&mut self, val: u16) -> MemResult<()> {
         let mut ireg = self.ireg.write().unwrap();
 
         match self.ir {
@@ -355,6 +355,17 @@ impl Hd66753 {
 
         Ok(())
     }
+
+    fn handle_data_read(&mut self) -> MemResult<u16> {
+        match self.ir {
+            // device code read
+            0x0 => Ok(0b0000011101010011), // hardcoded from spec sheet
+            invalid_cmd => Err(Fatal(format!(
+                "attempted to execute invalid LCD command {:#x?}",
+                invalid_cmd
+            ))),
+        }
+    }
 }
 
 impl Device for Hd66753 {
@@ -388,6 +399,7 @@ impl Memory for Hd66753 {
         let val: u16 = match offset {
             // XXX: not currently tracking driving raster-row position
             0x8 => self.ireg.read().unwrap().ct as u16,
+            0x10 => self.handle_data_read()?,
             _ => return Err(Unexpected),
         };
 
@@ -424,7 +436,7 @@ impl Memory for Hd66753 {
 
                 Ok(())
             }
-            0x10 => Ok(self.handle_data(val)?),
+            0x10 => Ok(self.handle_data_write(val)?),
             _ => Err(Unexpected),
         }
     }

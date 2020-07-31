@@ -274,6 +274,7 @@ pub struct Ipod4gBus {
     pub mystery_irq_con: devices::Stub,
     pub mystery_lcd_con: devices::Stub,
     pub mystery_flash_stub: devices::Stub,
+    pub firewire: devices::Stub,
     pub total_mystery: devices::Stub,
 }
 
@@ -349,6 +350,7 @@ impl Ipod4gBus {
             mystery_irq_con: Stub::new("Mystery IRQ Con?"),
             mystery_lcd_con: Stub::new("Mystery LCD Con?"),
             mystery_flash_stub: Stub::new("Mystery FlashROM Con?"),
+            firewire: Stub::new("Firewire Con?"),
             total_mystery: Stub::new("<total mystery>"),
         }
     }
@@ -454,9 +456,13 @@ mmap! {
     0x6000_1138 => mystery_irq_con,
     0x6000_3000..=0x6000_30ff => total_mystery,
     0x6000_9000..=0x6000_90ff => total_mystery,
+    // Diagnostics program reads from address, and write back 0x10000000
+    0x6000_f100..=0x6000_f11f => total_mystery,
     0x7000_a010 => mystery_lcd_con,
     0x7000_3800 => total_mystery,
     0xc031_b1d8 => mystery_flash_stub,
     0xc031_b1e8 => mystery_flash_stub,
+    // Diagnostics program writes 0xffffffff
+    0xc600_008c => firewire,
     0xffff_fe00..=0xffff_ffff => mystery_flash_stub,
 }

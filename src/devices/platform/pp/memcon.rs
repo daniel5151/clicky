@@ -247,9 +247,12 @@ impl Device for MemConImpl {
 impl Memory for MemConImpl {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
-            0x0000..=0x1fff => Err(Unimplemented),
+            0x0000..=0x1fff => Err(StubRead(Error, self.cache_data[offset as usize])),
             0x2000..=0x3fff => Err(Unimplemented),
-            0x4000..=0x5fff => Err(Unimplemented),
+            0x4000..=0x5fff => Err(StubRead(
+                Error,
+                self.cache_status[(offset - 0x4000) as usize],
+            )),
             0x6000..=0x7fff => Err(Unimplemented),
             0x8000..=0x9fff => Err(InvalidAccess),
             0xa000..=0xbfff => Err(InvalidAccess),
@@ -271,9 +274,12 @@ impl Memory for MemConImpl {
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         match offset {
-            0x0000..=0x1fff => Err(Unimplemented),
+            0x0000..=0x1fff => Err(StubWrite(Error, self.cache_data[offset as usize] = val)),
             0x2000..=0x3fff => Err(Unimplemented),
-            0x4000..=0x5fff => Err(Unimplemented),
+            0x4000..=0x5fff => Err(StubWrite(
+                Error,
+                self.cache_status[(offset - 0x4000) as usize] = val,
+            )),
             0x6000..=0x7fff => Err(Unimplemented),
             0x8000..=0x9fff => Err(StubWrite(Info, ())),
             0xa000..=0xbfff => Err(StubWrite(Info, ())),

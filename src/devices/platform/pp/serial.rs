@@ -8,6 +8,7 @@ pub struct Serial {
     ier: u8,
     fcr: u8,
     lcr: u8,
+    mcr: u8,
 }
 
 impl Serial {
@@ -18,6 +19,7 @@ impl Serial {
             ier: 0,
             fcr: 0,
             lcr: 0,
+            mcr: 0,
         }
     }
 }
@@ -58,7 +60,7 @@ impl Memory for Serial {
             0x04 => Err(StubRead(Info, self.ier as u32)),
             0x08 => Err(StubRead(Info, self.fcr as u32)),
             0x0c => Err(StubRead(Info, self.lcr as u32)),
-            0x10 => Err(Unimplemented),
+            0x10 => Err(StubRead(Info, self.mcr as u32)),
             // always ready to tx and rx
             0x14 => Ok(0x21),
             0x18 => Err(Unimplemented),
@@ -82,7 +84,7 @@ impl Memory for Serial {
             0x04 => Err(StubWrite(Info, self.ier = val)),
             0x08 => Err(StubWrite(Info, self.fcr = val)),
             0x0c => Err(StubWrite(Info, self.lcr = val)),
-            0x10 => Err(Unimplemented),
+            0x10 => Err(StubWrite(Info, self.mcr = val)),
             0x14 => Err(InvalidAccess),
             0x18 => Err(Unimplemented),
             0x1c => Err(Unimplemented),
