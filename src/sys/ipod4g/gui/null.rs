@@ -1,8 +1,8 @@
 use super::super::Ipod4g;
-use crate::gui::TakeKeymap;
+use crate::gui::TakeControls;
 
-impl TakeKeymap<()> for Ipod4g {
-    fn take_keymap(&mut self) -> Option<()> {
+impl TakeControls<()> for Ipod4g {
+    fn take_controls(&mut self) -> Option<()> {
         Some(())
     }
 }

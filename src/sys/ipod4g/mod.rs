@@ -43,7 +43,7 @@ pub enum BootKind<F: Read + Seek> {
 #[derive(Debug)]
 struct Ipod4gControls {
     pub hold: gpio::Sender,
-    pub keypad: devices::KeypadSignals<signal::Master>,
+    pub controls: devices::Controls<signal::Master>,
 }
 
 /// A Ipod4g system
@@ -99,7 +99,7 @@ impl Ipod4g {
 
         // hook-up external controls
         let (mut hold_tx, hold_rx) = gpio::new(gpio_changed, "Hold");
-        let (keypad_tx, keypad_rx) = devices::KeypadSignals::new_tx_rx(i2c_changed);
+        let (controls_tx, controls_rx) = devices::Controls::new_tx_rx(i2c_changed);
 
         {
             let mut gpio_abcd = sys.devices.gpio_abcd.lock().unwrap();
@@ -107,7 +107,7 @@ impl Ipod4g {
         }
 
         {
-            sys.devices.i2c.register_keypad(keypad_rx, hold_rx)
+            sys.devices.i2c.register_controls(controls_rx, hold_rx)
         }
 
         // HACK: Hold is active-low, so set it to high by default
@@ -115,7 +115,7 @@ impl Ipod4g {
 
         sys.controls = Some(Ipod4gControls {
             hold: hold_tx,
-            keypad: keypad_tx,
+            controls: controls_tx,
         });
 
         // Run the HLE bootloader if an HLE boot was requested

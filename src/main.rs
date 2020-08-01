@@ -24,7 +24,7 @@ mod gdb;
 use crate::gdb::{make_gdbstub, GdbCfg};
 
 use crate::block::{BlockCfg, BlockDev};
-use crate::gui::TakeKeymap;
+use crate::gui::TakeControls;
 use crate::sys::ipod4g::{BootKind, Ipod4g, Ipod4gGdb};
 
 const SYSDUMP_FILENAME: &str = "sysdump.log";
@@ -146,7 +146,7 @@ fn main() -> DynResult<()> {
                 "iPod 4g",
                 (160, 128),
                 system.render_callback(),
-                system.take_keymap().unwrap(),
+                system.take_controls().unwrap(),
             );
         } else {
             system.take_keymap().unwrap();

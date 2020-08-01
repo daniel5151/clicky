@@ -41,6 +41,18 @@ The 4g uses the same/similar SOC as some of the later generation models (PP5020)
 
 The 5g is the first iPod model to support [iPod Games](https://en.wikipedia.org/wiki/IPod_game), which are an interesting part of gaming history which have never been preserved!
 
+## Controls
+
+iPod       | PC
+-----------|-----------
+Menu       | Up
+Reverse    | Left
+Forward    | Right
+Play/Pause | Down
+Select     | Enter
+Clickwheel | Mousewheel
+Hold       | H
+
 ## Quickstart
 
 As mentioned in the header, **this project is not ready for general use yet!** This quickstart guide is aimed at _developers_.

@@ -2,26 +2,28 @@ use super::super::{Ipod4g, Ipod4gControls};
 
 use minifb::Key;
 
-use crate::devices::platform::pp::KeypadSignals;
-use crate::gui::minifb::MinifbKeymap;
-use crate::gui::TakeKeymap;
+use crate::devices::platform::pp::Controls;
+use crate::gui::minifb::MinifbControls;
+use crate::gui::TakeControls;
 
-impl TakeKeymap<MinifbKeymap> for Ipod4g {
-    fn take_keymap(&mut self) -> Option<MinifbKeymap> {
+impl TakeControls<MinifbControls> for Ipod4g {
+    fn take_controls(&mut self) -> Option<MinifbControls> {
         let Ipod4gControls {
             mut hold,
-            keypad:
-                KeypadSignals {
+            controls:
+                Controls {
                     mut action,
                     mut up,
                     mut down,
                     mut left,
                     mut right,
+                    wheel: (mut wheel_active, wheel_data),
                 },
         } = self.controls.take()?;
 
-        let mut controls = MinifbKeymap::new();
-        controls.insert(
+        let mut controls = MinifbControls::new();
+
+        controls.keymap.insert(
             Key::H, // H for Hold
             Box::new(move |pressed| {
                 if pressed {
@@ -34,9 +36,9 @@ impl TakeKeymap<MinifbKeymap> for Ipod4g {
             }),
         );
 
-        macro_rules! connect_keypad_btn {
+        macro_rules! connect_controls_btn {
             ($key:expr, $signal:expr) => {
-                controls.insert(
+                controls.keymap.insert(
                     $key,
                     Box::new(move |pressed| {
                         if pressed {
@@ -49,11 +51,29 @@ impl TakeKeymap<MinifbKeymap> for Ipod4g {
             };
         }
 
-        connect_keypad_btn!(Key::Up, up);
-        connect_keypad_btn!(Key::Down, down);
-        connect_keypad_btn!(Key::Left, left);
-        connect_keypad_btn!(Key::Right, right);
-        connect_keypad_btn!(Key::Enter, action);
+        connect_controls_btn!(Key::Up, up);
+        connect_controls_btn!(Key::Down, down);
+        connect_controls_btn!(Key::Left, left);
+        connect_controls_btn!(Key::Right, right);
+        connect_controls_btn!(Key::Enter, action);
+
+        // TODO: make sensitivity adjustable based on user's scroll speed
+        controls.on_scroll = Some({
+            Box::new(move |(_dx, dy)| {
+                // HACK: the signal is edge-triggered
+                // TODO: i really aught to rework how input works...
+                if wheel_active.is_asserting() {
+                    wheel_active.clear();
+                } else {
+                    wheel_active.assert();
+                }
+
+                let mut wheel_data = wheel_data.lock().unwrap();
+                // from rockbox button-clickwheel.c
+                // #define WHEELCLICKS_PER_ROTATION     96 /* wheelclicks per full rotation */
+                *wheel_data = wheel_data.wrapping_add((-dy * 2.) as i8 as u8) % 96;
+            })
+        });
 
         Some(controls)
     }

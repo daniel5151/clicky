@@ -6,7 +6,23 @@ use minifb::{Key, Window, WindowOptions};
 
 use crate::gui::RenderCallback;
 
-pub type MinifbKeymap = HashMap<Key, Box<dyn FnMut(bool) + Send>>;
+pub type MinifbButtonCallback = Box<dyn FnMut(bool) + Send>;
+pub type MinifbScrollCallback = Box<dyn FnMut((f32, f32)) + Send>;
+
+#[derive(Default)]
+pub struct MinifbControls {
+    pub keymap: HashMap<Key, MinifbButtonCallback>,
+    pub on_scroll: Option<MinifbScrollCallback>,
+}
+
+impl MinifbControls {
+    pub fn new() -> MinifbControls {
+        MinifbControls {
+            keymap: HashMap::new(),
+            on_scroll: None,
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct MinifbRenderer {
@@ -20,7 +36,7 @@ impl MinifbRenderer {
         title: &'static str,
         (width, height): (usize, usize),
         mut update_fb: RenderCallback,
-        mut controls: MinifbKeymap,
+        mut controls: MinifbControls,
     ) -> MinifbRenderer {
         let (kill_tx, kill_rx) = chan::channel();
 
@@ -50,7 +66,7 @@ impl MinifbRenderer {
                             break 'ui_loop;
                         }
 
-                        if let Some(cb) = controls.get_mut(&k) {
+                        if let Some(cb) = controls.keymap.get_mut(&k) {
                             cb(true)
                         }
                     }
@@ -58,9 +74,15 @@ impl MinifbRenderer {
 
                 if let Some(keys) = window.get_keys_released() {
                     for k in keys {
-                        if let Some(cb) = controls.get_mut(&k) {
+                        if let Some(cb) = controls.keymap.get_mut(&k) {
                             cb(false)
                         }
+                    }
+                }
+
+                if let Some(scroll) = window.get_scroll_wheel() {
+                    if let Some(ref mut on_scroll) = controls.on_scroll {
+                        on_scroll(scroll)
                     }
                 }
 
