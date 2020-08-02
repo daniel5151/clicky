@@ -111,26 +111,26 @@ impl Device for I2CCon {
 
 impl Memory for I2CCon {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
-        let ret = match offset {
-            0x000 => Err(StubRead(Warn, self.control)),
+        match offset {
+            0x000 => Err(StubRead(Debug, self.control)),
             0x004 => Err(InvalidAccess),
-            0x00c => Err(StubRead(Warn, 0)),
-            0x010 => Err(StubRead(Warn, 0)),
-            0x014 => Err(StubRead(Warn, 0)),
-            0x018 => Err(StubRead(Warn, 0)),
+            0x00c => Err(StubRead(Debug, 0)),
+            0x010 => Err(StubRead(Debug, 0)),
+            0x014 => Err(StubRead(Debug, 0)),
+            0x018 => Err(StubRead(Debug, 0)),
             0x01c => {
                 // jiggle the busy status bit
                 self.busy = !self.busy;
                 Ok((self.busy as u32) << 6)
             }
-            0x100 => Err(StubRead(Warn, 0)),
-            0x104 => Err(StubRead(Warn, self.controls_status | 0x0400_0000)), // never busy
-            0x120 => Err(StubRead(Warn, 0)),
-            0x124 => Err(StubRead(Warn, 0)),
+            0x100 => Err(StubRead(Debug, 0)),
+            0x104 => Err(StubRead(Debug, self.controls_status | 0x0400_0000)), // never busy
+            0x120 => Err(Unimplemented),
+            0x124 => Err(Unimplemented),
             0x140 => {
                 let (controls, hold) = match (&self.controls, &self.hold) {
                     (Some(controls), Some(hold)) => (controls, hold),
-                    _ => return Err(StubRead(Warn, 0)),
+                    _ => return Err(Fatal("no controls registered with i2c".into())),
                 };
 
                 let val = *0u32
@@ -141,49 +141,36 @@ impl Memory for I2CCon {
                     .set_bit(11, controls.down.asserted())
                     .set_bit(12, controls.up.asserted())
                     .set_bits(16..=22, *controls.wheel.1.lock().unwrap() as u32)
-                    .set_bit(30, true)
-                    // .set_bit(30, controls.wheel.0.asserted())
+                    .set_bit(30, true) // FIXME: don't always return clickwheel active?
                     .set_bit(31, hold.is_high()); // set unless hold switch is engaged
 
-                Err(StubRead(Warn, val))
+                Err(StubRead(Debug, val))
             }
             _ => Err(Unexpected),
-        };
-
-        match ret {
-            Ok(v) => Ok(v),
-            Err(StubRead(_, v)) => Ok(v),
-            Err(_) => ret,
         }
     }
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
-        let ret = match offset {
-            0x000 => Err(StubWrite(Warn, self.control = val)),
-            0x004 => Err(StubWrite(Warn, ())),
-            0x00c => Err(StubWrite(Warn, ())),
-            0x010 => Err(StubWrite(Warn, ())),
-            0x014 => Err(StubWrite(Warn, ())),
-            0x018 => Err(StubWrite(Warn, ())),
-            0x01c => Err(InvalidAccess),
-            0x100 => Err(StubWrite(Warn, {
+        match offset {
+            0x000 => Err(StubWrite(Debug, self.control = val)),
+            0x004 => Err(StubWrite(Debug, ())),
+            0x00c => Err(StubWrite(Debug, ())),
+            0x010 => Err(StubWrite(Debug, ())),
+            0x014 => Err(Unimplemented),
+            0x018 => Err(Unimplemented),
+            0x01c => Err(Unimplemented),
+            0x100 => Err(StubWrite(Debug, {
                 // TODO: cross-reference this with other software (not just Rockbox)
                 self.irq.clear()
             })),
-            0x104 => Err(StubWrite(Warn, self.controls_status = val)),
-            0x120 => Err(StubWrite(Warn, ())),
-            0x124 => Err(StubWrite(Warn, ())),
-            0x140 => Err(StubWrite(Warn, {
+            0x104 => Err(StubWrite(Debug, self.controls_status = val)),
+            0x120 => Err(StubWrite(Debug, ())),
+            0x124 => Err(StubWrite(Debug, ())),
+            0x140 => Err(StubWrite(Debug, {
                 // TODO: explore IRQ behavior if multiple I2C devices fire irqs
                 self.irq.clear()
             })),
             _ => Err(Unexpected),
-        };
-
-        match ret {
-            Ok(()) => Ok(()),
-            Err(StubWrite(_, _)) => Ok(()),
-            Err(_) => ret,
         }
     }
 }

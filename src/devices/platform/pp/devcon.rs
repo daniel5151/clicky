@@ -60,9 +60,9 @@ impl Memory for DevCon {
             0x08 => Err(StubRead(Error, self.reset[1])),
             0x0c => Ok(self.enable[0]),
             0x10 => Ok(self.enable[1]),
-            0x20 => Err(StubRead(Error, self.clock_source)),
-            0x34 => Err(StubRead(Error, self.pll_control)),
-            0x3c => Err(StubRead(Error, self.pll_status)),
+            0x20 => Ok(self.clock_source),
+            0x34 => Ok(self.pll_control),
+            0x3c => Ok(self.pll_status),
             0x44 => Err(StubRead(Error, self.cache_priority as u32)),
             0xa4 => Err(StubRead(Error, self.mystery_i2c as u32)),
             0xc4 => Err(InvalidAccess),
@@ -77,9 +77,9 @@ impl Memory for DevCon {
             0x08 => Err(StubWrite(Error, self.reset[1] = val)),
             0x0c => Err(StubWrite(Info, self.enable[0] = val)),
             0x10 => Err(StubWrite(Info, self.enable[1] = val)),
-            0x20 => Err(StubWrite(Warn, self.clock_source = val)),
-            0x34 => Err(StubWrite(Warn, self.pll_control = val)),
-            0x3c => Err(StubWrite(Warn, self.pll_status = val)),
+            0x20 => Err(StubWrite(Trace, self.clock_source = val)),
+            0x34 => Err(StubWrite(Trace, self.pll_control = val)),
+            0x3c => Err(StubWrite(Trace, self.pll_status = val)),
             0x44 => Err(StubWrite(Warn, {
                 self.cache_priority = val as u8;
                 if val > 0xff {

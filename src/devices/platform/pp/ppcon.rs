@@ -70,13 +70,13 @@ impl Memory for PPCon {
             0x14 => Err(StubRead(Info, self.dev_init[1])),
             0x18 => Err(StubRead(Info, self.dev_init[2])),
             0x1c => Err(StubRead(Info, self.dev_init[3])),
-            0x20 => Err(StubRead(Info, self.dev_init[4])),
+            0x20 => Err(StubRead(Debug, self.dev_init[4])),
             0x24 => Err(StubRead(Info, self.dev_init[5])),
             // HACK: flag needs to be set to progress through USB init in rockbox
             0x28 => Err(StubRead(Info, self.dev_init[6] | 0x80)),
             0x2c => Err(StubRead(Info, self.dev_init[7])),
             0x30 => Err(StubRead(Info, self.dev_timing[0])),
-            0x34 => Err(StubRead(Info, self.dev_timing[1])),
+            0x34 => Err(StubRead(Debug, self.dev_timing[1])),
             0x3c => Err(StubRead(Info, self.dev_timing[2])),
             0x80 => Ok(self.gpo_val),
             0x84 => Ok(self.gpo_enable),
@@ -96,13 +96,14 @@ impl Memory for PPCon {
             0x14 => Err(StubWrite(Info, self.dev_init[1] = val)),
             0x18 => Err(StubWrite(Info, self.dev_init[2] = val)),
             0x1c => Err(StubWrite(Info, self.dev_init[3] = val)),
-            0x20 => Err(StubWrite(Info, self.dev_init[4] = val)),
+            // 0x40000000 enables/disables PPL
+            0x20 => Err(StubWrite(Debug, self.dev_init[4] = val)),
             0x24 => Err(StubWrite(Info, self.dev_init[5] = val)),
             0x28 => Err(StubWrite(Info, self.dev_init[6] = val)),
             0x2c => Err(StubWrite(Info, self.dev_init[7] = val)),
             // HACK: flag needs to be set to progress through the Flash ROM bootloader
             0x30 => Err(StubWrite(Info, self.dev_timing[0] = val | 0x8000000)),
-            0x34 => Err(StubWrite(Info, self.dev_timing[1] = val)),
+            0x34 => Err(StubWrite(Debug, self.dev_timing[1] = val)),
             // HACK: flag needs to be set to progress through the Flash ROM bootloader
             0x3c => Err(StubWrite(Info, self.dev_timing[2] = val | 0x80000000)),
             0x80 => Ok(self.gpo_val = val),

@@ -66,11 +66,17 @@ impl MemException {
             ctx.pc, ctx.access.offset, ctx.in_device
         );
 
+        macro_rules! mlog {
+            ($($args:tt)*) => {
+                log!(target: "MMIO", $($args)*)
+            };
+        }
+
         use MemException::*;
         match self {
-            StubRead(level, _) => log!(level, "{} stubbed read ({})", ctx_str, ctx.access.val),
-            StubWrite(level, ()) => log!(level, "{} stubbed write ({})", ctx_str, ctx.access.val),
-            Log(level, msg) => log!(level, "{} {}", ctx_str, msg),
+            StubRead(level, _) => mlog!(level, "{} stubbed read ({})", ctx_str, ctx.access.val),
+            StubWrite(level, ()) => mlog!(level, "{} stubbed write ({})", ctx_str, ctx.access.val),
+            Log(level, msg) => mlog!(level, "{} {}", ctx_str, msg),
             // FIXME?: Misaligned access (i.e: Data Abort) should be a CPU exception
             Misaligned => {
                 return Err(FatalError::MemException {
@@ -95,7 +101,7 @@ impl MemException {
                         },
                     });
                 } else {
-                    log!(severity, "{} {}", ctx_str, msg)
+                    mlog!(severity, "{} {}", ctx_str, msg)
                 }
             }
             Unexpected | Unimplemented | Fatal(_) | MmuViolation | InvalidAccess => {
