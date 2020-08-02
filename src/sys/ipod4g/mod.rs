@@ -56,6 +56,7 @@ pub struct Ipod4g {
     controls: Option<Ipod4gControls>,
 
     irq_pending: irq::Pending,
+    dma_pending: irq::Pending,
     gpio_changed: gpio::Changed,
     i2c_changed: signal::Trigger,
 }
@@ -72,6 +73,7 @@ impl Ipod4g {
     {
         // initialize base system
         let irq_pending = irq::Pending::new();
+        let dma_pending = irq::Pending::new();
         let gpio_changed = gpio::Changed::new();
         let i2c_changed = signal::Trigger::new(signal::TriggerKind::Edge);
 
@@ -79,9 +81,10 @@ impl Ipod4g {
             frozen: false,
             cpu: Cpu::new(),
             cop: Cpu::new(),
-            devices: Ipod4gBus::new(irq_pending.clone()),
+            devices: Ipod4gBus::new(irq_pending.clone(), dma_pending.clone()),
             controls: None,
             irq_pending,
+            dma_pending,
             gpio_changed: gpio_changed.clone(),
             i2c_changed: i2c_changed.clone(),
         };
@@ -170,6 +173,36 @@ impl Ipod4g {
                 };
 
                 e.resolve(ctx)?;
+            }
+        }
+
+        // XXX: this is terrible. truly god awful. it _really_ needs to be rewritten,
+        // reorganized, and moved somewhere more appropriate.
+        if self.dma_pending.check() {
+            self.dma_pending.clear();
+            if self.devices.dmacon.do_ide_dma() {
+                let (kind, addr) = match (self.devices.eidecon).do_dma() {
+                    Ok(tup) => tup,
+                    Err(_) => panic!("asd"),
+                };
+
+                use crate::memory::MemAccessKind;
+                match kind {
+                    MemAccessKind::Read => {
+                        let val = (self.devices.eidecon)
+                            .as_ide()
+                            .read16(devices::ide::IdeReg::Data)
+                            .unwrap();
+                        self.devices.w16(addr, val).unwrap();
+                    }
+                    MemAccessKind::Write => {
+                        let val = (self.devices).r16(addr).unwrap();
+                        (self.devices.eidecon)
+                            .as_ide()
+                            .write16(devices::ide::IdeReg::Data, val)
+                            .unwrap();
+                    }
+                }
             }
         }
 
@@ -267,7 +300,7 @@ pub struct Ipod4gBus {
     pub cachecon: devices::CacheCon,
     pub i2s: devices::I2SCon,
     pub mailbox: devices::Mailbox,
-    pub dma: devices::DmaCon,
+    pub dmacon: devices::DmaCon,
     pub serial0: devices::Serial,
     pub serial1: devices::Serial,
 
@@ -280,7 +313,7 @@ pub struct Ipod4gBus {
 
 impl Ipod4gBus {
     #[allow(clippy::redundant_clone)] // Makes the code cleaner in this case
-    fn new(irq_pending: irq::Pending) -> Ipod4gBus {
+    fn new(irq_pending: irq::Pending, dma_pending: irq::Pending) -> Ipod4gBus {
         let (ide_irq_tx, ide_irq_rx) = irq::new(irq_pending.clone(), "IDE");
         let (timer1_irq_tx, timer1_irq_rx) = irq::new(irq_pending.clone(), "Timer1");
         let (timer2_irq_tx, timer2_irq_rx) = irq::new(irq_pending.clone(), "Timer2");
@@ -288,6 +321,8 @@ impl Ipod4gBus {
         let (gpio1_irq_tx, gpio1_irq_rx) = irq::new(irq_pending.clone(), "GPIO1");
         let (gpio2_irq_tx, gpio2_irq_rx) = irq::new(irq_pending.clone(), "GPIO2");
         let (i2c_irq_tx, i2c_irq_rx) = irq::new(irq_pending.clone(), "I2C");
+
+        let (ide_dmarq_tx, ide_dmarq_rx) = irq::new(dma_pending.clone(), "IDE DMA");
 
         // mailbox is the only core-specific IRQ in the system, which is kinda neat
         let (mbx_cpu_irq_tx, mbx_cpu_irq_rx) = irq::new(irq_pending.clone(), "Mailbox (CPU)");
@@ -318,6 +353,8 @@ impl Ipod4gBus {
             // .register(37, ser1_irq_rx)
             .register(40, i2c_irq_rx);
 
+        let dmacon = DmaCon::new(ide_dmarq_rx);
+
         use devices::*;
         Ipod4gBus {
             sdram: AsanRam::new(32 * 1024 * 1024, true), // 32 MB
@@ -337,13 +374,13 @@ impl Ipod4gBus {
             ppcon: PPCon::new(),
             devcon: DevCon::new(),
             intcon,
-            eidecon: EIDECon::new(ide_irq_tx),
+            eidecon: EIDECon::new(ide_irq_tx, ide_dmarq_tx),
             memcon: MemCon::new(),
             piezo: Piezo::new(),
             cachecon: CacheCon::new(),
             i2s: I2SCon::new(),
             mailbox: Mailbox::new(mbx_cpu_irq_tx, mbx_cop_irq_tx),
-            dma: DmaCon::new(),
+            dmacon,
             serial0: Serial::new("0"),
             serial1: Serial::new("1"),
 
@@ -427,7 +464,7 @@ mmap! {
     0x6000_5000..=0x6000_5fff => timers,
     0x6000_6000..=0x6000_6fff => devcon,
     0x6000_7000..=0x6000_7fff => cpucon,
-    0x6000_a000..=0x6000_bfff => dma,
+    0x6000_a000..=0x6000_bfff => dmacon,
     0x6000_c000..=0x6000_cfff => cachecon,
     0x6000_d000..=0x6000_d07f => gpio_abcd,
     0x6000_d080..=0x6000_d0ff => gpio_efgh,

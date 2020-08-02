@@ -7,7 +7,6 @@ use futures::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use num_enum::TryFromPrimitive;
 
 use crate::block::BlockDev;
-use crate::signal::irq;
 
 // TODO?: make num heads / num sectors configurable?
 const NUM_HEADS: usize = 16;
@@ -83,6 +82,13 @@ enum IdeCmd {
     WriteSectorsNoRetry = 0x31,
     SetMultipleMode = 0xc6,
     SetFeatures = 0xef,
+    ReadDMA = 0xc8,
+    ReadDMANoRetry = 0xc9,
+    WriteDMA = 0xca,
+    WriteDMANoRetry = 0xcb,
+
+    Sleep = 0x99,
+    SleepAlt = 0xe6,
 
     // not strictly ATA-2, but the iPod flash ROM seems to use this cmd...
     FlushCache = 0xe7,
@@ -186,6 +192,11 @@ impl IdeTransferMode {
             _ => unreachable!(),
         }
     }
+
+    fn is_dma(&self) -> bool {
+        use self::IdeTransferMode::*;
+        matches!(self, DMASingleWord(..) | DMAMultiWord(..))
+    }
 }
 
 #[derive(Debug, Default)]
@@ -219,7 +230,8 @@ struct IdeDriveConfig {
 #[derive(Debug)]
 struct IdeDrive {
     blockdev: Box<dyn BlockDev>,
-    irq: irq::Sender, // shared between both drives
+    irq: irq::Sender,   // shared between both drives
+    dmarq: irq::Sender, // shared between both drives
 
     state: IdeDriveState,
     remaining_sectors: usize,
@@ -230,8 +242,12 @@ struct IdeDrive {
 }
 
 impl IdeDrive {
-    fn new(irq: irq::Sender, blockdev: Box<dyn BlockDev>) -> IdeDrive {
+    fn new(irq: irq::Sender, dmarq: irq::Sender, blockdev: Box<dyn BlockDev>) -> IdeDrive {
         IdeDrive {
+            blockdev,
+            irq,
+            dmarq,
+
             state: IdeDriveState::Idle,
             remaining_sectors: 0,
 
@@ -240,10 +256,6 @@ impl IdeDrive {
                 status: *0u8.set_bit(reg::STATUS::DRDY, true),
                 ..IdeRegs::default()
             },
-
-            blockdev,
-            irq,
-
             cfg: IdeDriveConfig {
                 eightbit: false,
                 multi_sect: 0,
@@ -307,7 +319,8 @@ impl IdeDrive {
                     .set_bit(reg::STATUS::DRQ, false)
                     .set_bit(reg::STATUS::BSY, false);
 
-                self.irq.assert()
+                self.irq.assert();
+                self.dmarq.clear();
             } else {
                 // the next sector needs to be loaded
                 (self.reg.status)
@@ -329,7 +342,10 @@ impl IdeDrive {
                         .set_bit(reg::STATUS::DRQ, true)
                         .set_bit(reg::STATUS::BSY, false);
 
-                    self.irq.assert();
+                    // DMA only fires a single IRQ at the end of the transfer
+                    if !self.cfg.transfer_mode.is_dma() {
+                        self.irq.assert();
+                    }
 
                     Ok(())
                 })?;
@@ -378,7 +394,10 @@ impl IdeDrive {
                     .set_bit(reg::STATUS::DRQ, true)
                     .set_bit(reg::STATUS::BSY, false);
 
-                self.irq.assert();
+                // DMA only fires a single IRQ at the end of the transfer
+                if !self.cfg.transfer_mode.is_dma() {
+                    self.irq.assert();
+                }
 
                 // check if there are no more sectors remaining
                 self.remaining_sectors -= 1; // FIXME: this varies under `WriteMultiple`
@@ -387,6 +406,9 @@ impl IdeDrive {
                     (self.reg.status)
                         .set_bit(reg::STATUS::DRDY, true)
                         .set_bit(reg::STATUS::DRQ, false);
+
+                    self.irq.assert();
+                    self.dmarq.clear();
                 }
 
                 Ok(())
@@ -468,6 +490,22 @@ impl IdeDrive {
                     self.exec_cmd(ReadSectors as u8)
                 }
             }
+            ReadDMA | ReadDMANoRetry => {
+                if !self.cfg.transfer_mode.is_dma() {
+                    // TODO?: use the ATA abort mechanism instead of loudly failing
+                    return Err(ContractViolation {
+                        msg: "Called ReadDMA without setting DMA transfer mode".into(),
+                        severity: Error,
+                        stub_val: None,
+                    });
+                }
+
+                // basically just ReadSectors, except it only fires a _single_
+                // IRQ at the end of the transfer, and asserts dmarq
+                self.dmarq.assert();
+                (self.reg.status).set_bit(reg::STATUS::BSY, false);
+                self.exec_cmd(ReadSectors as u8)
+            }
             ReadSectors | ReadSectorsNoRetry => {
                 let offset = match self.get_sector_offset() {
                     Some(offset) => offset,
@@ -538,6 +576,22 @@ impl IdeDrive {
                     (self.reg.status).set_bit(reg::STATUS::BSY, false);
                     self.exec_cmd(WriteSectors as u8)
                 }
+            }
+            WriteDMA | WriteDMANoRetry => {
+                if !self.cfg.transfer_mode.is_dma() {
+                    // TODO?: use the ATA abort mechanism instead of loudly failing
+                    return Err(ContractViolation {
+                        msg: "Called WriteDMA without setting DMA transfer mode".into(),
+                        severity: Error,
+                        stub_val: None,
+                    });
+                }
+
+                // basically just WriteSectors, except it only fires a _single_
+                // IRQ at the end of the transfer, and asserts dmarq
+                self.dmarq.assert();
+                (self.reg.status).set_bit(reg::STATUS::BSY, false);
+                self.exec_cmd(WriteSectors as u8)
             }
             WriteSectors | WriteSectorsNoRetry => {
                 // NOTE: this code is somewhat UNTESTED
@@ -624,6 +678,15 @@ impl IdeDrive {
 
                 Ok(())
             }
+
+            Sleep | SleepAlt => {
+                // uhh, it's an emulated drive.
+                // just assert the irq and go on our merry way
+                (self.reg.status).set_bit(reg::STATUS::BSY, false);
+
+                self.irq.assert();
+                Ok(())
+            }
         }
     }
 }
@@ -633,6 +696,8 @@ impl IdeDrive {
 #[derive(Debug)]
 pub struct IdeController {
     common_irq_line: irq::Sender,
+    dmarq: irq::Sender,
+
     selected_device: IdeIdx,
     ide0: Option<IdeDrive>,
     ide1: Option<IdeDrive>,
@@ -662,9 +727,10 @@ macro_rules! selected_ide {
 }
 
 impl IdeController {
-    pub fn new(irq: irq::Sender) -> IdeController {
+    pub fn new(irq: irq::Sender, dmarq: irq::Sender) -> IdeController {
         IdeController {
             common_irq_line: irq,
+            dmarq,
             selected_device: IdeIdx::IDE0,
             ide0: None,
             ide1: None,
@@ -685,7 +751,11 @@ impl IdeController {
             IdeIdx::IDE1 => &mut self.ide1,
         };
 
-        *ide = Some(IdeDrive::new(self.common_irq_line.clone(), blockdev));
+        *ide = Some(IdeDrive::new(
+            self.common_irq_line.clone(),
+            self.dmarq.clone(),
+            blockdev,
+        ));
         old_drive
     }
 

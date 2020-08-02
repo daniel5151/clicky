@@ -3,7 +3,7 @@
 
 .gdb_history
 sysdump.log
-ipodhd.img
+*.img*
 
 # I use a custom config to speed up link times
 .cargo/

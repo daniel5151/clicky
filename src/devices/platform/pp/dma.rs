@@ -43,15 +43,25 @@ pub struct DmaCon {
     master_control: u32,
     master_status: u32,
     req_status: u32,
+
+    // HACK: IDE DMA doesn't actually go through the DMA controller
+    // that said, to keep things simple in the emulator, we route IDE DMA through the main DMA
+    // engine...
+    //
+    // As per the pp5020 spec sheet: "A dedicated, high-performance ATA-66IDE controller with its
+    // own DMA engine frees the processors from mundane management tasks."
+    ide_dmarq: irq::Reciever,
 }
 
 impl DmaCon {
-    pub fn new() -> DmaCon {
+    pub fn new(ide_dmarq: irq::Reciever) -> DmaCon {
         let mut dma = DmaCon {
             dma: Default::default(),
             master_control: 0,
             master_status: 0,
             req_status: 0,
+
+            ide_dmarq,
         };
 
         dma.dma[0].label = Some("0");
@@ -64,6 +74,11 @@ impl DmaCon {
         dma.dma[7].label = Some("7");
 
         dma
+    }
+
+    /// XXX: remove this once DMA is properly sorted out
+    pub fn do_ide_dma(&self) -> bool {
+        self.ide_dmarq.asserted()
     }
 }
 
