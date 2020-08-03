@@ -1,0 +1,20 @@
+[package]
+name = "clicky-desktop"
+version = "0.1.0"
+authors = ["Daniel Prilik <danielprilik@gmail.com>"]
+edition = "2018"
+
+[features]
+default = ["minifb"]
+
+[dependencies]
+clicky-core = { path = "../" }
+
+cfg-if = "0.1"
+gdbstub = "0.2"
+human-size = "0.4"
+log = "0.4"
+pretty_env_logger = "0.3"
+structopt = "0.3"
+
+minifb = { version =  "0.16", optional = true }

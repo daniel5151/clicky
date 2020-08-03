@@ -4,24 +4,11 @@ use std::thread;
 
 use minifb::{Key, Window, WindowOptions};
 
-use crate::gui::RenderCallback;
+use clicky_core::gui::{ButtonCallback, RenderCallback, ScrollCallback};
 
-pub type MinifbButtonCallback = Box<dyn FnMut(bool) + Send>;
-pub type MinifbScrollCallback = Box<dyn FnMut((f32, f32)) + Send>;
-
-#[derive(Default)]
 pub struct MinifbControls {
-    pub keymap: HashMap<Key, MinifbButtonCallback>,
-    pub on_scroll: Option<MinifbScrollCallback>,
-}
-
-impl MinifbControls {
-    pub fn new() -> MinifbControls {
-        MinifbControls {
-            keymap: HashMap::new(),
-            on_scroll: None,
-        }
-    }
+    pub keymap: HashMap<Key, ButtonCallback>,
+    pub on_scroll: Option<ScrollCallback>,
 }
 
 #[derive(Debug)]

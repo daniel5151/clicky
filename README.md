@@ -43,15 +43,15 @@ The 5g is the first iPod model to support [iPod Games](https://en.wikipedia.org/
 
 ## Controls
 
-iPod       | PC
------------|-----------
-Menu       | Up
-Reverse    | Left
-Forward    | Right
-Play/Pause | Down
-Select     | Enter
-Clickwheel | Mousewheel
-Hold       | H
+iPod        | `clicky-desktop`
+------------|-----------
+Menu        | Up
+Reverse     | Left
+Forward     | Right
+Play/Pause  | Down
+Select      | Enter
+Click wheel | Scroll wheel
+Hold        | H
 
 ## Quickstart
 
@@ -63,21 +63,30 @@ _Note:_ All scripts and snippets below assume you're running a Unix-like environ
 
 ### Building `clicky`
 
-`clicky` uses the standard `cargo` build flow, so running `cargo build --release` should do the trick.
+`clicky` is split up into multiple crates:
+
+- `clicky-core`: The emulator itself
+- `clicky-desktop`: A CLI + GUI to interact with `clicky-core`.
+- (**WIP**) `clicky-web`: Run `clicky` on the web using the power of `wasm`!
+
+Building `clicky` is quite straightforward, and uses the standard `cargo` build flow:
 
 ```bash
 git clone https://github.com/daniel5151/clicky.git
 cd clicky
-cargo build --release
+cargo build --release -p clicky-desktop
 ```
 
-Some common build errors:
+#### Common build errors
 
+- Due to a `cargo` limitation ([rust-lang/cargo#5364]), toggling feature flags within sub-packages of a workspace is a bit clunky.
 - (Linux) You may encounter some build-script / linker errors related to missing `xkbcommon` and `wayland` libraries. On Debian/Ubuntu, you can install them via `apt install libxkbcommon-dev libwayland-dev`.
 
-Unfortunately, `clicky` on it's own doesn't do much on it's own, and requires a valid firmware and HDD image to run.
+### Running `clicky`
 
-### Creating a blank HDD image
+Unfortunately, `clicky` doesn't do much on it's own, and requires a valid firmware and HDD image to run.
+
+#### Creating a blank HDD image
 
 `scripts/rawhd/make_rawhd.sh` is used to create a bare-bones iPod disk image for testing and development. The resulting disk image is only 64MiB in size, and uses WinPod formatting (MBR). It contains two partitions: an iPod firmware partition, and a FAT32 partition.
 
@@ -85,7 +94,7 @@ Getting data onto the disk image is a bit finicky. On Linux, you can run `sudo m
 
 `scripts/rawhd/make_rawhd.sh` accepts a single argument: a path to a iPod firmware file. If no firmware file is provided, the firmware partition will be left empty.
 
-### Building + Running some test firmwares
+#### Building + Running some test firmwares
 
 I've included the source of `ipodloader` and `ipodloader2` in-tree under `./resources/`, and fixed-up their makefiles / sources to compile under more recent gcc toolchains (namely: `gcc-arm-none-eabi`). Additionally, I've tweaked some compiler flags to disable optimizations + enable debug symbols, which should make debugging a lot easier.
 
@@ -116,15 +125,15 @@ Additionally, `ipodloader2` requires a valid HDD to be present:
 With the images built, it should be possible to run them in `clicky`!
 
 ```bash
-cargo run --release -- --hle=./resources/ipodloader/ipodloader_loops_unopt.bin --hdd=null:len=1GiB
-cargo run --release -- --hle=./resources/ipodloader2/ipodloader2_loop.bin --hdd=raw:file=ipodhd.img
+cargo run -p clicky-desktop --release -- --hle=./resources/ipodloader/ipodloader_loops_unopt.bin --hdd=null:len=1GiB
+cargo run -p clicky-desktop --release -- --hle=./resources/ipodloader2/ipodloader2_loop.bin --hdd=raw:file=ipodhd.img
 ```
 
 `ipodloader_loops_unopt.bin` should display an image of the iPodLinux Tux and then loop forever. It's not really useful other than as a smoke-test to make sure `clicky` is somewhat working as intended.
 
 `ipodloader2_loop.bin` should display a menu of various boot options. It's more complex than `ipodloader` v1, and serves as a great testbed for implementing / testing all sorts of misc ipod hardware.
 
-### Building + Running Rockbox
+#### Building + Running Rockbox
 
 [Rockbox](https://www.rockbox.org/) is an open source firmware replacement for digital music players, including the iPod.
 
@@ -154,7 +163,7 @@ The firmware image + rockbox.zip can then be loaded onto a HDD image:
 Finally, the firmware image + disk image can be loaded into clicky:
 
 ```bash
-cargo run --release -- --hle=/path/to/rockbox_fw.bin --hdd=mem:file=ipodhd.img
+cargo run -p clicky-desktop --release -- --hle=/path/to/rockbox_fw.bin --hdd=mem:file=ipodhd.img
 ```
 
 When debugging, load debugging symbols from `bootloader.elf` and `rockbox.elf`.

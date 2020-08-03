@@ -1,7 +1,4 @@
 #[macro_use]
-extern crate static_assertions;
-
-#[macro_use]
 extern crate log;
 
 use std::fs;
@@ -12,20 +9,17 @@ pub type DynResult<T> = Result<T, Box<dyn std::error::Error>>;
 
 use structopt::StructOpt;
 
-pub mod block;
-pub mod devices;
-pub mod error;
-pub mod gui;
-pub mod memory;
-pub mod signal;
-pub mod sys;
+use clicky_core::block::{self, BlockDev};
+use clicky_core::gui::TakeControls;
+use clicky_core::sys::ipod4g::{BootKind, Ipod4g, Ipod4gGdb};
 
+mod backends;
+mod blockcfg;
+mod controls;
 mod gdb;
-use crate::gdb::{make_gdbstub, GdbCfg};
 
-use crate::block::{BlockCfg, BlockDev};
-use crate::gui::TakeControls;
-use crate::sys::ipod4g::{BootKind, Ipod4g, Ipod4gGdb};
+use crate::blockcfg::BlockCfg;
+use crate::gdb::{make_gdbstub, GdbCfg};
 
 const SYSDUMP_FILENAME: &str = "sysdump.log";
 
@@ -96,7 +90,9 @@ impl core::ops::DerefMut for System {
 
 fn main() -> DynResult<()> {
     pretty_env_logger::formatted_builder()
-        .filter(None, log::LevelFilter::Debug)
+        .filter(None, log::LevelFilter::Error)
+        .filter(Some("clicky"), log::LevelFilter::Trace)
+        .filter(Some("MMIO"), log::LevelFilter::Info)
         .filter(Some("armv4t_emu"), log::LevelFilter::Debug)
         .parse_filters(&std::env::var("RUST_LOG").unwrap_or_default())
         .init();
@@ -142,14 +138,15 @@ fn main() -> DynResult<()> {
     // spawn the UI thread
     cfg_if::cfg_if! {
         if #[cfg(feature = "minifb")] {
-            let _minifb_ui = gui::minifb::MinifbRenderer::new(
+            use crate::backends::minifb::MinifbRenderer;
+            let _minifb_ui = MinifbRenderer::new(
                 "iPod 4g",
                 (160, 128),
                 system.render_callback(),
-                system.take_controls().unwrap(),
+                system.take_controls().unwrap().into(),
             );
         } else {
-            system.take_keymap().unwrap();
+            let _ = system.take_controls().unwrap();
             info!("No GUI selected, running in headless mode!");
         }
     };
@@ -177,20 +174,20 @@ fn main() -> DynResult<()> {
                 // hand off control to the debugger
                 Some(ref mut debugger) => match debugger.run(system_gdb) {
                     Ok(dc_reason) => {
-                        eprintln!("Disconnected from GDB: {:?}", dc_reason);
+                        info!("Disconnected from GDB: {:?}", dc_reason);
 
                         use gdbstub::DisconnectReason;
                         match dc_reason {
                             DisconnectReason::Disconnect => {
-                                eprintln!("Target is still running. Resuming execution...");
+                                info!("Target is still running. Resuming execution...");
                                 system.run()
                             }
                             DisconnectReason::TargetHalted => {
-                                eprintln!("Target halted!");
+                                info!("Target halted!");
                                 Ok(())
                             }
                             DisconnectReason::Kill => {
-                                eprintln!("GDB sent a kill command!");
+                                info!("GDB sent a kill command!");
                                 return Ok(());
                             }
                         }
@@ -203,8 +200,8 @@ fn main() -> DynResult<()> {
     };
 
     if let Err(fatal_error) = system_result {
-        eprintln!("Fatal Error! Caused by: {:#010x?}", fatal_error);
-        eprintln!("Dumping system state to {}", SYSDUMP_FILENAME);
+        error!("Fatal Error! Caused by: {:#010x?}", fatal_error);
+        error!("Dumping system state to {}", SYSDUMP_FILENAME);
         std::fs::write(SYSDUMP_FILENAME, format!("{:#x?}", *system))?;
 
         match &mut system {
@@ -218,7 +215,7 @@ fn main() -> DynResult<()> {
                     }
 
                     match debugger.unwrap().run(system_gdb) {
-                        Ok(_) => eprintln!("Disconnected from post-mortem GDB session."),
+                        Ok(_) => info!("Disconnected from post-mortem GDB session."),
                         Err(e) => return Err(e.into()),
                     }
                 }

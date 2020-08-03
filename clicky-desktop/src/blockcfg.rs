@@ -1,5 +1,15 @@
 use std::str::FromStr;
 
+/// Helper struct to parse Block Device configurations.
+pub enum BlockCfg {
+    /// `null:len=<len>`
+    Null { len: u64 },
+    /// `raw:file=/path/`
+    Raw { path: String },
+    /// `mem:file=/path/[,truncate=<len>]`
+    Mem { path: String, truncate: Option<u64> },
+}
+
 fn parse_capacity(desc: &str) -> Option<u64> {
     use human_size::{Byte, ParsingError, Size, SpecificSize};
     match desc.parse::<Size>() {
@@ -10,16 +20,6 @@ fn parse_capacity(desc: &str) -> Option<u64> {
         Err(ParsingError::MissingMultiple) => desc.parse::<u64>().ok(),
         Err(_) => None,
     }
-}
-
-/// Helper struct to parse Block Device configurations.
-pub enum BlockCfg {
-    /// `null:len=<len>`
-    Null { len: u64 },
-    /// `raw:file=/path/`
-    Raw { path: String },
-    /// `mem:file=/path/[,truncate=<len>]`
-    Mem { path: String, truncate: Option<u64> },
 }
 
 impl FromStr for BlockCfg {

@@ -15,7 +15,7 @@ use sysinfo::sysinfo_t;
 
 #[derive(Error, Debug)]
 pub enum HleBootloaderError {
-    #[error("error while reading firmware file")]
+    #[error("error while reading firmware file: {0}")]
     Io(#[from] io::Error),
     #[error("magic_hi != \"[hi]\" in the volume header")]
     BadMagic,

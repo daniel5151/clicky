@@ -1,6 +1,7 @@
 use std::io::{Read, Seek};
 
 use armv4t_emu::{reg, Cpu};
+use thiserror::Error;
 
 use crate::block::BlockDev;
 use crate::devices::{Device, Probe};
@@ -10,12 +11,12 @@ use crate::memory::{
     armv4t_adaptor::MemoryAdapter, MemAccess, MemException, MemExceptionCtx, MemResult, Memory,
 };
 use crate::signal::{self, gpio, irq};
-use crate::DynResult;
 
+mod controls;
 mod gdb;
-mod gui;
 mod hle_bootloader;
 
+pub use controls::{Ipod4gBinds, Ipod4gKey};
 pub use gdb::Ipod4gGdb;
 
 use hle_bootloader::run_hle_bootloader;
@@ -42,8 +43,8 @@ pub enum BootKind<F: Read + Seek> {
 
 #[derive(Debug)]
 struct Ipod4gControls {
-    pub hold: gpio::Sender,
-    pub controls: devices::Controls<signal::Master>,
+    hold: gpio::Sender,
+    controls: devices::Controls<signal::Master>,
 }
 
 /// A Ipod4g system
@@ -61,13 +62,21 @@ pub struct Ipod4g {
     i2c_changed: signal::Trigger,
 }
 
+#[derive(Error, Debug)]
+pub enum Ipod4gBuildError {
+    #[error("invalid flash dump: {0}")]
+    InvalidDump(&'static str),
+    #[error("HLE bootloader failed! {0}")]
+    HleBootloader(#[from] hle_bootloader::HleBootloaderError),
+}
+
 impl Ipod4g {
     /// Returns a new Ipod4g instance.
     pub fn new<F>(
         hdd: Box<dyn BlockDev>,
         flash_rom: Option<Box<[u8]>>,
         boot_kind: BootKind<F>,
-    ) -> DynResult<Ipod4g>
+    ) -> Result<Ipod4g, Ipod4gBuildError>
     where
         F: Read + Seek,
     {
@@ -97,7 +106,10 @@ impl Ipod4g {
 
         // Set up flash_rom (if available)
         if let Some(flash_rom) = flash_rom {
-            sys.devices.flash.use_dump(flash_rom)?
+            sys.devices
+                .flash
+                .use_dump(flash_rom)
+                .map_err(Ipod4gBuildError::InvalidDump)?
         }
 
         // hook-up external controls

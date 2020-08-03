@@ -5,9 +5,6 @@ use std::fmt::Debug;
 use futures::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
 pub mod backend;
-mod cfg;
-
-pub use cfg::BlockCfg;
 
 /// Abstraction over different Block Device backends.
 #[allow(clippy::len_without_is_empty)]

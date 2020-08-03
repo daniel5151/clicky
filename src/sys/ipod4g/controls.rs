@@ -1,13 +1,28 @@
-use super::super::{Ipod4g, Ipod4gControls};
+use super::{Ipod4g, Ipod4gControls};
 
-use minifb::Key;
+use std::collections::HashMap;
 
 use crate::devices::platform::pp::Controls;
-use crate::gui::minifb::MinifbControls;
-use crate::gui::TakeControls;
+use crate::gui::{ButtonCallback, ScrollCallback, TakeControls};
 
-impl TakeControls<MinifbControls> for Ipod4g {
-    fn take_controls(&mut self) -> Option<MinifbControls> {
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+pub enum Ipod4gKey {
+    Up,
+    Down,
+    Left,
+    Right,
+    Action,
+    Hold,
+}
+
+#[derive(Default)]
+pub struct Ipod4gBinds {
+    pub keys: HashMap<Ipod4gKey, ButtonCallback>,
+    pub wheel: Option<ScrollCallback>,
+}
+
+impl TakeControls<Ipod4gBinds> for Ipod4g {
+    fn take_controls(&mut self) -> Option<Ipod4gBinds> {
         let Ipod4gControls {
             mut hold,
             controls:
@@ -21,10 +36,10 @@ impl TakeControls<MinifbControls> for Ipod4g {
                 },
         } = self.controls.take()?;
 
-        let mut controls = MinifbControls::new();
+        let mut controls = Ipod4gBinds::default();
 
-        controls.keymap.insert(
-            Key::H, // H for Hold
+        controls.keys.insert(
+            Ipod4gKey::Hold,
             Box::new(move |pressed| {
                 if pressed {
                     // toggle on and off
@@ -38,7 +53,7 @@ impl TakeControls<MinifbControls> for Ipod4g {
 
         macro_rules! connect_controls_btn {
             ($key:expr, $signal:expr) => {
-                controls.keymap.insert(
+                controls.keys.insert(
                     $key,
                     Box::new(move |pressed| {
                         if pressed {
@@ -51,14 +66,14 @@ impl TakeControls<MinifbControls> for Ipod4g {
             };
         }
 
-        connect_controls_btn!(Key::Up, up);
-        connect_controls_btn!(Key::Down, down);
-        connect_controls_btn!(Key::Left, left);
-        connect_controls_btn!(Key::Right, right);
-        connect_controls_btn!(Key::Enter, action);
+        connect_controls_btn!(Ipod4gKey::Up, up);
+        connect_controls_btn!(Ipod4gKey::Down, down);
+        connect_controls_btn!(Ipod4gKey::Left, left);
+        connect_controls_btn!(Ipod4gKey::Right, right);
+        connect_controls_btn!(Ipod4gKey::Action, action);
 
         // TODO: make sensitivity adjustable based on user's scroll speed
-        controls.on_scroll = Some({
+        controls.wheel = Some({
             Box::new(move |(_dx, dy)| {
                 // HACK: the signal is edge-triggered
                 // TODO: i really aught to rework how input works...
