@@ -1,0 +1,57 @@
+body {
+    background-color: #efefef;
+    font-family: sans-serif;
+}
+
+#container {
+    margin: auto;
+    width: 80%;
+}
+
+h1 {
+    margin: 16px 0;
+    text-align: center;
+}
+
+#ipod-container {
+    zoom: 150%;
+}
+
+#ipod-body {
+    background-color: white;
+    border-radius: 20px;
+    height: 400px;
+    margin: auto;
+    padding-top: 32px;
+    width: 250px;
+}
+
+#ipod-screen {
+    border-radius: 6px;
+    border: 1px solid #efefef;
+    display: block;
+    image-rendering: pixelated;
+    margin-top: 10px;
+    margin: auto;
+    position: relative;
+}
+
+#ipod-clickwheel {
+    display: flex;
+    background-color: #dddddd;
+    width: 160px;
+    height: 160px;
+    margin: auto;
+    margin-top: 32px;
+    border-radius: 100%;
+    box-shadow: inset #9c9c9c 0 0 2px 0px;
+}
+
+#ipod-btn-select {
+    background-color: white;
+    width: 64px;
+    height: 64px;
+    border-radius: 100%;
+    margin: auto;
+    box-shadow: #9c9c9c 0 0 2px 0px;
+}
