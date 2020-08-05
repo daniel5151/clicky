@@ -268,6 +268,16 @@ impl Ipod4g {
         Ok(())
     }
 
+    /// Run the system, returning successfully on "graceful exit" (e.g:
+    /// power-off). This method will return after the specified number of cycles
+    /// have been executed.
+    pub fn run_cycles(&mut self, cycles: usize) -> Result<(), FatalError> {
+        for _ in 0..cycles {
+            self.step(BlockMode::Blocking, (&[], |_, _| {}))?;
+        }
+        Ok(())
+    }
+
     /// Freeze the system such that `step` becomes a noop. Called prior to
     /// spawning a "post-mortem" GDB session.
     ///

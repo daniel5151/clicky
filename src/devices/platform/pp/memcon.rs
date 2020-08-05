@@ -82,7 +82,7 @@ impl Memory for MemCon {
 /// Shoutout to the mysterious MrH for lots of helpful reverse-engineering.
 /// https://daniel.haxx.se/sansa/memory_controller.txt
 struct MemConImpl {
-    cache_data: [u32; 0x2000],
+    cache_data: Box<[u32; 0x2000]>,
     /// A status word is 32 bits and is mirrored four times for each cache line
     ///
     /// bit 0-20    line_address >> 11
@@ -90,7 +90,7 @@ struct MemConImpl {
     /// bit 22      line_dirty
     /// bit 23      line_valid
     /// bit 24-31   unused?
-    cache_status: [u32; 0x2000],
+    cache_status: Box<[u32; 0x2000]>,
 
     mmap: [Mmap; 8],
     cache_mask: u32,
@@ -127,8 +127,8 @@ impl std::fmt::Debug for MemConImpl {
 impl MemConImpl {
     pub fn new() -> MemConImpl {
         MemConImpl {
-            cache_data: [0; 0x2000],
-            cache_status: [0; 0x2000],
+            cache_data: Box::new([0; 0x2000]),
+            cache_status: Box::new([0; 0x2000]),
             mmap: Default::default(),
             cache_mask: 0,
             cache_control: 0,

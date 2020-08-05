@@ -12,6 +12,8 @@ clicky-core = { path = "../" }
 
 console_error_panic_hook = "0.1"
 console_log = { version ="0.2", features = ["color"] }
+fern = "0.5"
+flate2 = "1.0"
 log = "0.4"
 wasm-bindgen = "0.2.63"
 
@@ -21,3 +23,6 @@ features = [
   'ImageData',
   'CanvasRenderingContext2d',
 ]
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
