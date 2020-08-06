@@ -13,8 +13,13 @@ h1 {
     text-align: center;
 }
 
+p {
+    margin: 16px 0;
+    text-align: center;
+}
+
 #ipod-container {
-    zoom: 150%;
+    zoom: 200%;
 }
 
 #ipod-body {

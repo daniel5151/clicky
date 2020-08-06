@@ -5,8 +5,6 @@ use std::io::{self, Read};
 
 use flate2::read::GzDecoder;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::Clamped;
-use web_sys::{CanvasRenderingContext2d, ImageData};
 
 use clicky_core::block::{self, BlockDev};
 use clicky_core::gui::{RenderCallback, TakeControls};
@@ -22,6 +20,8 @@ pub fn init() {
         })
         .level(log::LevelFilter::Debug)
         .level_for("clicky_core", log::LevelFilter::Trace)
+        .level_for("MMIO", log::LevelFilter::Info)
+        // .level_for("IRQ", log::LevelFilter::Trace)
         .chain(fern::Output::call(console_log::log))
         .apply()
         .unwrap();
@@ -36,7 +36,6 @@ fn gzip_decompress(data: &[u8]) -> io::Result<Box<[u8]>> {
 
 #[wasm_bindgen]
 pub struct Ipod4gContainer {
-    // needs to be in a Box for... reasons
     system: Ipod4g,
     render_callback: RenderCallback,
     framebuffer: Vec<u32>,
@@ -84,18 +83,20 @@ impl Ipod4gContainer {
     }
 
     #[wasm_bindgen]
-    pub fn draw_frame(&mut self, ctx: &CanvasRenderingContext2d) -> Result<(), JsValue> {
+    pub fn get_frame(&mut self) -> Frame {
         let (width, height) = (self.render_callback)(&mut self.framebuffer);
-        let len = self.framebuffer.len();
 
-        let data = ImageData::new_with_u8_clamped_array_and_sh(
-            Clamped(unsafe {
-                std::slice::from_raw_parts_mut(self.framebuffer.as_mut_ptr() as *mut u8, len * 4)
-            }),
-            width as _,
-            height as _,
-        )?;
-        ctx.put_image_data(&data, 0.0, 0.0)
+        Frame {
+            width,
+            height,
+            data: unsafe {
+                let mut buf = self.framebuffer.clone();
+                let len = buf.len();
+                let ptr = buf.as_mut_ptr();
+                std::mem::forget(buf); // avoid double-free
+                Vec::from_raw_parts(ptr as *mut u8, len * 4, len * 4).into_boxed_slice()
+            },
+        }
     }
 
     #[wasm_bindgen]
@@ -103,6 +104,24 @@ impl Ipod4gContainer {
         self.system
             .run_cycles(cycles)
             .map_err(|e| format!("fatal error: {:?}", e).into())
+    }
+}
+
+#[wasm_bindgen]
+pub struct Frame {
+    #[wasm_bindgen]
+    pub width: usize,
+    #[wasm_bindgen]
+    pub height: usize,
+    // gotta use a getter
+    data: Box<[u8]>,
+}
+
+#[wasm_bindgen]
+impl Frame {
+    #[wasm_bindgen]
+    pub fn get_data(self) -> Box<[u8]> {
+        self.data
     }
 }
 

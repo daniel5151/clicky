@@ -1,22 +1,29 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="utf-8">
+    <meta charset="utf-8" />
     <title>clicky-web</title>
   </head>
   <body>
     <div id="container">
-        <h1>clicky</h1>
-        <div id="ipod-container">
-            <div id="ipod-body">
-                <canvas id="ipod-screen" width="160" height="128"></canvas>
-                <div id="ipod-clickwheel">
-                    <div id="ipod-btn-select"></div>
-                </div>
-            </div>
+      <h1>clicky</h1>
+      <noscript
+        >This page contains webassembly and javascript content, please enable
+        javascript in your browser.</noscript
+      >
+      <p>
+        This port is incredibly WIP! <br />At the moment, the controls are the
+        same as the desktop version. <br />See the clicky README.md for details.
+      </p>
+      <div id="ipod-container">
+        <div id="ipod-body">
+          <canvas id="ipod-screen" width="160" height="128"></canvas>
+          <div id="ipod-clickwheel">
+            <div id="ipod-btn-select"></div>
+          </div>
         </div>
+      </div>
     </div>
-    <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
     <script src="./bootstrap.js"></script>
   </body>
 </html>
