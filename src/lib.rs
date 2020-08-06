@@ -7,6 +7,7 @@ extern crate log;
 pub mod block;
 pub mod devices;
 pub mod error;
+pub mod executor;
 pub mod gui;
 pub mod memory;
 pub mod signal;

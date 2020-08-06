@@ -197,7 +197,6 @@ version = "0.1.0"
 dependencies = [
  "armv4t_emu",
  "async-channel",
- "async-timer",
  "bit_field",
  "blocking",
  "bytemuck",
@@ -209,6 +208,7 @@ dependencies = [
  "log",
  "num_enum",
  "pin-utils",
+ "relativity",
  "static_assertions",
  "thiserror",
 ]
@@ -238,7 +238,6 @@ dependencies = [
  "flate2",
  "log",
  "wasm-bindgen",
- "web-sys",
 ]
 
 [[package]]
@@ -498,6 +497,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "gloo-timers"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47204a46aaff920a1ea58b11d03dec6f704287d27561724a4631e450654a891f"
+dependencies = [
+ "futures-channel",
+ "futures-core",
+ "js-sys",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
 name = "heck"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -528,6 +540,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df004cfca50ef23c36850aaaa59ad52cc70d0e90243c3c7737a4dd32dc7a3c4f"
 dependencies = [
  "quick-error",
+]
+
+[[package]]
+name = "instant"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b141fdc7836c525d4d594027d318c84161ca17aaf8113ab1f81ab93ae897485"
+dependencies = [
+ "js-sys",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
@@ -1035,6 +1058,16 @@ name = "regex-syntax"
 version = "0.6.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26412eb97c6b088a6997e05f69403a802a92d520de2f8e63c2b65f9e0f47c4e8"
+
+[[package]]
+name = "relativity"
+version = "0.1.0"
+dependencies = [
+ "async-timer",
+ "cfg-if",
+ "gloo-timers",
+ "instant",
+]
 
 [[package]]
 name = "remove_dir_all"

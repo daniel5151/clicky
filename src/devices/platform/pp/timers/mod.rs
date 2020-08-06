@@ -10,6 +10,7 @@ use usec_timer::UsecTimer;
 use crate::signal::irq;
 
 /// PP5020 timer block
+// TODO: this doesn't need to exist, and should be decomposed into it's constituent devices...
 #[derive(Debug)]
 pub struct Timers {
     usec: UsecTimer,
@@ -18,11 +19,11 @@ pub struct Timers {
 }
 
 impl Timers {
-    pub fn new(timer1_irq: irq::Sender, timer2_irq: irq::Sender) -> Timers {
+    pub fn new(task_spawner: Spawner, timer1_irq: irq::Sender, timer2_irq: irq::Sender) -> Timers {
         Timers {
             usec: UsecTimer::new(),
-            cfg_timer1: CfgTimer::new("1", timer1_irq),
-            cfg_timer2: CfgTimer::new("2", timer2_irq),
+            cfg_timer1: CfgTimer::new("1", timer1_irq, task_spawner.clone()),
+            cfg_timer2: CfgTimer::new("2", timer2_irq, task_spawner),
         }
     }
 }

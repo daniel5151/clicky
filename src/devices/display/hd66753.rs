@@ -143,7 +143,7 @@ impl Hd66753 {
         Box::new(move |buf: &mut Vec<u32>| -> (usize, usize) {
             // TODO: make palette configurable?
             #[allow(clippy::unreadable_literal)]
-            const PALETTE: [u32; 4] = [0x000000, 0x686868, 0xb8b8b9, 0xffffff];
+            const PALETTE: [u32; 4] = [0xff000000, 0xff686868, 0xffb8b8b9, 0xffffffff];
 
             // instead of holding the locks, just copy the data locally
             let cgram = *cgram.read().unwrap();

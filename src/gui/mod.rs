@@ -1,6 +1,6 @@
 //! GUI related types and traits
 
-/// `RenderCallback` is called with a RGBA Framebuffer, and returns the
+/// `RenderCallback` is called with an ARGB Framebuffer, and returns the
 /// dimensions of the image.
 pub type RenderCallback =
     Box<dyn FnMut(/* rgba_framebuffer: */ &mut Vec<u32>) -> (usize, usize) + Send>;

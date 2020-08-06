@@ -1,6 +1,6 @@
 use crate::devices::prelude::*;
 
-use std::time::Instant;
+use relativity::Instant;
 
 /// 32 bit timer which ticks every usec.
 #[derive(Debug)]

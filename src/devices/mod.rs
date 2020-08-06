@@ -6,7 +6,7 @@
     clippy::new_without_default, // just adds more boilerplate
 )]
 
-mod prelude;
+pub mod prelude;
 
 pub mod display;
 pub mod generic;

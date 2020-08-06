@@ -58,13 +58,17 @@ impl CounterSource {
 /// PP5020 CPU controller
 #[derive(Debug)]
 pub struct CpuCon {
+    task_spawner: Spawner,
+
     cpuctl: Arc<AtomicU32>,
     copctl: Arc<AtomicU32>,
 }
 
 impl CpuCon {
-    pub fn new() -> CpuCon {
+    pub fn new(task_spawner: Spawner) -> CpuCon {
         CpuCon {
+            task_spawner,
+
             cpuctl: Arc::new(0x0000_0000.into()),
             copctl: Arc::new(0x0000_0000.into()),
         }
@@ -124,17 +128,15 @@ impl CpuCon {
 
             let duration = source.into_duration(val.get_bits(flags::COUNTER) as u8);
 
-            // XXX: use a proper async executor instead of spawning a thread!
-            std::thread::spawn({
-                let reg = Arc::clone(match cpu {
-                    CpuId::Cpu => &self.cpuctl,
-                    CpuId::Cop => &self.copctl,
-                });
-                // create timer outside of the task for slightly improved accuracy
-                let timer = async_timer::new_timer(duration);
-
-                move || {
-                    futures_executor::block_on(async {
+            self.task_spawner
+                .spawn({
+                    let reg = Arc::clone(match cpu {
+                        CpuId::Cpu => &self.cpuctl,
+                        CpuId::Cop => &self.copctl,
+                    });
+                    // create timer outside of the task for slightly improved accuracy
+                    let timer = relativity::Timeout::new(duration);
+                    async move {
                         timer.await;
                         // TODO: check if flags::PROC_WAKE_INT is set, and fire an interrupt
                         reg.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |mut reg| {
@@ -142,9 +144,9 @@ impl CpuCon {
                             Some(reg)
                         })
                         .unwrap();
-                    })
-                }
-            });
+                    }
+                })
+                .expect("failed to spawn cpucon wakeup task");
         }
 
         if val.get_bit(flags::PROC_WAKE_INT) {

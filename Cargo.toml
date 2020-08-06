@@ -5,9 +5,15 @@ authors = ["Daniel Prilik <danielprilik@gmail.com>"]
 edition = "2018"
 
 [workspace]
-members = ["clicky-desktop", "clicky-web"]
+members = ["clicky-desktop", "clicky-web", "relativity"]
+
+[features]
+wasm-bindgen = [ "relativity/wasm-bindgen" ]
 
 [dependencies]
+# home-grown deps
+relativity = { path = "./relativity/" }
+
 # general utilities
 bit_field = "0.10"
 bytemuck = "1.2"
@@ -24,7 +30,6 @@ gdbstub = "0.2"
 
 # async/await
 async-channel = "1.4"
-async-timer = "1.0.0-beta.4"
 blocking = "0.5"
 futures-executor = { version = "0.3", features = ["thread-pool"] } # TEMP
 pin-utils = "0.1"

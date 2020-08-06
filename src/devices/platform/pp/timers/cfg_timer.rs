@@ -1,9 +1,10 @@
 use crate::devices::prelude::*;
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use futures::future::{self, Either};
 use pin_utils::pin_mut;
+use relativity::{Instant, Timeout};
 
 use crate::signal::irq;
 
@@ -25,19 +26,21 @@ async fn interrupter_task(mut irq: irq::Sender, msg_rx: async_channel::Receiver<
             // task to not be polled for a while, it's possible for `next` to have already passed,
             // resulting in a panic when doing a naive `next - Instant::now()`. In that case, we
             // simply play "catch up" and immediately fire the interrupt.
-            InterrupterState::Oneshot { next } => Some(
-                next.checked_duration_since(Instant::now())
-                    .unwrap_or_else(|| Duration::from_secs(0)),
-            ),
-            InterrupterState::Repeating { next, .. } => Some(
-                next.checked_duration_since(Instant::now())
-                    .unwrap_or_else(|| Duration::from_secs(0)),
-            ),
+            InterrupterState::Oneshot { next } | InterrupterState::Repeating { next, .. } => {
+                Some({
+                    let now = Instant::now();
+                    if next < now {
+                        Duration::from_secs(0)
+                    } else {
+                        next - now
+                    }
+                })
+            }
         };
 
         let interrupt = match duration {
             None => Either::Left(future::pending()),
-            Some(duration) => Either::Right(async_timer::new_timer(duration)),
+            Some(duration) => Either::Right(Timeout::new(duration)),
         };
 
         let msg_fut = msg_rx.recv();
@@ -88,14 +91,16 @@ pub struct CfgTimer {
 }
 
 impl CfgTimer {
-    pub fn new(label: &'static str, irq: irq::Sender) -> CfgTimer {
+    pub fn new(label: &'static str, irq: irq::Sender, task_spawner: Spawner) -> CfgTimer {
         // TODO: this should probably be bounded, right?
         let (interrupter_tx, interrupter_rx) = async_channel::unbounded();
 
-        std::thread::spawn({
-            let irq_clone = irq.clone();
-            move || futures_executor::block_on(interrupter_task(irq_clone, interrupter_rx))
-        });
+        task_spawner
+            .spawn({
+                let irq_clone = irq.clone();
+                interrupter_task(irq_clone, interrupter_rx)
+            })
+            .expect("failed to spawn timer task");
 
         CfgTimer {
             label,

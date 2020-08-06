@@ -1,0 +1,19 @@
+[package]
+name = "relativity"
+version = "0.1.0"
+authors = ["Daniel Prilik <danielprilik@gmail.com>"]
+edition = "2018"
+
+[features]
+wasm-bindgen = [ "instant/wasm-bindgen" ]
+
+[dependencies]
+cfg-if = "0.1"
+instant = "0.1"
+
+# async-timer _should_ work with wasm32, but it doesn't seem to be working...
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+async-timer = "1.0.0-beta.5"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+gloo-timers = { version = "0.2", features = ["futures"] }

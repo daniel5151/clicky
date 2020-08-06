@@ -6,6 +6,7 @@ use thiserror::Error;
 use crate::block::BlockDev;
 use crate::devices::{Device, Probe};
 use crate::error::FatalError;
+use crate::executor::*;
 use crate::gui::RenderCallback;
 use crate::memory::{
     armv4t_adaptor::MemoryAdapter, MemAccess, MemException, MemExceptionCtx, MemResult, Memory,
@@ -60,6 +61,8 @@ pub struct Ipod4g {
     dma_pending: irq::Pending,
     gpio_changed: gpio::Changed,
     i2c_changed: signal::Trigger,
+
+    executor: Executor,
 }
 
 #[derive(Error, Debug)]
@@ -80,6 +83,8 @@ impl Ipod4g {
     where
         F: Read + Seek,
     {
+        let executor = Executor::new().expect("failed to create task executor");
+
         // initialize base system
         let irq_pending = irq::Pending::new();
         let dma_pending = irq::Pending::new();
@@ -90,12 +95,15 @@ impl Ipod4g {
             frozen: false,
             cpu: Cpu::new(),
             cop: Cpu::new(),
-            devices: Ipod4gBus::new(irq_pending.clone(), dma_pending.clone()),
+            devices: Ipod4gBus::new(executor.spawner(), irq_pending.clone(), dma_pending.clone()),
             controls: None,
+
             irq_pending,
             dma_pending,
             gpio_changed: gpio_changed.clone(),
             i2c_changed: i2c_changed.clone(),
+
+            executor,
         };
 
         // connect HDD
@@ -187,6 +195,9 @@ impl Ipod4g {
                 e.resolve(ctx)?;
             }
         }
+
+        // TODO: don't run this on every cycle?
+        self.executor.run_until_stalled();
 
         // XXX: this is terrible. truly god awful. it _really_ needs to be rewritten,
         // reorganized, and moved somewhere more appropriate.
@@ -335,7 +346,11 @@ pub struct Ipod4gBus {
 
 impl Ipod4gBus {
     #[allow(clippy::redundant_clone)] // Makes the code cleaner in this case
-    fn new(irq_pending: irq::Pending, dma_pending: irq::Pending) -> Ipod4gBus {
+    fn new(
+        task_spawner: Spawner,
+        irq_pending: irq::Pending,
+        dma_pending: irq::Pending,
+    ) -> Ipod4gBus {
         let (ide_irq_tx, ide_irq_rx) = irq::new(irq_pending.clone(), "IDE");
         let (timer1_irq_tx, timer1_irq_rx) = irq::new(irq_pending.clone(), "Timer1");
         let (timer2_irq_tx, timer2_irq_rx) = irq::new(irq_pending.clone(), "Timer2");
@@ -383,9 +398,9 @@ impl Ipod4gBus {
             fastram: AsanRam::new(96 * 1024, true),      // 96 KB
             cpuid: CpuIdReg::new(),
             flash: Flash::new(),
-            cpucon: CpuCon::new(),
+            cpucon: CpuCon::new(task_spawner.clone()),
             hd66753: Hd66753::new(),
-            timers: Timers::new(timer1_irq_tx, timer2_irq_tx),
+            timers: Timers::new(task_spawner, timer1_irq_tx, timer2_irq_tx),
             gpio_abcd,
             gpio_efgh,
             gpio_ijkl,
