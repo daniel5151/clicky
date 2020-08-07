@@ -1,8 +1,5 @@
 [workspace]
 members = ["clicky-core", "clicky-desktop", "clicky-web", "relativity"]
 
-[profile.dev.package."*"]
-opt-level = 3
-
 [profile.release]
 panic = "abort"
