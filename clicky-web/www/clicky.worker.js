@@ -31,13 +31,20 @@ function init_handler({ kind, data }) {
     return false;
 }
 
+let framebuffer = null;
+
 function send_frame() {
     const frame = ipod4g.get_frame();
     const { width, height } = frame;
+    if (!framebuffer || framebuffer.length !== width * height * 4) {
+        framebuffer = new Uint8Array(width * height * 4);
+    }
+    frame.get_data(framebuffer);
+
     const data = {
         width,
         height,
-        data: frame.get_data(),
+        data: framebuffer,
     };
     postMessage({
         kind: "frame",

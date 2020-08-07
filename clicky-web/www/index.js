@@ -17,6 +17,7 @@ async function get_uint8_array(url) {
 
 console.log("loading webworker...");
 const worker = new ClickyWorker();
+window.clicky_worker = worker; // for debugging
 worker.onmessage = (e) => {
     const { kind, data } = e.data;
     switch (kind) {
@@ -57,6 +58,59 @@ worker.onmessage = (e) => {
                     kind: "keyup",
                     data: e.key,
                 });
+            };
+
+            const $ = (...args) => document.querySelector(...args);
+            $("#ipod-btn-select").onmousedown = (e) => {
+                e.preventDefault();
+                worker.postMessage({
+                    kind: "keydown",
+                    data: "Enter",
+                });
+            };
+            $("#ipod-btn-select").onmouseup = (e) => {
+                e.preventDefault();
+                worker.postMessage({
+                    kind: "keyup",
+                    data: "Enter",
+                });
+            };
+
+            let wheel_down = false;
+            $("#ipod-clickwheel").onmousedown = (e) => {
+                e.preventDefault();
+                wheel_down = true;
+            };
+            $("#ipod-clickwheel").onmouseup = (e) => {
+                e.preventDefault();
+                wheel_down = false;
+            };
+            $("#ipod-clickwheel").onmouseleave = (e) => {
+                e.preventDefault();
+                wheel_down = false;
+            };
+
+            // needs a _lot_ of tweaking
+            let last_angle = 0;
+            $("#ipod-clickwheel").onmousemove = (e) => {
+                e.preventDefault();
+                if (wheel_down) {
+                    const new_angle =
+                        Math.atan2(e.offsetX - 80 * 2, -(e.offsetY - 80 * 2)) *
+                            (180 / Math.PI) +
+                        180;
+
+                    if (Math.abs(last_angle - new_angle) > 360 / 36) {
+                        worker.postMessage({
+                            kind: "scroll",
+                            data: {
+                                deltaX: 0,
+                                deltaY: new_angle - last_angle,
+                            },
+                        });
+                        last_angle = new_angle;
+                    }
+                }
             };
 
             document.querySelector("body").addEventListener(

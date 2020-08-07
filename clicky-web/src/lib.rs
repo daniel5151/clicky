@@ -120,8 +120,8 @@ pub struct Frame {
 #[wasm_bindgen]
 impl Frame {
     #[wasm_bindgen]
-    pub fn get_data(self) -> Box<[u8]> {
-        self.data
+    pub fn get_data(self, data: &mut [u8]) {
+        data.copy_from_slice(&self.data)
     }
 }
 
