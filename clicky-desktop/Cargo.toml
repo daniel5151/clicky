@@ -8,7 +8,7 @@ edition = "2018"
 default = ["minifb"]
 
 [dependencies]
-clicky-core = { path = "../" }
+clicky-core = { path = "../clicky-core/" }
 
 cfg-if = "0.1"
 gdbstub = "0.2"
