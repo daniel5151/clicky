@@ -161,8 +161,9 @@ impl Ipod4g {
 
         // TODO: if neither CPU is running, efficiently block until the next IRQ
 
+        let devices = &mut self.devices;
         for (cpu, cpuid) in [(&mut self.cpu, CpuId::Cpu), (&mut self.cop, CpuId::Cop)].iter_mut() {
-            if !self.devices.cpucon.is_cpu_running(*cpuid) {
+            if !devices.cpucon.is_cpu_running(*cpuid) {
                 continue;
             }
 
@@ -171,26 +172,21 @@ impl Ipod4g {
             // enforce MMU "execute" protection bits...
 
             // FIXME: this approach is kinda gross. Maybe add a some "ctx" to `Memory`?
-            self.devices.cpuid.set_cpuid(*cpuid);
-            self.devices.memcon.set_cpuid(*cpuid);
-            self.devices.mailbox.set_cpuid(*cpuid);
+            devices.cpuid.set_cpuid(*cpuid);
+            devices.memcon.set_cpuid(*cpuid);
+            devices.mailbox.set_cpuid(*cpuid);
 
-            let mut sniffer = MemSniffer::new(&mut self.devices, sniff_memory.0, |access| {
+            let mut sniffer = MemSniffer::new(devices, sniff_memory.0, |access| {
                 sniff_memory.1(*cpuid, access)
             });
             let mut mem = MemoryAdapter::new(&mut sniffer);
             cpu.step(&mut mem);
             if let Some((access, e)) = mem.exception.take() {
-                let pc = cpu.reg_get(cpu.mode(), reg::PC);
-                let in_device = format!("{}", self.devices.probe(access.offset));
-
-                let ctx = MemExceptionCtx {
-                    pc,
+                e.resolve(|| MemExceptionCtx {
+                    pc: cpu.reg_get(cpu.mode(), reg::PC),
                     access,
-                    in_device,
-                };
-
-                e.resolve(ctx)?;
+                    in_device: format!("{}", devices.probe(access.offset)),
+                })?;
             }
         }
 
@@ -201,8 +197,8 @@ impl Ipod4g {
         // reorganized, and moved somewhere more appropriate.
         if self.dma_pending.check() {
             self.dma_pending.clear();
-            if self.devices.dmacon.do_ide_dma() {
-                let (kind, addr) = match (self.devices.eidecon).do_dma() {
+            if devices.dmacon.do_ide_dma() {
+                let (kind, addr) = match (devices.eidecon).do_dma() {
                     Ok(tup) => tup,
                     Err(_) => panic!("asd"),
                 };
@@ -210,16 +206,14 @@ impl Ipod4g {
                 use crate::memory::MemAccessKind;
                 match kind {
                     MemAccessKind::Read => {
-                        let val = (self.devices.eidecon)
-                            .as_ide()
+                        let val = (devices.eidecon.as_ide())
                             .read16(devices::ide::IdeReg::Data)
                             .unwrap();
-                        self.devices.w16(addr, val).unwrap();
+                        devices.w16(addr, val).unwrap();
                     }
                     MemAccessKind::Write => {
-                        let val = (self.devices).r16(addr).unwrap();
-                        (self.devices.eidecon)
-                            .as_ide()
+                        let val = devices.r16(addr).unwrap();
+                        (devices.eidecon.as_ide())
                             .write16(devices::ide::IdeReg::Data, val)
                             .unwrap();
                     }
@@ -229,18 +223,18 @@ impl Ipod4g {
 
         // TODO?: explore adding callbacks to the signaling system
         if self.gpio_changed.check_and_clear() {
-            self.devices.gpio_abcd.lock().unwrap().update();
-            self.devices.gpio_efgh.lock().unwrap().update();
-            self.devices.gpio_ijkl.lock().unwrap().update();
+            devices.gpio_abcd.lock().unwrap().update();
+            devices.gpio_efgh.lock().unwrap().update();
+            devices.gpio_ijkl.lock().unwrap().update();
         }
         if self.i2c_changed.check_and_clear() {
-            self.devices.i2c.on_change();
+            devices.i2c.on_change();
         }
 
         if self.irq_pending.check() {
             use armv4t_emu::Exception;
 
-            let (cpu_status, cop_status) = self.devices.intcon.interrupt_status();
+            let (cpu_status, cop_status) = devices.intcon.interrupt_status();
 
             for (core, cpuid, status) in [
                 (&mut self.cpu, CpuId::Cpu, cpu_status),
@@ -249,7 +243,7 @@ impl Ipod4g {
             .iter_mut()
             {
                 if status.irq {
-                    self.devices.cpucon.wake_on_interrupt(*cpuid);
+                    devices.cpucon.wake_on_interrupt(*cpuid);
                     core.exception(Exception::Interrupt);
 
                     if core.irq_enable() {
@@ -257,7 +251,7 @@ impl Ipod4g {
                     }
                 }
                 if status.fiq {
-                    self.devices.cpucon.wake_on_interrupt(*cpuid);
+                    devices.cpucon.wake_on_interrupt(*cpuid);
                     core.exception(Exception::FastInterrupt);
 
                     if core.fiq_enable() {

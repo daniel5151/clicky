@@ -57,6 +57,16 @@ pub struct MemExceptionCtx {
     pub in_device: String,
 }
 
+impl std::fmt::Display for MemExceptionCtx {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "[pc {:#010x?}][addr {:#010x?}][{}]",
+            self.pc, self.access.offset, self.in_device
+        )
+    }
+}
+
 /// An unrecoverable memory exception.
 #[derive(Debug, Clone)]
 pub struct FatalMemException {
@@ -66,27 +76,31 @@ pub struct FatalMemException {
 
 impl MemException {
     /// Handle the memory exception, potentially returning a FatalMemException.
-    pub fn resolve(self, ctx: MemExceptionCtx) -> Result<(), FatalMemException> {
-        let ctx_str = format!(
-            "[pc {:#010x?}][addr {:#010x?}][{}]",
-            ctx.pc, ctx.access.offset, ctx.in_device
-        );
-
+    ///
+    /// The `ctx` object is only created if required.
+    pub fn resolve(self, ctx: impl FnOnce() -> MemExceptionCtx) -> Result<(), FatalMemException> {
         macro_rules! mlog {
-            ($($args:tt)*) => {
-                log!(target: "MMIO", $($args)*)
+            (($level:ident, $ctx:ident) => ($($args:tt)*)) => {
+                if log_enabled!($level) {
+                    let $ctx = $ctx();
+                    log!(target: "MMIO", $level, $($args)*)
+                }
             };
         }
 
         use MemException::*;
         match self {
-            StubRead(level, _) => mlog!(level, "{} stubbed read ({})", ctx_str, ctx.access.val),
-            StubWrite(level, ()) => mlog!(level, "{} stubbed write ({})", ctx_str, ctx.access.val),
-            Log(level, msg) => mlog!(level, "{} {}", ctx_str, msg),
+            StubRead(level, _) => {
+                mlog! { (level, ctx) => ("{} stubbed read ({})", ctx, ctx.access.val) }
+            }
+            StubWrite(level, ()) => {
+                mlog! { (level, ctx) => ("{} stubbed write ({})", ctx, ctx.access.val) }
+            }
+            Log(level, msg) => mlog! { (level, ctx) => ("{} {}", ctx, msg) },
             // FIXME?: Misaligned access (i.e: Data Abort) should be a CPU exception
             Misaligned => {
                 return Err(FatalMemException {
-                    context: ctx,
+                    context: ctx(),
                     reason: self,
                 });
             }
@@ -99,7 +113,7 @@ impl MemException {
                 // terminate execution
                 if severity == log::Level::Error {
                     return Err(FatalMemException {
-                        context: ctx,
+                        context: ctx(),
                         reason: ContractViolation {
                             msg,
                             severity,
@@ -107,12 +121,12 @@ impl MemException {
                         },
                     });
                 } else {
-                    mlog!(severity, "{} {}", ctx_str, msg)
+                    mlog! { (severity, ctx) => ("{} {}", ctx, msg) }
                 }
             }
             Unexpected | Unimplemented | Fatal(_) | MmuViolation | InvalidAccess => {
                 return Err(FatalMemException {
-                    context: ctx,
+                    context: ctx(),
                     reason: self,
                 })
             }
