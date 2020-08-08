@@ -5,12 +5,10 @@ use thiserror::Error;
 
 use crate::block::BlockDev;
 use crate::devices::{Device, Probe};
-use crate::error::FatalError;
+use crate::error::*;
 use crate::executor::*;
 use crate::gui::RenderCallback;
-use crate::memory::{
-    armv4t_adaptor::MemoryAdapter, MemAccess, MemException, MemExceptionCtx, MemResult, Memory,
-};
+use crate::memory::{armv4t_adaptor::MemoryAdapter, MemAccess, Memory};
 use crate::signal::{self, gpio, irq};
 
 mod controls;
@@ -156,7 +154,7 @@ impl Ipod4g {
         &mut self,
         _halt_block_mode: BlockMode,
         mut sniff_memory: (&[u32], impl FnMut(CpuId, MemAccess)),
-    ) -> Result<bool, FatalError> {
+    ) -> FatalMemResult<bool> {
         if self.frozen {
             return Ok(true);
         }
@@ -274,7 +272,7 @@ impl Ipod4g {
 
     /// Run the system, returning successfully on "graceful exit"
     /// (e.g: power-off).
-    pub fn run(&mut self) -> Result<(), FatalError> {
+    pub fn run(&mut self) -> FatalMemResult<()> {
         while self.step(BlockMode::Blocking, (&[], |_, _| {}))? {}
         Ok(())
     }
@@ -282,7 +280,7 @@ impl Ipod4g {
     /// Run the system, returning successfully on "graceful exit" (e.g:
     /// power-off). This method will return after the specified number of cycles
     /// have been executed.
-    pub fn run_cycles(&mut self, cycles: usize) -> Result<(), FatalError> {
+    pub fn run_cycles(&mut self, cycles: usize) -> FatalMemResult<()> {
         for _ in 0..cycles {
             self.step(BlockMode::Blocking, (&[], |_, _| {}))?;
         }

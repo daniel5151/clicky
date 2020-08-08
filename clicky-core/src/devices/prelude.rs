@@ -7,9 +7,10 @@ pub use bit_field::BitField;
 pub use log::Level::*;
 
 pub use crate::devices::{Device, Probe};
-pub use crate::executor::*;
-pub use crate::memory::{
+pub use crate::error::{
     MemException::{self, *},
-    MemResult, Memory,
+    MemResult,
 };
+pub use crate::executor::*;
+pub use crate::memory::Memory;
 pub use crate::signal::{self, irq};

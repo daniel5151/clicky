@@ -6,9 +6,11 @@ use gdbstub::{
     TidSelector, WatchKind,
 };
 
-use super::{BlockMode, CpuId, FatalError, Ipod4g};
 use crate::devices::Device;
+use crate::error::*;
 use crate::memory::{MemAccessKind, Memory};
+
+use super::{BlockMode, CpuId, Ipod4g};
 
 pub struct Ipod4gGdb {
     sys: Ipod4g,
@@ -38,7 +40,7 @@ impl Ipod4gGdb {
         &mut self.sys
     }
 
-    fn step(&mut self) -> Result<Option<(Tid, StopReason<u32>)>, FatalError> {
+    fn step(&mut self) -> Result<Option<(Tid, StopReason<u32>)>, FatalMemException> {
         let mut hit_watchpoint = None;
 
         let watchpoint_kinds = &self.watchpoint_kinds;
@@ -142,7 +144,7 @@ fn cpuid_to_tid(id: CpuId) -> Tid {
 
 impl Target for Ipod4gGdb {
     type Arch = arch::arm::Armv4t;
-    type Error = FatalError;
+    type Error = FatalMemException;
 
     fn resume(
         &mut self,
@@ -175,7 +177,10 @@ impl Target for Ipod4gGdb {
         }
     }
 
-    fn read_registers(&mut self, regs: &mut arch::arm::reg::ArmCoreRegs) -> Result<(), FatalError> {
+    fn read_registers(
+        &mut self,
+        regs: &mut arch::arm::reg::ArmCoreRegs,
+    ) -> Result<(), FatalMemException> {
         let cpu = match self.selected_core {
             CpuId::Cpu => &mut self.sys.cpu,
             CpuId::Cop => &mut self.sys.cop,
@@ -194,7 +199,10 @@ impl Target for Ipod4gGdb {
         Ok(())
     }
 
-    fn write_registers(&mut self, regs: &arch::arm::reg::ArmCoreRegs) -> Result<(), FatalError> {
+    fn write_registers(
+        &mut self,
+        regs: &arch::arm::reg::ArmCoreRegs,
+    ) -> Result<(), FatalMemException> {
         let cpu = match self.selected_core {
             CpuId::Cpu => &mut self.sys.cpu,
             CpuId::Cop => &mut self.sys.cop,
@@ -217,7 +225,7 @@ impl Target for Ipod4gGdb {
         &mut self,
         addr: std::ops::Range<u32>,
         push_byte: &mut dyn FnMut(u8),
-    ) -> Result<(), FatalError> {
+    ) -> Result<(), FatalMemException> {
         for addr in addr {
             match self.sys.devices.r8(addr) {
                 Ok(b) => push_byte(b),
@@ -229,7 +237,7 @@ impl Target for Ipod4gGdb {
         Ok(())
     }
 
-    fn write_addrs(&mut self, start_addr: u32, data: &[u8]) -> Result<(), FatalError> {
+    fn write_addrs(&mut self, start_addr: u32, data: &[u8]) -> Result<(), FatalMemException> {
         for (addr, val) in (start_addr..).zip(data.iter().copied()) {
             match self.sys.devices.w8(addr, val) {
                 Ok(_) => {}
@@ -239,7 +247,7 @@ impl Target for Ipod4gGdb {
         Ok(())
     }
 
-    fn update_sw_breakpoint(&mut self, addr: u32, op: BreakOp) -> Result<bool, FatalError> {
+    fn update_sw_breakpoint(&mut self, addr: u32, op: BreakOp) -> Result<bool, FatalMemException> {
         match op {
             BreakOp::Add => self.breakpoints.push(addr),
             BreakOp::Remove => {
@@ -259,7 +267,7 @@ impl Target for Ipod4gGdb {
         addr: u32,
         op: BreakOp,
         kind: WatchKind,
-    ) -> OptResult<bool, FatalError> {
+    ) -> OptResult<bool, FatalMemException> {
         match op {
             BreakOp::Add => {
                 let access_kind = match kind {

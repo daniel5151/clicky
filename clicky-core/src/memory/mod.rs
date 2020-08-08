@@ -2,11 +2,10 @@
 
 pub mod armv4t_adaptor;
 
-mod access;
-mod exception;
+use crate::error::*;
 
+mod access;
 pub use access::{MemAccess, MemAccessKind, MemAccessVal, ToMemAccess};
-pub use exception::{MemException, MemExceptionCtx, MemResult};
 
 /// Common memory trait used throughout the emulator.
 ///
