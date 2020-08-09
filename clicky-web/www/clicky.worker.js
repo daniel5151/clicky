@@ -8,6 +8,7 @@ import("clicky-web").then((x) => {
 
 let ipod4g = null;
 let ipod4g_controls = null;
+let cycles_per_tick = 1024; // adjust for responsiveness
 
 function init_handler({ kind, data }) {
     switch (kind) {
@@ -112,8 +113,11 @@ function run_handler({ kind, data }) {
                 ipod4g_controls.on_scroll(0, -2);
             }
             break;
+        case "cycles_per_tick":
+            cycles_per_tick = data;
+            break;
         case "drive":
-            ipod4g.run(1024); // tweak for different responsiveness
+            ipod4g.run(cycles_per_tick); // tweak for different responsiveness
             postMessage({ kind: "drive" });
             break;
         default:

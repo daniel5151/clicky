@@ -3,6 +3,7 @@ import "./main.css";
 
 import ClickyWorker from "./clicky.worker.js";
 
+const fps_counter = document.getElementById("fps");
 const canvas = document.getElementById("ipod-screen");
 const ctx = canvas.getContext("2d");
 
@@ -44,7 +45,9 @@ worker.onmessage = (e) => {
             break;
         case "init":
             // attach all the event handlers
-            window.onkeydown = (e) => {
+            const $ = (...args) => document.querySelector(...args);
+
+            $("#ipod-container").onkeydown = (e) => {
                 e.preventDefault();
                 worker.postMessage({
                     kind: "keydown",
@@ -52,7 +55,7 @@ worker.onmessage = (e) => {
                 });
             };
 
-            window.onkeyup = (e) => {
+            $("#ipod-container").onkeyup = (e) => {
                 e.preventDefault();
                 worker.postMessage({
                     kind: "keyup",
@@ -60,7 +63,6 @@ worker.onmessage = (e) => {
                 });
             };
 
-            const $ = (...args) => document.querySelector(...args);
             $("#ipod-btn-select").onmousedown = (e) => {
                 e.preventDefault();
                 worker.postMessage({
@@ -113,7 +115,15 @@ worker.onmessage = (e) => {
                 }
             };
 
-            document.querySelector("body").addEventListener(
+            $("#cycles").onchange = (e) => {
+                worker.postMessage({
+                    kind: "cycles_per_tick",
+                    // haha, arbitrary code execution go brrrrr
+                    data: eval(e.target.value),
+                });
+            };
+
+            $("body").addEventListener(
                 "mousewheel",
                 (e) => {
                     e.preventDefault();
@@ -141,6 +151,12 @@ worker.onmessage = (e) => {
             });
             break;
         case "frame":
+            const now = performance.now();
+            fps_counter.innerHTML = Math.floor(
+                1 / ((now - window.last_frame) / 1000),
+            );
+            window.last_frame = now;
+
             ctx.putImageData(
                 new ImageData(
                     new Uint8ClampedArray(data.data),

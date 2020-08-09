@@ -22,6 +22,10 @@ p {
     zoom: 200%;
 }
 
+#ipod-container:focus {
+    outline: none;
+}
+
 #ipod-body {
     background-color: white;
     border-radius: 20px;

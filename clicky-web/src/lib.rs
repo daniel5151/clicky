@@ -45,12 +45,14 @@ pub struct Ipod4gContainer {
 impl Ipod4gContainer {
     #[wasm_bindgen(constructor)]
     pub fn new(fw: &[u8], disk: &[u8]) -> Result<Ipod4gContainer, JsValue> {
+        debug!("hello from wasm!");
+
         let fw =
             gzip_decompress(fw).map_err(|e| format!("could not decompress firmware: {}", e))?;
+        debug!("decompressed fw image");
         let disk =
             gzip_decompress(disk).map_err(|e| format!("could not decompress disk image: {}", e))?;
-
-        debug!("decompressed fw and disk image");
+        debug!("decompressed disk image");
 
         let hdd: Box<dyn BlockDev> = Box::new(block::backend::Mem::new(disk));
 
