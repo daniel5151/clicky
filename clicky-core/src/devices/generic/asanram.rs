@@ -15,8 +15,8 @@ pub struct AsanRam {
 impl std::fmt::Debug for AsanRam {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AsanRam")
-            .field("mem", &"<omitted>")
-            .field("initialized", &"<omitted>")
+            .field("mem", &"[..]")
+            .field("initialized", &"[..]")
             .finish()
     }
 }
@@ -78,9 +78,11 @@ impl Device for AsanRam {
     }
 
     fn probe(&self, offset: u32) -> Probe {
-        assert!((offset as usize) < self.mem.len());
-
-        Probe::Register("<data>")
+        if (offset as usize) < self.mem.len() {
+            Probe::Register("<data>")
+        } else {
+            Probe::Unmapped
+        }
     }
 }
 

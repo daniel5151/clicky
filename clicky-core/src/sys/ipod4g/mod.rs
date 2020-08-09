@@ -423,7 +423,14 @@ impl Ipod4gBus {
 }
 
 macro_rules! mmap {
-    ($($start:literal $(..= $end:literal)? => $device:ident,)*) => {
+    (
+        RAM {
+            $($start_ram:literal $(..= $end_ram:literal)? => $ram:ident,)*
+        }
+        DEVICES {
+            $($start_dev:literal $(..= $end_dev:literal)? => $dev:ident,)*
+        }
+    ) => {
         macro_rules! impl_mem_r {
             ($fn:ident, $ret:ty) => {
                 fn $fn(&mut self, addr: u32) -> MemResult<$ret> {
@@ -433,7 +440,8 @@ macro_rules! mmap {
                     }
 
                     match addr {
-                        $($start$(..=$end)? => self.$device.$fn(addr - $start),)*
+                        $($start_ram$(..=$end_ram)? => self.$ram.$fn(addr - $start_ram),)*
+                        $($start_dev$(..=$end_dev)? => self.$dev.$fn(addr - $start_dev),)*
                         _ => Err(MemException::Unexpected),
                     }
                 }
@@ -449,7 +457,8 @@ macro_rules! mmap {
                     }
 
                     match addr {
-                        $($start$(..=$end)? => self.$device.$fn(addr - $start, val),)*
+                        $($start_ram$(..=$end_ram)? => self.$ram.$fn(addr - $start_ram, val),)*
+                        $($start_dev$(..=$end_dev)? => self.$dev.$fn(addr - $start_dev, val),)*
                         _ => Err(MemException::Unexpected),
                     }
                 }
@@ -464,8 +473,11 @@ macro_rules! mmap {
             fn probe(&self, addr: u32) -> Probe {
                 let (addr, _) = self.memcon.virt_to_phys(addr);
                 match addr {
-                    $($start$(..=$end)? => {
-                        Probe::from_device(&self.$device, addr - $start)
+                    $($start_ram$(..=$end_ram)? => {
+                        Probe::from_device(&self.$ram, addr - $start_ram)
+                    })*
+                    $($start_dev$(..=$end_dev)? => {
+                        Probe::from_device(&self.$dev, addr - $start_dev)
                     })*
                     _ => Probe::Unmapped,
                 }
@@ -484,51 +496,56 @@ macro_rules! mmap {
 }
 
 mmap! {
-    0x0000_0000..=0x000f_ffff => flash,
-    0x1000_0000..=0x11ff_ffff => sdram,
-    0x4000_0000..=0x4001_7fff => fastram,
-    0x6000_0000..=0x6000_0fff => cpuid,
-    0x6000_1000..=0x6000_102f => mailbox,
-    0x6000_4000..=0x6000_41ff => intcon,
-    0x6000_5000..=0x6000_5fff => timers,
-    0x6000_6000..=0x6000_6fff => devcon,
-    0x6000_7000..=0x6000_7fff => cpucon,
-    0x6000_a000..=0x6000_bfff => dmacon,
-    0x6000_c000..=0x6000_cfff => cachecon,
-    0x6000_d000..=0x6000_d07f => gpio_abcd,
-    0x6000_d080..=0x6000_d0ff => gpio_efgh,
-    0x6000_d100..=0x6000_d17f => gpio_ijkl,
-    0x6000_d800..=0x6000_d87f => gpio_mirror_abcd,
-    0x6000_d880..=0x6000_d8ff => gpio_mirror_efgh,
-    0x6000_d900..=0x6000_d97f => gpio_mirror_ijkl,
+    RAM {
+        0x1000_0000..=0x11ff_ffff => sdram,
+        0x4000_0000..=0x4001_7fff => fastram,
+    }
 
-    0x6400_4000..=0x6400_41ff => intcon, // i guess there's a mirror?
+    DEVICES {
+        0x0000_0000..=0x000f_ffff => flash,
+        0x6000_0000..=0x6000_0fff => cpuid,
+        0x6000_1000..=0x6000_102f => mailbox,
+        0x6000_4000..=0x6000_41ff => intcon,
+        0x6000_5000..=0x6000_5fff => timers,
+        0x6000_6000..=0x6000_6fff => devcon,
+        0x6000_7000..=0x6000_7fff => cpucon,
+        0x6000_a000..=0x6000_bfff => dmacon,
+        0x6000_c000..=0x6000_cfff => cachecon,
+        0x6000_d000..=0x6000_d07f => gpio_abcd,
+        0x6000_d080..=0x6000_d0ff => gpio_efgh,
+        0x6000_d100..=0x6000_d17f => gpio_ijkl,
+        0x6000_d800..=0x6000_d87f => gpio_mirror_abcd,
+        0x6000_d880..=0x6000_d8ff => gpio_mirror_efgh,
+        0x6000_d900..=0x6000_d97f => gpio_mirror_ijkl,
 
-    0x7000_0000..=0x7000_1fff => ppcon,
-    0x7000_3000..=0x7000_301f => hd66753,
-    0x7000_6000..=0x7000_6020 => serial0,
-    0x7000_6040..=0x7000_6060 => serial1,
-    0x7000_a000..=0x7000_a003 => piezo,
-    0x7000_c000..=0x7000_cfff => i2c,
-    0x7000_2800..=0x7000_28ff => i2s,
-    0xc300_0000..=0xc300_0fff => eidecon,
-    0xf000_0000..=0xf000_ffff => memcon,
+        0x6400_4000..=0x6400_41ff => intcon, // i guess there's a mirror?
 
-    // all the stubs
+        0x7000_0000..=0x7000_1fff => ppcon,
+        0x7000_3000..=0x7000_301f => hd66753,
+        0x7000_6000..=0x7000_6020 => serial0,
+        0x7000_6040..=0x7000_6060 => serial1,
+        0x7000_a000..=0x7000_a003 => piezo,
+        0x7000_c000..=0x7000_cfff => i2c,
+        0x7000_2800..=0x7000_28ff => i2s,
+        0xc300_0000..=0xc300_0fff => eidecon,
+        0xf000_0000..=0xf000_ffff => memcon,
 
-    0x6000_1038 => mystery_irq_con,
-    0x6000_111c => mystery_irq_con,
-    0x6000_1128 => mystery_irq_con,
-    0x6000_1138 => mystery_irq_con,
-    0x6000_3000..=0x6000_30ff => total_mystery,
-    0x6000_9000..=0x6000_90ff => total_mystery,
-    // Diagnostics program reads from address, and write back 0x10000000
-    0x6000_f100..=0x6000_f11f => total_mystery,
-    0x7000_a010 => mystery_lcd_con,
-    0x7000_3800 => total_mystery,
-    0xc031_b1d8 => mystery_flash_stub,
-    0xc031_b1e8 => mystery_flash_stub,
-    // Diagnostics program writes 0xffffffff
-    0xc600_008c => firewire,
-    0xffff_fe00..=0xffff_ffff => mystery_flash_stub,
+        // all the stubs
+
+        0x6000_1038 => mystery_irq_con,
+        0x6000_111c => mystery_irq_con,
+        0x6000_1128 => mystery_irq_con,
+        0x6000_1138 => mystery_irq_con,
+        0x6000_3000..=0x6000_30ff => total_mystery,
+        0x6000_9000..=0x6000_90ff => total_mystery,
+        // Diagnostics program reads from address, and write back 0x10000000
+        0x6000_f100..=0x6000_f11f => total_mystery,
+        0x7000_a010 => mystery_lcd_con,
+        0x7000_3800 => total_mystery,
+        0xc031_b1d8 => mystery_flash_stub,
+        0xc031_b1e8 => mystery_flash_stub,
+        // Diagnostics program writes 0xffffffff
+        0xc600_008c => firewire,
+        0xffff_fe00..=0xffff_ffff => mystery_flash_stub,
+    }
 }
