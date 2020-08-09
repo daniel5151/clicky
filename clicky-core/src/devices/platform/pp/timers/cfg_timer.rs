@@ -15,7 +15,11 @@ enum InterrupterState {
     Disabled,
 }
 
-async fn interrupter_task(mut irq: irq::Sender, msg_rx: async_channel::Receiver<InterrupterState>) {
+async fn interrupter_task(
+    label: &'static str,
+    mut irq: irq::Sender,
+    msg_rx: async_channel::Receiver<InterrupterState>,
+) {
     let mut state = InterrupterState::Disabled;
 
     loop {
@@ -30,6 +34,7 @@ async fn interrupter_task(mut irq: irq::Sender, msg_rx: async_channel::Receiver<
                 Some({
                     let now = Instant::now();
                     if next < now {
+                        warn!("Timer{} can't keep up!", label);
                         Duration::from_secs(0)
                     } else {
                         next - now
@@ -98,7 +103,7 @@ impl CfgTimer {
         task_spawner
             .spawn({
                 let irq_clone = irq.clone();
-                interrupter_task(irq_clone, interrupter_rx)
+                interrupter_task(label, irq_clone, interrupter_rx)
             })
             .expect("failed to spawn timer task");
 

@@ -3,3 +3,4 @@ members = ["clicky-core", "clicky-desktop", "clicky-web", "relativity"]
 
 [profile.release]
 panic = "abort"
+debug = true

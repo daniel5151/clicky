@@ -34,6 +34,7 @@ impl Changed {
 
     /// Checks if any connected GPIO lines have changed since the last call to
     /// `check_and_clear`.
+    #[inline]
     pub fn check_and_clear(&self) -> bool {
         self.trigger.check_and_clear()
     }
@@ -47,6 +48,7 @@ pub struct Reciever {
 
 impl Reciever {
     /// Checks if the GPIO line is high.
+    #[inline]
     pub fn is_high(&self) -> bool {
         self.slave.asserted()
     }
@@ -62,16 +64,19 @@ pub struct Sender {
 
 impl Sender {
     /// Set the GPIO line high.
+    #[inline]
     pub fn set_high(&mut self) {
         self.master.assert()
     }
 
     /// Set the GPIO line low.
+    #[inline]
     pub fn set_low(&mut self) {
         self.master.clear()
     }
 
     /// Check if this sender is setting the signal high.
+    #[inline]
     pub fn is_set_high(&self) -> bool {
         self.master.is_asserting()
     }

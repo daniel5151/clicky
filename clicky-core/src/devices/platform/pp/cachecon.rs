@@ -54,6 +54,9 @@ impl Memory for CacheCon {
         match offset {
             0x00 => {
                 self.local_evt = val.get_bit(4);
+                if self.local_evt {
+                    return Err(Fatal("local exception vector table not implemented".into()));
+                }
                 self.cache_ctrl_enable = val.get_bit(1);
                 Err(StubWrite(Error, ()))
             }

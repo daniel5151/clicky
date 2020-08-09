@@ -79,16 +79,19 @@ impl Trigger {
     }
 
     /// Retrieves and un-sets the trigger.
+    #[inline]
     pub fn check_and_clear(&self) -> bool {
         self.trigger.fetch_and(false, Ordering::SeqCst)
     }
 
     /// Retrieves the trigger.
+    #[inline]
     pub fn check(&self) -> bool {
         self.trigger.load(Ordering::SeqCst)
     }
 
     /// Un-sets the trigger.
+    #[inline]
     pub fn clear(&self) {
         self.trigger.store(false, Ordering::SeqCst)
     }
@@ -155,6 +158,7 @@ impl Master {
     }
 
     /// Check if this Master is asserting the signal.
+    #[inline]
     pub fn is_asserting(&self) -> bool {
         self.own_signal.load(Ordering::SeqCst)
     }

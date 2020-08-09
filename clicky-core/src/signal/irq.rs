@@ -32,12 +32,14 @@ impl Pending {
     }
 
     /// Checks if any connected IRQs have been fired.
+    #[inline]
     pub fn check(&self) -> bool {
         self.trigger.check()
     }
 
     /// Checks if any connected IRQs have been fired since the last call to
     /// `check_pending`.
+    #[inline]
     pub fn clear(&self) -> bool {
         self.trigger.check()
     }
@@ -51,6 +53,7 @@ pub struct Reciever {
 
 impl Reciever {
     /// Checks if the IRQ has been set.
+    #[inline]
     pub fn asserted(&self) -> bool {
         self.slave.asserted()
     }
@@ -66,16 +69,19 @@ pub struct Sender {
 
 impl Sender {
     /// Signal an IRQ.
+    #[inline]
     pub fn assert(&mut self) {
         self.master.assert()
     }
 
     /// Clears an IRQ.
+    #[inline]
     pub fn clear(&mut self) {
         self.master.clear()
     }
 
     /// Check if this sender is setting the signal high.
+    #[inline]
     pub fn is_asserting(&self) -> bool {
         self.master.is_asserting()
     }
