@@ -23,6 +23,10 @@ use hle_bootloader::run_hle_bootloader;
 use crate::devices::platform::pp::common::*;
 use crate::devices::util::{ArcMutexDevice, MemSniffer};
 mod devices {
+    pub mod i2c {
+        pub use crate::devices::i2c::devices::Pcf5060x;
+    }
+
     pub use crate::devices::{
         display::hd66753::Hd66753,
         generic::{ide, AsanRam, Stub},
@@ -391,7 +395,7 @@ impl Ipod4gBus {
         let dmacon = DmaCon::new(ide_dmarq_rx);
 
         let mut i2ccon = I2CCon::new(i2c_irq_tx.clone());
-        i2ccon.register_device(0x08, Box::new(i2c_devices::Pcf5060x::new()));
+        i2ccon.register_device(0x08, Box::new(i2c::Pcf5060x::new()));
 
         use devices::*;
         Ipod4gBus {

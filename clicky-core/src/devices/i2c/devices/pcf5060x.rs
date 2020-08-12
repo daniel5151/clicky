@@ -1,11 +1,9 @@
-use crate::devices::prelude::*;
+use crate::devices::i2c::prelude::*;
 
 use std::convert::TryFrom;
 
 use chrono::{Datelike, Local, Timelike};
 use num_enum::TryFromPrimitive;
-
-use super::I2CDevice;
 
 /// PCF5060x - Controller for Power Supply and Battery Management + RTC
 #[derive(Debug)]

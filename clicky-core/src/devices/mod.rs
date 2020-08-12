@@ -10,6 +10,7 @@ pub mod prelude;
 
 pub mod display;
 pub mod generic;
+pub mod i2c;
 pub mod platform;
 pub mod util;
 
