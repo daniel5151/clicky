@@ -188,6 +188,7 @@ impl I2CCon {
         let res = match self.devices[addr as usize] {
             Some(ref mut device) => {
                 let mut err = Ok(());
+
                 for b in self.data.iter_mut().take(len as usize + 1) {
                     // TODO: replace with try block once stabilized
                     let res = (|| match op {
@@ -212,6 +213,11 @@ impl I2CCon {
                         err = Err(e);
                     }
                 }
+
+                if op == I2COp::Write {
+                    device.write_done()?;
+                }
+
                 err
             }
             None => Err(match op {
@@ -219,6 +225,7 @@ impl I2CCon {
                 I2COp::Write => StubWrite(Debug, ()),
             }),
         };
+
         trace!(
             target: "I2C",
             "i2c txn: {:02x?} {:02x?}",
