@@ -128,7 +128,7 @@ impl Ipod4g {
         }
 
         {
-            sys.devices.i2c.register_controls(controls_rx, hold_rx)
+            sys.devices.opto.register_controls(controls_rx, hold_rx)
         }
 
         // HACK: Hold is active-low, so set it to high by default
@@ -182,11 +182,14 @@ impl Ipod4g {
             let mut mem = MemoryAdapter::new(&mut sniffer);
             cpu.step(&mut mem);
             if let Some((access, e)) = mem.exception.take() {
-                e.resolve(|| MemExceptionCtx {
-                    pc: cpu.reg_get(cpu.mode(), reg::PC),
-                    access,
-                    in_device: format!("{}", devices.probe(access.offset)),
-                })?;
+                e.resolve(
+                    "MMIO",
+                    MemExceptionCtx {
+                        pc: cpu.reg_get(cpu.mode(), reg::PC),
+                        access,
+                        in_device: format!("{}", devices.probe(access.offset)),
+                    },
+                )?;
             }
         }
 
@@ -228,7 +231,7 @@ impl Ipod4g {
             devices.gpio_ijkl.lock().unwrap().update();
         }
         if self.i2c_changed.check_and_clear() {
-            devices.i2c.on_change();
+            devices.opto.on_change();
         }
 
         if self.irq_pending.check() {
@@ -317,7 +320,8 @@ pub struct Ipod4gBus {
     pub gpio_mirror_abcd: devices::GpioBlockAtomicMirror,
     pub gpio_mirror_efgh: devices::GpioBlockAtomicMirror,
     pub gpio_mirror_ijkl: devices::GpioBlockAtomicMirror,
-    pub i2c: devices::I2CCon,
+    pub i2ccon: devices::I2CCon,
+    pub opto: devices::OptoWheel,
     pub ppcon: devices::PPCon,
     pub devcon: devices::DevCon,
     pub intcon: devices::IntCon,
@@ -386,6 +390,9 @@ impl Ipod4gBus {
 
         let dmacon = DmaCon::new(ide_dmarq_rx);
 
+        let mut i2ccon = I2CCon::new(i2c_irq_tx.clone());
+        i2ccon.register_device(0x08, Box::new(i2c_devices::Pcf5060x::new()));
+
         use devices::*;
         Ipod4gBus {
             sdram: AsanRam::new(32 * 1024 * 1024, true), // 32 MB
@@ -403,7 +410,8 @@ impl Ipod4gBus {
             gpio_mirror_abcd: GpioBlockAtomicMirror::new(gpio_mirror_abcd),
             gpio_mirror_efgh: GpioBlockAtomicMirror::new(gpio_mirror_efgh),
             gpio_mirror_ijkl: GpioBlockAtomicMirror::new(gpio_mirror_ijkl),
-            i2c: I2CCon::new(i2c_irq_tx),
+            i2ccon,
+            opto: OptoWheel::new(i2c_irq_tx),
             ppcon: PPCon::new(),
             devcon: DevCon::new(),
             intcon,
@@ -531,7 +539,8 @@ mmap! {
         0x7000_6000..=0x7000_6020 => serial0,
         0x7000_6040..=0x7000_6060 => serial1,
         0x7000_a000..=0x7000_a003 => piezo,
-        0x7000_c000..=0x7000_cfff => i2c,
+        0x7000_c000..=0x7000_c0ff => i2ccon,
+        0x7000_c100..=0x7000_c1ff => opto,
         0x7000_2800..=0x7000_28ff => i2s,
         0xc300_0000..=0xc300_0fff => eidecon,
         0xf000_0000..=0xf000_ffff => memcon,

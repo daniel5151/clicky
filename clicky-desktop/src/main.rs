@@ -93,6 +93,7 @@ fn main() -> DynResult<()> {
         .filter(None, log::LevelFilter::Error)
         .filter(Some("clicky"), log::LevelFilter::Trace)
         .filter(Some("MMIO"), log::LevelFilter::Info)
+        .filter(Some("I2C"), log::LevelFilter::Info)
         .filter(Some("armv4t_emu"), log::LevelFilter::Debug)
         .parse_filters(&std::env::var("RUST_LOG").unwrap_or_default())
         .init();

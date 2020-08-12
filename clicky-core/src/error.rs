@@ -23,6 +23,17 @@ pub enum MemException {
     /// An unrecoverable error which should immediately terminate execution.
     Fatal(String),
 
+    // -- Wrappers -- //
+    /// Denotes exception as having occurred during an i2c operation.
+    ///
+    /// XXX: this is a really ugly approach to handling i2c exceptions...
+    I2CException {
+        e: Box<MemException>,
+        // context
+        access: MemAccess,
+        in_device: String,
+    },
+
     // -- Guest Access Violations -- //
     /// Attempted to access a device at an invalid offset.
     Misaligned,
@@ -76,14 +87,16 @@ pub struct FatalMemException {
 
 impl MemException {
     /// Handle the memory exception, potentially returning a FatalMemException.
-    ///
-    /// The `ctx` object is only created if required.
-    pub fn resolve(self, ctx: impl FnOnce() -> MemExceptionCtx) -> Result<(), FatalMemException> {
+    pub fn resolve(
+        self,
+        target: &'static str,
+        ctx: MemExceptionCtx,
+    ) -> Result<(), FatalMemException> {
         macro_rules! mlog {
             (($level:ident, $ctx:ident) => ($($args:tt)*)) => {
                 if log_enabled!($level) {
-                    let $ctx = $ctx();
-                    log!(target: "MMIO", $level, $($args)*)
+                    let $ctx = $ctx;
+                    log!(target: target, $level, $($args)*)
                 }
             };
         }
@@ -97,10 +110,23 @@ impl MemException {
                 mlog! { (level, ctx) => ("{} stubbed write ({})", ctx, ctx.access.val) }
             }
             Log(level, msg) => mlog! { (level, ctx) => ("{} {}", ctx, msg) },
+            // XXX: absolutely disgusting way to handle i2c exceptions, yikes
+            I2CException {
+                e,
+                access,
+                in_device,
+            } => e.resolve(
+                "I2C",
+                MemExceptionCtx {
+                    pc: ctx.pc,
+                    access,
+                    in_device,
+                },
+            )?,
             // FIXME?: Misaligned access (i.e: Data Abort) should be a CPU exception
             Misaligned => {
                 return Err(FatalMemException {
-                    context: ctx(),
+                    context: ctx,
                     reason: self,
                 });
             }
@@ -113,7 +139,7 @@ impl MemException {
                 // terminate execution
                 if severity == log::Level::Error {
                     return Err(FatalMemException {
-                        context: ctx(),
+                        context: ctx,
                         reason: ContractViolation {
                             msg,
                             severity,
@@ -126,7 +152,7 @@ impl MemException {
             }
             Unexpected | Unimplemented | Fatal(_) | MmuViolation | InvalidAccess => {
                 return Err(FatalMemException {
-                    context: ctx(),
+                    context: ctx,
                     reason: self,
                 })
             }
