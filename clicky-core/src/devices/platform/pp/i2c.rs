@@ -302,15 +302,7 @@ impl Memory for I2CCon {
     }
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
-        let val = if val > 0xff {
-            return Err(ContractViolation {
-                msg: ">8-bit access to a 8-bit interface".into(),
-                severity: Error,
-                stub_val: None,
-            });
-        } else {
-            val as u8
-        };
+        let val = val.trunc_to_u8()?;
 
         match offset {
             0x00 => Err(StubWrite(Trace, {

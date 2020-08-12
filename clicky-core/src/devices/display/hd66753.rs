@@ -413,10 +413,11 @@ impl Memory for Hd66753 {
             return Err(StubWrite(Error, ()));
         }
 
-        let val = val as u8; // the iPod uses the controller via an 8-bit interface
+        // the iPod uses the controller via an 8-bit interface
+        let val = val as u8; // FIXME: this should use trunc_to_u8, but it crashes...
         let val = match self.write_byte_latch.take() {
             None => {
-                self.write_byte_latch = Some(val as u8);
+                self.write_byte_latch = Some(val);
                 return Ok(());
             }
             Some(hi) => (hi as u16) << 8 | (val as u16),

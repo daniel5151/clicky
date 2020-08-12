@@ -70,7 +70,7 @@ impl Memory for Serial {
     }
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
-        let val = val as u8;
+        let val = val.trunc_to_u8()?;
 
         match offset {
             0x0 => Ok({

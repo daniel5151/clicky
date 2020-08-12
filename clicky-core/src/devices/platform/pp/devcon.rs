@@ -9,7 +9,7 @@ pub struct DevCon {
     pll_control: u32,
     pll_status: u32,
     cache_priority: u8,
-    mystery_i2c: u8,
+    mystery_i2c: u32,
     mystery: [u32; 1],
 }
 
@@ -64,7 +64,7 @@ impl Memory for DevCon {
             0x34 => Ok(self.pll_control),
             0x3c => Ok(self.pll_status),
             0x44 => Err(StubRead(Error, self.cache_priority as u32)),
-            0xa4 => Err(StubRead(Error, self.mystery_i2c as u32)),
+            0xa4 => Err(StubRead(Error, self.mystery_i2c)),
             0xc4 => Err(InvalidAccess),
             0xc8 => Err(StubRead(Error, self.mystery[0])),
             _ => Err(Unexpected),
@@ -81,16 +81,10 @@ impl Memory for DevCon {
             0x34 => Err(StubWrite(Trace, self.pll_control = val)),
             0x3c => Err(StubWrite(Trace, self.pll_status = val)),
             0x44 => Err(StubWrite(Warn, {
-                self.cache_priority = val as u8;
-                if val > 0xff {
-                    return Err(ContractViolation {
-                        msg: "wrote non 8-bit value to cache_priority".into(),
-                        severity: Error,
-                        stub_val: None,
-                    });
-                }
+                let val = val.trunc_to_u8()?;
+                self.cache_priority = val;
             })),
-            0xa4 => Err(StubWrite(Error, self.mystery_i2c = val as u8)),
+            0xa4 => Err(StubWrite(Error, self.mystery_i2c = val)),
             0xc4 => Err(StubWrite(Info, ())),
             0xc8 => Err(StubWrite(Error, self.mystery[0] = val)),
             _ => Err(Unexpected),

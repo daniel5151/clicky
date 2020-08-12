@@ -821,15 +821,16 @@ impl IdeController {
     /// Perform a 16-bit write to an IDE register.
     ///
     /// NOTE: This method respects the current data-transfer size configuration
-    /// of the IDE device. If the IDE device is running in 8-bit mode, this
-    /// method will return the appropriate byte, albeit cast to a u16.
+    /// of the IDE device. If the IDE device is running in 8-bit mode but the
+    /// value is >8 bits, a ContractViolation error will occur.
     pub fn write16(&mut self, reg: IdeReg, val: u16) -> MemResult<()> {
         match reg {
             IdeReg::Data => {
                 let ide = selected_ide!(self)?;
 
                 if ide.cfg.eightbit {
-                    ide.data_write8(val as u8)?;
+                    let val = val.trunc_to_u8()?;
+                    ide.data_write8(val)?;
                 } else {
                     ide.data_write8(val as u8)?;
                     ide.data_write8((val >> 8) as u8)?;
@@ -880,7 +881,7 @@ impl IdeController {
         };
 
         match reg {
-            Data => ide.data_write8(val as u8),
+            Data => ide.data_write8(val),
             Features | Error => Ok(ide.reg.feature = val),
             SectorCount => Ok(ide.reg.sector_count = val),
             SectorNo | Lba0 => Ok(ide.reg.lba0_sector_no = val),
