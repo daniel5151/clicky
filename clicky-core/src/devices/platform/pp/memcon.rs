@@ -287,28 +287,26 @@ impl Memory for MemConImpl {
             0xf000..=0xf03f if offset & 4 == 0 => {
                 let no = (offset - 0xf000) / 8;
                 self.mmap[no as usize].logical = val;
+                warn!(
+                    target: "MMIO",
+                    "virt_addr:{:x}, mask:{:x}",
+                    val.get_bits(16..=29) << 16,
+                    val.get_bits(0..=13) << 16,
+                );
 
-                Err(Log(
-                    Debug,
-                    format!(
-                        "virt_addr:{:x}, mask:{:x}",
-                        val.get_bits(16..=29) << 16,
-                        val.get_bits(0..=13) << 16,
-                    ),
-                ))
+                Err(StubWrite(Warn, ()))
             }
             0xf000..=0xf03f if offset & 4 != 0 => {
                 let no = (offset - 0xf000) / 8;
                 self.mmap[no as usize].physical = val;
 
-                Err(Log(
-                    Debug,
-                    format!(
-                        "phys_addr:{:x}, rwdx:{:04b}",
-                        val.get_bits(16..=29) << 16,
-                        val.get_bits(8..=11),
-                    ),
-                ))
+                warn!(
+                    target: "MMIO",
+                    "phys_addr:{:x}, rwdx:{:04b}",
+                    val.get_bits(16..=29) << 16,
+                    val.get_bits(8..=11),
+                );
+                Err(StubWrite(Warn, ()))
             }
             0xf040 => Err(StubWrite(Info, self.cache_mask = val)),
             0xf044 => Err(StubWrite(Info, self.cache_control = val)),

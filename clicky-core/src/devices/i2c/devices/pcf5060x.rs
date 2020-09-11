@@ -314,6 +314,7 @@ impl Pcf5060xImpl {
             ADCC2__ => Err(StubRead(Trace, 0)),
             ADCS1__ => Err(StubRead(Trace, 0)),
             ADCS2__ => Err(StubRead(Trace, 0)),
+            ADCS3__ => Err(StubRead(Trace, 0)),
             // Battery Voltage Monitor (BVM)
             BVMC___ => Ok(self.bvmc),
             _ => Err(Unimplemented),
@@ -362,6 +363,7 @@ impl Pcf5060xImpl {
             ADCC2__ => Err(StubWrite(Trace, ())),
             ADCS1__ => Err(InvalidAccess),
             ADCS2__ => Err(InvalidAccess),
+            ADCS3__ => Err(InvalidAccess),
             // Battery Voltage Monitor (BVM)
             BVMC___ => Ok(self.bvmc = data),
             _ => Err(Unimplemented),

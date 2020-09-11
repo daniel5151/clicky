@@ -11,9 +11,6 @@ pub enum MemException {
     StubRead(log::Level, u32),
     /// Memory location is using a stubbed write implementation.
     StubWrite(log::Level, ()),
-    /// Success, but also log log a message.
-    // HACK: there should be some way to pipe context to the devices themselves?
-    Log(log::Level, String),
 
     // -- Internal Emulator Errors -- //
     /// Memory location that shouldn't have been accessed.
@@ -109,7 +106,6 @@ impl MemException {
             StubWrite(level, ()) => {
                 mlog! { (level, ctx) => ("{} stubbed write ({})", ctx, ctx.access.val) }
             }
-            Log(level, msg) => mlog! { (level, ctx) => ("{} {}", ctx, msg) },
             // XXX: absolutely disgusting way to handle i2c exceptions, yikes
             I2CException {
                 e,
