@@ -1,8 +1,12 @@
-# clicky
+<div align="center">
+    <img height="120px" src="screenshots/logo-cropped.png" alt="clicky logo">
+    <h1>clicky</h1>
+    <p>A clickwheel iPod emulator.</p>
+</div>
 
-A WIP clickwheel iPod emulator.
+---
 
-**Current focus:** Getting [Rockbox](https://www.rockbox.org/) up and running.
+**Current focus:** Getting [Rockbox](https://www.rockbox.org/) up and running on an emulated [iPod 4G (Grayscale)](https://everymac.com/systems/apple/ipod/specs/ipod_4thgen.html).
 
 Here are some clips:
 
@@ -21,7 +25,26 @@ Here are some clips:
 
 `clicky` is still in it's early stages, and there hasn't been much effort put into making it easy to use.
 
-That said, if you're a cool [hackerman](https://www.youtube.com/watch?v=V4MF2s6MLxY) who can [jam with the console cowboys in cyberspace](https://www.youtube.com/watch?v=BNtcWpY4YLY), check out the [Quickstart](#quickstart) and/or [`DEVGUIDE.md`](https://github.com/daniel5151/clicky/blob/master/DEVGUIDE.md) for info on how to build `clicky` and start running iPod software!
+That said, if you're a cool [hackerman](https://www.youtube.com/watch?v=V4MF2s6MLxY) who can [jam with the console cowboys in cyberspace](https://www.youtube.com/watch?v=BNtcWpY4YLY), check out the [`QUICKSTART.md`](https://github.com/daniel5151/clicky/blob/master/docs/QUICKSTART.md) and/or [`DEVGUIDE.md`](https://github.com/daniel5151/clicky/blob/master/docs/DEVGUIDE.md) for info on how to build `clicky` and start running iPod software!
+
+<p>
+    Join the Developer Discord!
+    <a href="https://discord.gg/kRmKZy7">
+        <img  src="https://img.shields.io/discord/754122157876838441?logo=discord" alt="chat on Discord">
+    </a>
+</p>
+
+## Call for Contributors!
+
+Up until now, `clicky` has been a one-man hobby project, and while it's been a great way to kill time during my impromptu COVID-induced "staycation" that spanned the months between University graduation and starting full time work, I won't have too much time to dedicate to `clicky` moving forwards.
+
+As such, I'm hoping to find a couple folks out there who might be interested in pushing this project forwards!
+
+I've tried to keep the project as clean and well organized as possible, with plenty of inline comments and documentation. I've also included detailed developer-focused documentation under the `docs` folder.
+
+Additionally, I've kept collected a fairly extensive corpus of iPod documentation / test software which is included in-tree under the `resources` folder.
+
+**If you're interested in emulating an iconic piece of early 2000s pop-culture, don't hesitate to get in touch!**
 
 ---
 
@@ -48,122 +71,13 @@ The 5g is the first iPod model to support [iPod Games](https://en.wikipedia.org/
 
 Theoretically, it wouldn't be too difficult to support all the different generations of iPod models (since they all share roughly the same hardware).
 
-## Quickstart
-
-As mentioned earlier, **this project is not ready for general use yet!** This quickstart guide is aimed at _developers_.
-
-`clicky` is split up into multiple crates:
-
-| crate            | type |                                                                                  |
-| ---------------- | ---- | -------------------------------------------------------------------------------- |
-| `clicky-core`    | lib  | Platform agnostic emulator code.                                                 |
-| `relativity`     | lib  | Cross-platform timers and `Instant` which can be paused/resumed/shifted in time. |
-| `clicky-desktop` | bin  | A native CLI + GUI to interact with `clicky-core`.                               |
-| `clicky-web`     | bin  | Run `clicky` on the web using the power of `wasm`! (_very_ WIP)                  |
-
-At the moment, the recommended frontend to use is **`clicky-desktop`**.
-
-See the `README.md` files under the `clicky-desktop` and `clicky-web` directories for build instructions.
-
-_Note:_ `clicky` is primarily developed and tested on Linux, though it is being written with cross-platform support in mind. At some point, I do intend to set up a CI to ensure `clicky` compiles on Windows/macOS, but until that point, please file an issue if `clicky` doesn't compile on your system.
-
-_Note:_ All scripts and snippets below assume you're running a Unix-like environment. If you're on Windows, I recommend using WSL to run the various scripts mentioned below.
-
-### Obtaining iPod software
-
-What good is an emulator without any software?
-
-Unfortunately, getting iPod software isn't super simple, and wrangling it into the right format to work with `clicky` can be kinda tricky.
-
-#### Creating a blank HDD image
-
-`scripts/rawhd/make_rawhd.sh` is used to create a bare-bones iPod disk image for testing and development. The resulting disk image is only 64MiB in size, and uses WinPod formatting (MBR). It contains two partitions: an iPod firmware partition, and a FAT32 partition.
-
-Getting data onto the disk image is a bit finicky. On Linux, you can run `sudo mount -o loop,offset=$((12288 * 512)) ipodhd.img tmp/` to mount the FAT32 partition. The specific offset number corresponds to the location of the FAT32 partition in the disk image, which can be determined by running `fdisk -lu ipodhd.img`. Alternatively, you can use `mtools` to copy files/folders over without having to mount the image file. Check out the various scripts under `scripts/rawhd` for examples of how to manipulate data on the disk image.
-
-`scripts/rawhd/make_rawhd.sh` accepts a single argument: a path to a iPod firmware file. If no firmware file is provided, the firmware partition will be left empty.
-
-#### Building + Running some test firmwares
-
-I've included the source of `ipodloader` and `ipodloader2` in-tree under `./resources/`, and fixed-up their makefiles / sources to compile under more recent gcc toolchains (namely: `gcc-arm-none-eabi`). Additionally, I've tweaked some compiler flags to disable optimizations + enable debug symbols, which should make debugging a lot easier.
-
-These test images doesn't really do much, as `loop.bin` is simply a placeholder which loops forever once it's loaded. That said, these images can serve as a good smoke tests to check if various bits of hardware are working as intended.
-
-Once the correct toolchain is installed, you can build some iPod firmware images based on `ipodloader` and `ipodloader2` by running:
-
-```bash
-# ipodloader test firmware
-cd ./resources/ipodloader
-make
-./make_fw -v -g 4g -o ipodloader_loops_unopt.bin -l ../loop.bin -l ../loop.bin loader.bin
-cd ../../
-# ipodloader2 test firmware. reuses the `make_fw` utility from ipodloader
-cd ./resources/ipodloader2
-make
-../ipodloader/make_fw -v -g 4g -o ipodloader2_loop.bin -l ../loop.bin loader.bin
-```
-
-Additionally, `ipodloader2` requires a valid HDD to be present:
-
-```bash
-# creates an `ipodhd.img` raw disk image with `ipodloader2_loop.bin`
-./scripts/rawhd/make_rawhd.sh ./resources/ipodloader2/ipodloader2_loop.bin
-./scripts/rawhd/add_ipodloader_cfg.sh # enables debug output, so it's not just a white screen
-```
-
-With the images built, it should be possible to run them in `clicky`!
-
-e.g: using `clicky-desktop`:
-
-```bash
-cargo run -p clicky-desktop --release -- --hle=./resources/ipodloader/ipodloader_loops_unopt.bin --hdd=null:len=1GiB
-cargo run -p clicky-desktop --release -- --hle=./resources/ipodloader2/ipodloader2_loop.bin --hdd=raw:file=ipodhd.img
-```
-
-`ipodloader_loops_unopt.bin` should display an image of the iPodLinux Tux and then loop forever. It's not really useful other than as a smoke-test to make sure `clicky` is somewhat working as intended.
-
-`ipodloader2_loop.bin` should display a menu of various boot options. It's more complex than `ipodloader` v1, and serves as a great testbed for implementing / testing all sorts of misc ipod hardware.
-
-#### Building + Running Rockbox
-
-[Rockbox](https://www.rockbox.org/) is an open source firmware replacement for digital music players, including the iPod.
-
-The Rockbox documentation recommends using the `ipodpatcher` utility to install Rockbox. Unfortunately, `ipodpatcher` doesn't support writing directly to a disk image, so instead, I recommend building Rockbox + the Rockbox bootloader manually, and using the `make_fw` utility (included with the `ipoadloader` source code in-repo) to create a firmware image. The added benefit of this approach is that it's possible to compile Rockbox with debug symbols, which is incredibly helpful for debugging!
-
-Building Rockbox from source is relatively straightforward. Just clone the repo, and follow the steps in the README. A couple of things to look out for:
-
--   Use `../tools/configure --compiler-prefix=arm-none-eabi-` to compile Rockbox using the modern `arm-none-eabi-` toolchain.
--   When compiling Rockbox, select the `(A)dvanced` option, and enable `(D)EBUG` and `(L)ogf`.
-    -   Don't forget to run `make zip` after compiling!
--   When compiling the Rockbox bootloader, you'll have to manually edit the resulting `Makefile` to pass `-g` to the compiler to enable debug symbols.
-
-Once the bootloader (`bootloader.bin`) and the main firmware image (`rockbox.ipod`) have been compiled successfully, you can use the `make_fw` utility to create a firmware image binary.
-
-```bash
-make_fw -v -g 4g -o rockbox_fw.bin -i rockbox.ipod bootloader.bin
-```
-
-The firmware image + rockbox.zip can then be loaded onto a HDD image:
-
-```bash
-# creates an `ipodhd.img` raw disk image with `ipodloader2_loop.bin`
-./scripts/rawhd/make_rawhd.sh /path/to/rockbox_fw.bin
-./scripts/rawhd/copy_rockbox.sh /path/to/rockbox.zip
-```
-
-Finally, the firmware image + disk image can be loaded into clicky:
-
-```bash
-cargo run -p clicky-desktop --release -- --hle=/path/to/rockbox_fw.bin --hdd=mem:file=ipodhd.img
-```
-
-When debugging, load debugging symbols from `bootloader.elf` and `rockbox.elf`.
-
 ## Roadmap
+
+_Note:_ This roadmap was written fairly early in the project's development, and hasn't been updated in a while. It's still mostly accurate, though in hindsight, it seems to under/overestimate how complicated certain features are to implement.
 
 The plan is to implement devices and hardware "just in time" throughout development, instead of attempting to one-shot the entire SoC right off the bat. As such, the idea is to gradually test more and more complex software in the emulator, implementing more and more hardware as required.
 
-_Note:_ This roadmap was written fairly early in the project's development, and hasn't been updated in a while. It's still mostly accurate, though in hindsight, it seems to under/overestimate how complicated certain features are to implement.
+Stage 1 will be to run some basic bootloader software, and get a feel for the hardware:
 
 -   [x] Execute something _really_ basic, such as https://github.com/iPodLinux/ipodloader/
     -   This rough-little bit of software is simple enough to step through and understand fully, making it a great launching off point for the project.
@@ -181,9 +95,12 @@ _Note:_ This roadmap was written fairly early in the project's development, and 
     -   Seems to do more in-depth system init (i.e: interrupt handling, memory mapping)
     -   **Goals:**
         -   Expand on the system architecture + implemented devices
+
+Stage 2 will be to running some popular open-source iPod alternative firmwares, such as Rockbox and iPodLinux.
+Since these projects are open source, is should be possible to trace through the code, making implementing devices / debugging issues a lot easier.
+
 -   [x] Boot into [Rockbox](https://www.rockbox.org/)
     -   A gargantuan task, one which will involve implementing a _lot_ of misc. hardware
-    -   Since the OS is open source, is should be possible to trace through the code, making debugging a lot easier.
     -   **Goals:**
         -   Boot an actual OS on the iPod
 -   [ ] Boot into [iPod Linux](http://www.ipodlinux.org/)
@@ -191,6 +108,9 @@ _Note:_ This roadmap was written fairly early in the project's development, and 
     -   **Goals:**
         -   Boot _another_ actual OS on the iPod
         -   Fill in the gaps between the hardware Rockbox uses, and the hardware iPod Linux uses
+
+Stage 3 will involve running closed-source Apple software, notably, the original iPod RetailOS:
+
 -   [ ] Boot / pass the Apple Diagnostics program
     -   If you press and hold the Select+Prev while an iPod is booting up, a diagnostics program built directly into the Flash ROM is executed!
     -   This would likely be the first closed source software the emulator runs.
@@ -226,7 +146,7 @@ Once things seem stable, it shouldn't be _too_ difficult to get the iPod 5g up a
 
 ## Fluff: Why emulate the iPod?
 
-'cause it's a neat technical challenge lol.
+'cause it's a neat technical challenge! :smile:
 
 Compared to my last big emulation project ([ANESE](https://prilik.com/ANESE), a NES emulator that [automatically maps out NES games](https://prilik.com/blog/wideNES)), the iPod presents a totally different set of technical challenges to overcome.
 
