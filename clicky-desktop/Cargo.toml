@@ -11,7 +11,7 @@ default = ["minifb"]
 clicky-core = { path = "../clicky-core/" }
 
 cfg-if = "0.1"
-gdbstub = "0.2"
+gdbstub = "0.4"
 human-size = "0.4"
 log = "0.4"
 pretty_env_logger = "0.3"

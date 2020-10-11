@@ -1,10 +1,15 @@
 use std::collections::HashMap;
 
 use armv4t_emu::reg;
-use gdbstub::{
-    arch, outputln, BreakOp, ConsoleOutput, OptResult, ResumeAction, StopReason, Target, Tid,
-    TidSelector, WatchKind,
+use gdbstub::arch;
+use gdbstub::common::Tid;
+use gdbstub::target;
+use gdbstub::target::ext::base::multithread::{
+    Actions, MultiThreadOps, ResumeAction, ThreadStopReason,
 };
+use gdbstub::target::ext::breakpoints::WatchKind;
+use gdbstub::target::ext::monitor_cmd::{outputln, ConsoleOutput};
+use gdbstub::target::{Target, TargetResult};
 
 use crate::devices::Device;
 use crate::error::*;
@@ -12,10 +17,16 @@ use crate::memory::{MemAccessKind, Memory};
 
 use super::{BlockMode, CpuId, Ipod4g};
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum Event {
+    Break,
+    WatchWrite(u32),
+    WatchRead(u32),
+}
+
 pub struct Ipod4gGdb {
     sys: Ipod4g,
 
-    selected_core: CpuId,
     watchpoints: Vec<u32>,
     watchpoint_kinds: HashMap<u32, MemAccessKind>,
     breakpoints: Vec<u32>,
@@ -25,7 +36,6 @@ impl Ipod4gGdb {
     pub fn new(sys: Ipod4g) -> Ipod4gGdb {
         Ipod4gGdb {
             sys,
-            selected_core: CpuId::Cpu,
             watchpoints: Vec::new(),
             watchpoint_kinds: HashMap::new(),
             breakpoints: Vec::new(),
@@ -40,7 +50,7 @@ impl Ipod4gGdb {
         &mut self.sys
     }
 
-    fn step(&mut self) -> Result<Option<(Tid, StopReason<u32>)>, FatalMemException> {
+    fn step(&mut self) -> Result<Option<(Event, CpuId)>, FatalMemException> {
         let mut hit_watchpoint = None;
 
         let watchpoint_kinds = &self.watchpoint_kinds;
@@ -66,17 +76,13 @@ impl Ipod4gGdb {
                 pc - if cpu.thumb_mode() { 2 } else { 4 },
             );
 
-            let reason = match access.kind {
-                MemAccessKind::Read => StopReason::Watch {
-                    kind: WatchKind::Read,
-                    addr: access.offset,
+            return Ok(Some((
+                match access.kind {
+                    MemAccessKind::Read => Event::WatchRead(access.offset),
+                    MemAccessKind::Write => Event::WatchWrite(access.offset),
                 },
-                MemAccessKind::Write => StopReason::Watch {
-                    kind: WatchKind::Write,
-                    addr: access.offset,
-                },
-            };
-            return Ok(Some((cpuid_to_tid(id), reason)));
+                id,
+            )));
         }
 
         for (id, cpu) in &mut [
@@ -85,7 +91,7 @@ impl Ipod4gGdb {
         ] {
             let pc = cpu.reg_get(cpu.mode(), reg::PC);
             if self.breakpoints.contains(&pc) {
-                return Ok(Some((cpuid_to_tid(*id), StopReason::SwBreak)));
+                return Ok(Some((Event::Break, *id)));
             }
         }
 
@@ -142,35 +148,78 @@ fn cpuid_to_tid(id: CpuId) -> Tid {
     }
 }
 
+fn tid_to_cpuid(tid: Tid) -> Option<CpuId> {
+    Some(match tid.get() {
+        1 => CpuId::Cpu,
+        2 => CpuId::Cop,
+        _ => return None,
+    })
+}
+
+fn event_to_stopreason(e: Event, id: CpuId) -> ThreadStopReason<u32> {
+    let tid = cpuid_to_tid(id);
+    match e {
+        Event::Break => ThreadStopReason::SwBreak(tid),
+        Event::WatchWrite(addr) => ThreadStopReason::Watch {
+            tid,
+            kind: WatchKind::Write,
+            addr,
+        },
+        Event::WatchRead(addr) => ThreadStopReason::Watch {
+            tid,
+            kind: WatchKind::Read,
+            addr,
+        },
+    }
+}
+
 impl Target for Ipod4gGdb {
     type Arch = arch::arm::Armv4t;
     type Error = FatalMemException;
 
+    fn base_ops(&mut self) -> target::ext::base::BaseOps<Self::Arch, Self::Error> {
+        target::ext::base::BaseOps::MultiThread(self)
+    }
+
+    fn sw_breakpoint(&mut self) -> Option<target::ext::breakpoints::SwBreakpointOps<Self>> {
+        Some(self)
+    }
+
+    fn hw_watchpoint(&mut self) -> Option<target::ext::breakpoints::HwWatchpointOps<Self>> {
+        Some(self)
+    }
+
+    fn monitor_cmd(&mut self) -> Option<target::ext::monitor_cmd::MonitorCmdOps<Self>> {
+        Some(self)
+    }
+}
+
+impl MultiThreadOps for Ipod4gGdb {
     fn resume(
         &mut self,
-        actions: &mut dyn Iterator<Item = (TidSelector, ResumeAction)>,
+        actions: Actions,
         check_gdb_interrupt: &mut dyn FnMut() -> bool,
-    ) -> Result<(Tid, StopReason<u32>), Self::Error> {
-        let action = actions.next().unwrap().1;
-        // FIXME: support cases where there is more than one action
-        assert!(actions.next().is_none());
+    ) -> Result<ThreadStopReason<u32>, Self::Error> {
+        // FIXME: properly handle multiple actions...
+        let actions = actions.collect::<Vec<_>>();
+        let (_, action) = actions[0];
 
         match action {
             ResumeAction::Step => match self.step()? {
-                Some(stop_reason) => Ok(stop_reason),
-                None => Ok((cpuid_to_tid(self.selected_core), StopReason::DoneStep)),
+                Some((event, cpuid)) => Ok(event_to_stopreason(event, cpuid)),
+                None => Ok(ThreadStopReason::DoneStep),
             },
             ResumeAction::Continue => {
                 let mut cycles: usize = 0;
                 loop {
                     // check for GDB interrupt every 1024 instructions
                     if cycles % 1024 == 0 && check_gdb_interrupt() {
-                        break Ok((cpuid_to_tid(self.selected_core), StopReason::GdbInterrupt));
+                        return Ok(ThreadStopReason::GdbInterrupt);
                     }
                     cycles += 1;
 
-                    if let Some(stop_reason) = self.step()? {
-                        break Ok(stop_reason);
+                    if let Some((event, cpuid)) = self.step()? {
+                        return Ok(event_to_stopreason(event, cpuid));
                     };
                 }
             }
@@ -180,8 +229,9 @@ impl Target for Ipod4gGdb {
     fn read_registers(
         &mut self,
         regs: &mut arch::arm::reg::ArmCoreRegs,
-    ) -> Result<(), FatalMemException> {
-        let cpu = match self.selected_core {
+        tid: Tid,
+    ) -> TargetResult<(), Self> {
+        let cpu = match tid_to_cpuid(tid).unwrap() {
             CpuId::Cpu => &mut self.sys.cpu,
             CpuId::Cop => &mut self.sys.cop,
         };
@@ -202,8 +252,9 @@ impl Target for Ipod4gGdb {
     fn write_registers(
         &mut self,
         regs: &arch::arm::reg::ArmCoreRegs,
-    ) -> Result<(), FatalMemException> {
-        let cpu = match self.selected_core {
+        tid: Tid,
+    ) -> TargetResult<(), Self> {
+        let cpu = match tid_to_cpuid(tid).unwrap() {
             CpuId::Cpu => &mut self.sys.cpu,
             CpuId::Cop => &mut self.sys.cop,
         };
@@ -221,94 +272,31 @@ impl Target for Ipod4gGdb {
         Ok(())
     }
 
-    fn read_addrs(
-        &mut self,
-        addr: std::ops::Range<u32>,
-        push_byte: &mut dyn FnMut(u8),
-    ) -> Result<(), FatalMemException> {
-        for addr in addr {
-            match self.sys.devices.r8(addr) {
-                Ok(b) => push_byte(b),
-                // the only errors that RAM emits are accessing uninitialized memory, which gdb
-                // will do _a lot_. We'll just squelch these errors...
-                Err(_) => push_byte(0x00),
-            }
+    fn read_addrs(&mut self, start_addr: u32, data: &mut [u8], tid: Tid) -> TargetResult<(), Self> {
+        self.sys.devices.cpuid.set_cpuid(tid_to_cpuid(tid).unwrap());
+        self.sys
+            .devices
+            .memcon
+            .set_cpuid(tid_to_cpuid(tid).unwrap());
+
+        for (addr, val) in (start_addr..).zip(data.iter_mut()) {
+            // TODO: throw a fatal error when accessing non-RAM devices?
+            *val = self.sys.devices.r8(addr).map_err(drop)?
         }
         Ok(())
     }
 
-    fn write_addrs(&mut self, start_addr: u32, data: &[u8]) -> Result<(), FatalMemException> {
+    fn write_addrs(&mut self, start_addr: u32, data: &[u8], tid: Tid) -> TargetResult<(), Self> {
+        self.sys.devices.cpuid.set_cpuid(tid_to_cpuid(tid).unwrap());
+        self.sys
+            .devices
+            .memcon
+            .set_cpuid(tid_to_cpuid(tid).unwrap());
+
         for (addr, val) in (start_addr..).zip(data.iter().copied()) {
-            match self.sys.devices.w8(addr, val) {
-                Ok(_) => {}
-                Err(e) => warn!("gdbstub write_addrs memory exception: {:?}", e),
-            };
+            // TODO: throw a fatal error when accessing non-RAM devices?
+            self.sys.devices.w8(addr, val).map_err(drop)?
         }
-        Ok(())
-    }
-
-    fn update_sw_breakpoint(&mut self, addr: u32, op: BreakOp) -> Result<bool, FatalMemException> {
-        match op {
-            BreakOp::Add => self.breakpoints.push(addr),
-            BreakOp::Remove => {
-                let pos = match self.breakpoints.iter().position(|x| *x == addr) {
-                    None => return Ok(false),
-                    Some(pos) => pos,
-                };
-                self.breakpoints.remove(pos);
-            }
-        }
-
-        Ok(true)
-    }
-
-    fn update_hw_watchpoint(
-        &mut self,
-        addr: u32,
-        op: BreakOp,
-        kind: WatchKind,
-    ) -> OptResult<bool, FatalMemException> {
-        match op {
-            BreakOp::Add => {
-                let access_kind = match kind {
-                    WatchKind::Write => MemAccessKind::Write,
-                    WatchKind::Read => MemAccessKind::Read,
-                    // FIXME: properly support ReadWrite breakpoints
-                    WatchKind::ReadWrite => MemAccessKind::Read,
-                };
-                self.watchpoints.push(addr);
-                self.watchpoint_kinds.insert(addr, access_kind);
-            }
-            BreakOp::Remove => {
-                let pos = match self.watchpoints.iter().position(|x| *x == addr) {
-                    None => return Ok(false),
-                    Some(pos) => pos,
-                };
-                self.watchpoints.remove(pos);
-                self.watchpoint_kinds.remove(&addr);
-            }
-        }
-
-        Ok(true)
-    }
-
-    fn handle_monitor_cmd(
-        &mut self,
-        cmd: &[u8],
-        mut out: ConsoleOutput,
-    ) -> OptResult<(), Self::Error> {
-        let cmd = match core::str::from_utf8(cmd) {
-            Ok(s) => s,
-            Err(_) => {
-                outputln!(out, "command must be valid UTF-8");
-                return Ok(());
-            }
-        };
-
-        if let Err(e) = self.exec_dbg_command(cmd, &mut out) {
-            outputln!(out, "ERROR: {}", e)
-        }
-
         Ok(())
     }
 
@@ -320,16 +308,69 @@ impl Target for Ipod4gGdb {
         register_thread(cpuid_to_tid(CpuId::Cop));
         Ok(())
     }
+}
 
-    fn set_current_thread(&mut self, tid: Tid) -> OptResult<(), Self::Error> {
-        match tid.get() {
-            1 => self.selected_core = CpuId::Cpu,
-            2 => self.selected_core = CpuId::Cop,
-            _ => unreachable!(),
+impl target::ext::breakpoints::SwBreakpoint for Ipod4gGdb {
+    fn add_sw_breakpoint(&mut self, addr: u32) -> TargetResult<bool, Self> {
+        self.breakpoints.push(addr);
+        Ok(true)
+    }
+
+    fn remove_sw_breakpoint(&mut self, addr: u32) -> TargetResult<bool, Self> {
+        match self.breakpoints.iter().position(|x| *x == addr) {
+            None => return Ok(false),
+            Some(pos) => self.breakpoints.remove(pos),
+        };
+
+        Ok(true)
+    }
+}
+
+// FIXME: this watchpoint implementation could probably use some work.
+
+impl target::ext::breakpoints::HwWatchpoint for Ipod4gGdb {
+    fn add_hw_watchpoint(&mut self, addr: u32, kind: WatchKind) -> TargetResult<bool, Self> {
+        let access_kind = match kind {
+            WatchKind::Write => MemAccessKind::Write,
+            WatchKind::Read => MemAccessKind::Read,
+            // FIXME: properly support ReadWrite breakpoints
+            WatchKind::ReadWrite => MemAccessKind::Read,
+        };
+        self.watchpoints.push(addr);
+        self.watchpoint_kinds.insert(addr, access_kind);
+
+        Ok(true)
+    }
+
+    fn remove_hw_watchpoint(&mut self, addr: u32, _kind: WatchKind) -> TargetResult<bool, Self> {
+        let pos = match self.watchpoints.iter().position(|x| *x == addr) {
+            None => return Ok(false),
+            Some(pos) => pos,
+        };
+        self.watchpoints.remove(pos);
+        self.watchpoint_kinds.remove(&addr);
+
+        Ok(true)
+    }
+}
+
+impl target::ext::monitor_cmd::MonitorCmd for Ipod4gGdb {
+    fn handle_monitor_cmd(
+        &mut self,
+        cmd: &[u8],
+        mut out: ConsoleOutput,
+    ) -> Result<(), Self::Error> {
+        let cmd = match core::str::from_utf8(cmd) {
+            Ok(s) => s,
+            Err(_) => {
+                outputln!(out, "command must be valid UTF-8");
+                return Ok(());
+            }
+        };
+
+        if let Err(e) = self.exec_dbg_command(cmd, &mut out) {
+            outputln!(out, "ERROR: {}", e)
         }
-
-        self.sys.devices.cpuid.set_cpuid(self.selected_core);
-        self.sys.devices.memcon.set_cpuid(self.selected_core);
 
         Ok(())
     }

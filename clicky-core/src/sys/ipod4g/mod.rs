@@ -53,7 +53,8 @@ struct Ipod4gControls {
 /// A Ipod4g system
 #[derive(Debug)]
 pub struct Ipod4g {
-    frozen: bool,
+    frozen: bool, // set after a fatal error to enable post-mortem debugging
+
     cpu: Cpu,
     cop: Cpu,
     devices: Ipod4gBus,
@@ -95,6 +96,7 @@ impl Ipod4g {
 
         let mut sys = Ipod4g {
             frozen: false,
+
             cpu: Cpu::new(),
             cop: Cpu::new(),
             devices: Ipod4gBus::new(executor.spawner(), irq_pending.clone(), dma_pending.clone()),

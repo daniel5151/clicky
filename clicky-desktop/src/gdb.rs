@@ -93,7 +93,7 @@ pub fn make_gdbstub<'a, T>(
     cfg: GdbCfg,
 ) -> DynResult<GdbStub<'a, T, Box<dyn Connection<Error = std::io::Error>>>>
 where
-    T: gdbstub::Target,
+    T: gdbstub::target::Target,
     T::Error: 'a,
 {
     let connection: Box<dyn Connection<Error = std::io::Error>> = match cfg.kind {
