@@ -53,7 +53,8 @@ struct Ipod4gControls {
 /// A Ipod4g system
 #[derive(Debug)]
 pub struct Ipod4g {
-    frozen: bool, // set after a fatal error to enable post-mortem debugging
+    frozen: bool,         // set after a fatal error to enable post-mortem debugging
+    skip_irq_check: bool, // set by the GDB stub when single-stepping though code
 
     cpu: Cpu,
     cop: Cpu,
@@ -96,6 +97,7 @@ impl Ipod4g {
 
         let mut sys = Ipod4g {
             frozen: false,
+            skip_irq_check: false,
 
             cpu: Cpu::new(),
             cop: Cpu::new(),
@@ -197,6 +199,10 @@ impl Ipod4g {
                     },
                 )?;
             }
+        }
+
+        if self.skip_irq_check {
+            return Ok(true);
         }
 
         // TODO: don't run this on every cycle?

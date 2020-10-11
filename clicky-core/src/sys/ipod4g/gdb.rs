@@ -30,6 +30,8 @@ pub struct Ipod4gGdb {
     watchpoints: Vec<u32>,
     watchpoint_kinds: HashMap<u32, MemAccessKind>,
     breakpoints: Vec<u32>,
+
+    single_step_irq: bool,
 }
 
 impl Ipod4gGdb {
@@ -39,6 +41,7 @@ impl Ipod4gGdb {
             watchpoints: Vec::new(),
             watchpoint_kinds: HashMap::new(),
             breakpoints: Vec::new(),
+            single_step_irq: false,
         }
     }
 
@@ -99,13 +102,28 @@ impl Ipod4gGdb {
     }
 
     fn exec_dbg_command(&mut self, cmd: &str, out: &mut ConsoleOutput) -> Result<(), String> {
-        const HELP: &str = r"
+        const HELP: &str = r#"
 Available commands:
--------------------
-  dumpsys      - pretty-print a debug view of the system
-  probe <addr> - probe what device is at the specified address
-  help         - show this help message
-";
+===================
+
+Query System State
+--------------------------------------------------------------------------------
+  dumpsys            - pretty-print a debug view of the system
+  probe <addr>       - probe what device is at the specified address
+
+Debugging
+--------------------------------------------------------------------------------
+  single_step_irq <bool> - enable IRQs while single-stepping (default: false)
+
+    Setting this to "false" will artificially prevent devices from generating
+    IRQs while single-step debugging. This is great for debugging most
+    user-level code, but should be turned off when debugging working with
+    low-level, IRQ sensitive code (e.g: early boot, context switching, etc...)
+
+Help
+--------------------------------------------------------------------------------
+  help               - show this help message
+"#;
 
         let mut s = cmd.split(' ');
         let cmd = match s.next() {
@@ -128,6 +146,18 @@ Available commands:
                 .map_err(|_| "couldn't parse addr")?;
 
                 outputln!(out, "{}", self.sys.devices.probe(addr))
+            }
+            "single_step_irq" => {
+                match s.next() {
+                    None => {}
+                    Some(toggle_s) => {
+                        self.single_step_irq = toggle_s
+                            .parse::<bool>()
+                            .map_err(|_| "couldn't parse <bool>")?
+                    }
+                };
+
+                outputln!(out, "single_step_irq = {}", self.single_step_irq)
             }
             _ => {
                 return Err(format!(
@@ -205,10 +235,19 @@ impl MultiThreadOps for Ipod4gGdb {
         let (_, action) = actions[0];
 
         match action {
-            ResumeAction::Step => match self.step()? {
-                Some((event, cpuid)) => Ok(event_to_stopreason(event, cpuid)),
-                None => Ok(ThreadStopReason::DoneStep),
-            },
+            ResumeAction::Step => {
+                if !self.single_step_irq {
+                    self.sys.skip_irq_check = true;
+                }
+                let res = match self.step()? {
+                    Some((event, cpuid)) => Ok(event_to_stopreason(event, cpuid)),
+                    None => Ok(ThreadStopReason::DoneStep),
+                };
+                if !self.single_step_irq {
+                    self.sys.skip_irq_check = false;
+                }
+                res
+            }
             ResumeAction::Continue => {
                 let mut cycles: usize = 0;
                 loop {
