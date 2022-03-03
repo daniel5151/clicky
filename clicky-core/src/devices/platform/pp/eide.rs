@@ -12,7 +12,7 @@ struct IdeDriveCfg {
     // bit 28: cpu > 65MHz
     // bit 29: cpu > 50MHz
     // bit 31: reset device
-    config: u32,
+    _config: u32,
 }
 
 /// PP5020 EIDE Controller
@@ -35,6 +35,8 @@ pub struct EIDECon {
     unknown: u32,
 }
 
+pub struct DmaErr;
+
 impl EIDECon {
     pub fn new(irq: irq::Sender, dmarq: irq::Sender) -> EIDECon {
         EIDECon {
@@ -53,9 +55,9 @@ impl EIDECon {
         &mut self.ide
     }
 
-    pub fn do_dma(&mut self) -> Result<(crate::memory::MemAccessKind, u32), ()> {
+    pub fn do_dma(&mut self) -> Result<(crate::memory::MemAccessKind, u32), DmaErr> {
         if self.dma_length == 0 {
-            return Err(());
+            return Err(DmaErr);
         }
 
         let op = match self.dma_control.get_bit(3) {

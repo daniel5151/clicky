@@ -65,10 +65,10 @@ struct IntCon32 {
 
     cpu: IntConCpuRegs,
     cop: IntConCpuRegs,
-    int_stat: u32,
-    int_forced_stat: u32,
-    int_forced_set: u32,
-    int_forced_clr: u32,
+    _int_stat: u32,
+    _int_forced_stat: u32,
+    _int_forced_set: u32,
+    _int_forced_clr: u32,
 }
 
 impl IntCon32 {
@@ -79,10 +79,10 @@ impl IntCon32 {
 
             cpu: IntConCpuRegs::default(),
             cop: IntConCpuRegs::default(),
-            int_stat: 0,
-            int_forced_stat: 0,
-            int_forced_set: 0,
-            int_forced_clr: 0,
+            _int_stat: 0,
+            _int_forced_stat: 0,
+            _int_forced_set: 0,
+            _int_forced_clr: 0,
         }
     }
 
@@ -156,6 +156,10 @@ impl IntCon32 {
 impl Device for IntCon32 {
     fn kind(&self) -> &'static str {
         "Interrupt Controller"
+    }
+
+    fn label(&self) -> Option<&'static str> {
+        Some(self.label)
     }
 
     fn probe(&self, offset: u32) -> Probe {

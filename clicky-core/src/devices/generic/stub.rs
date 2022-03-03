@@ -21,7 +21,7 @@ impl Device for Stub {
     }
 
     fn label(&self) -> Option<&'static str> {
-        Some(&self.label)
+        Some(self.label)
     }
 
     fn probe(&self, _offset: u32) -> Probe {

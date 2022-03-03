@@ -23,7 +23,7 @@ pub trait ClickyExecutor: Debug + Sized {
     type Spawner: ClickySpawn;
 
     /// Construct a new executor.
-    fn new() -> Result<Self, ()>;
+    fn new() -> std::io::Result<Self>;
 
     /// Runs all tasks in the pool and returns if no more progress can be made
     /// on any task.
@@ -62,7 +62,7 @@ mod local {
     impl ClickyExecutor for LocalExecutor {
         type Spawner = LocalSpawner;
 
-        fn new() -> Result<Self, ()> {
+        fn new() -> std::io::Result<Self> {
             Ok(LocalExecutor(futures_executor::LocalPool::new()))
         }
 
@@ -103,10 +103,8 @@ mod thread {
     impl ClickyExecutor for ThreadExecutor {
         type Spawner = ThreadSpawner;
 
-        fn new() -> Result<Self, ()> {
-            Ok(ThreadExecutor(
-                futures_executor::ThreadPool::new().map_err(drop)?,
-            ))
+        fn new() -> std::io::Result<Self> {
+            Ok(ThreadExecutor(futures_executor::ThreadPool::new()?))
         }
 
         fn run_until_stalled(&mut self) {}

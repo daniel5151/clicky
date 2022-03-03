@@ -80,7 +80,7 @@ impl Ipod4gContainer {
             controls: self
                 .system
                 .take_controls()
-                .ok_or_else(|| "can only take controls once")?,
+                .ok_or("can only take controls once")?,
         })
     }
 

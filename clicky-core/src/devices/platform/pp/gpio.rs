@@ -117,7 +117,7 @@ impl Device for GpioPort {
     }
 
     fn label(&self) -> Option<&'static str> {
-        Some(&self.label)
+        Some(self.label)
     }
 
     fn probe(&self, offset: u32) -> Probe {

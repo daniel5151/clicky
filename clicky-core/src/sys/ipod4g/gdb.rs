@@ -141,7 +141,7 @@ Help
                 let addr = s.next().ok_or("no addr provided")?;
                 let addr = match addr.as_bytes() {
                     [b'0', b'x', ..] => u32::from_str_radix(addr.trim_start_matches("0x"), 16),
-                    _ => u32::from_str_radix(addr, 10),
+                    _ => addr.parse::<u32>(),
                 }
                 .map_err(|_| "couldn't parse addr")?;
 

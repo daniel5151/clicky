@@ -77,6 +77,7 @@ impl std::fmt::Display for MemExceptionCtx {
 
 /// An unrecoverable memory exception.
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // not actually dead code (used as part of debug impl)
 pub struct FatalMemException {
     context: MemExceptionCtx,
     reason: MemException,

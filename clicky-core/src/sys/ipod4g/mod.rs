@@ -282,7 +282,8 @@ impl Ipod4g {
     /// Run the system, returning successfully on "graceful exit"
     /// (e.g: power-off).
     pub fn run(&mut self) -> FatalMemResult<()> {
-        while self.step(BlockMode::Blocking, (&[], |_, _| {}))? {}
+        let dummy_sniff_memory = |_, _| {};
+        while self.step(BlockMode::Blocking, (&[], dummy_sniff_memory))? {}
         Ok(())
     }
 
@@ -290,8 +291,9 @@ impl Ipod4g {
     /// power-off). This method will return after the specified number of cycles
     /// have been executed.
     pub fn run_cycles(&mut self, cycles: usize) -> FatalMemResult<()> {
+        let dummy_sniff_memory = |_, _| {};
         for _ in 0..cycles {
-            self.step(BlockMode::Blocking, (&[], |_, _| {}))?;
+            self.step(BlockMode::Blocking, (&[], dummy_sniff_memory))?;
         }
         Ok(())
     }
