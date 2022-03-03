@@ -15,7 +15,7 @@ pub mod platform;
 pub mod util;
 
 /// Common trait implemented by all emulated devices.
-pub trait Device {
+pub trait Device: Send + Sync {
     /// The name of the emulated device.
     fn kind(&self) -> &'static str;
 

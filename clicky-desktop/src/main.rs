@@ -5,7 +5,7 @@ use std::fs;
 use std::io::Read;
 use std::path::PathBuf;
 
-pub type DynResult<T> = Result<T, Box<dyn std::error::Error>>;
+pub type DynResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 use structopt::StructOpt;
 
@@ -136,21 +136,10 @@ fn main() -> DynResult<()> {
 
     let mut system = Ipod4g::new(hdd, flash_rom, boot_kind)?;
 
-    // spawn the UI thread
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "minifb")] {
-            use crate::backends::minifb::MinifbRenderer;
-            let _minifb_ui = MinifbRenderer::new(
-                "iPod 4g",
-                (160, 128),
-                system.render_callback(),
-                system.take_controls().unwrap().into(),
-            );
-        } else {
-            let _ = system.take_controls().unwrap();
-            info!("No GUI selected, running in headless mode!");
-        }
-    };
+    // grab a bunch of UI wiring stuff
+    let update_fb = system.render_callback();
+    let controls = system.take_controls().unwrap();
+    let (kill_ui_tx, kill_ui_rx) = std::sync::mpsc::channel();
 
     let mut system = match args.gdb {
         Some(cfg) => System::Debug {
@@ -160,69 +149,93 @@ fn main() -> DynResult<()> {
         None => System::Bare(system),
     };
 
-    let mut debugger = None;
+    // the UI must run on the main thread (thanks macOS), so we run the system
+    // in a separate thread
+    std::thread::spawn(move || -> DynResult<()> {
+        let mut debugger = None;
 
-    let system_result = match &mut system {
-        System::Bare(system) => system.run(),
-        System::Debug { system_gdb, cfg } => {
-            // check if a debugger should be connected at boot
-            if cfg.on_start {
-                debugger = Some(make_gdbstub(cfg.clone())?)
-            }
+        let system_result = match &mut system {
+            System::Bare(system) => system.run(),
+            System::Debug { system_gdb, cfg } => {
+                // check if a debugger should be connected at boot
+                if cfg.on_start {
+                    debugger = Some(make_gdbstub(cfg.clone())?)
+                }
 
-            match debugger {
-                None => system.run(),
-                // hand off control to the debugger
-                Some(ref mut debugger) => match debugger.run(system_gdb) {
-                    Ok(dc_reason) => {
-                        info!("Disconnected from GDB: {:?}", dc_reason);
+                match debugger {
+                    None => system.run(),
+                    // hand off control to the debugger
+                    Some(ref mut debugger) => match debugger.run(system_gdb) {
+                        Ok(dc_reason) => {
+                            info!("Disconnected from GDB: {:?}", dc_reason);
 
-                        use gdbstub::DisconnectReason;
-                        match dc_reason {
-                            DisconnectReason::Disconnect => {
-                                info!("Target is still running. Resuming execution...");
-                                system.run()
-                            }
-                            DisconnectReason::TargetHalted => {
-                                info!("Target halted!");
-                                Ok(())
-                            }
-                            DisconnectReason::Kill => {
-                                info!("GDB sent a kill command!");
-                                return Ok(());
+                            use gdbstub::DisconnectReason;
+                            match dc_reason {
+                                DisconnectReason::Disconnect => {
+                                    info!("Target is still running. Resuming execution...");
+                                    system.run()
+                                }
+                                DisconnectReason::TargetHalted => {
+                                    info!("Target halted!");
+                                    Ok(())
+                                }
+                                DisconnectReason::Kill => {
+                                    info!("GDB sent a kill command!");
+                                    return Ok(());
+                                }
                             }
                         }
-                    }
-                    Err(gdbstub::GdbStubError::TargetError(e)) => Err(e),
-                    Err(e) => return Err(e.into()),
-                },
-            }
-        }
-    };
-
-    if let Err(fatal_error) = system_result {
-        error!("Fatal Error! Caused by: {:#010x?}", fatal_error);
-        error!("Dumping system state to {}", SYSDUMP_FILENAME);
-        std::fs::write(SYSDUMP_FILENAME, format!("{:#x?}", *system))?;
-
-        match &mut system {
-            System::Bare(_system) => {}
-            System::Debug { system_gdb, cfg } => {
-                if cfg.on_fatal_err {
-                    system_gdb.sys_mut().freeze();
-
-                    if debugger.is_none() {
-                        debugger = Some(make_gdbstub(cfg.clone())?)
-                    }
-
-                    match debugger.unwrap().run(system_gdb) {
-                        Ok(_) => info!("Disconnected from post-mortem GDB session."),
+                        Err(gdbstub::GdbStubError::TargetError(e)) => Err(e),
                         Err(e) => return Err(e.into()),
-                    }
+                    },
                 }
             }
         };
-    }
+
+        if let Err(fatal_error) = system_result {
+            error!("Fatal Error! Caused by: {:#010x?}", fatal_error);
+            error!("Dumping system state to {}", SYSDUMP_FILENAME);
+            std::fs::write(SYSDUMP_FILENAME, format!("{:#x?}", *system))?;
+
+            match &mut system {
+                System::Bare(_system) => {}
+                System::Debug { system_gdb, cfg } => {
+                    if cfg.on_fatal_err {
+                        system_gdb.sys_mut().freeze();
+
+                        if debugger.is_none() {
+                            debugger = Some(make_gdbstub(cfg.clone())?)
+                        }
+
+                        match debugger.unwrap().run(system_gdb) {
+                            Ok(_) => info!("Disconnected from post-mortem GDB session."),
+                            Err(e) => return Err(e.into()),
+                        }
+                    }
+                }
+            };
+        }
+
+        kill_ui_tx.send(()).expect("main thread isn't there");
+
+        Ok(())
+    });
+
+    // run the UI on the main thread
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "minifb")] {
+            use crate::backends::minifb::MinifbRenderer;
+            MinifbRenderer::run(
+                "iPod 4g",
+                (160, 128),
+                update_fb,
+                controls,
+                kill_ui_rx,
+            );
+        } else {
+            info!("No GUI selected, running in headless mode!");
+        }
+    };
 
     Ok(())
 }

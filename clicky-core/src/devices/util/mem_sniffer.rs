@@ -45,7 +45,7 @@ macro_rules! impl_memsniff_w {
     };
 }
 
-impl<'a, M: Device, F: FnMut(MemAccess)> Device for MemSniffer<'a, M, F> {
+impl<'a, M: Device, F: FnMut(MemAccess) + Send + Sync> Device for MemSniffer<'a, M, F> {
     fn kind(&self) -> &'static str {
         self.mem.kind()
     }

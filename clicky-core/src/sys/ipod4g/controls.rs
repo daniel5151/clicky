@@ -21,7 +21,9 @@ pub struct Ipod4gBinds {
     pub wheel: Option<ScrollCallback>,
 }
 
-impl TakeControls<Ipod4gBinds> for Ipod4g {
+impl TakeControls for Ipod4g {
+    type Controls = Ipod4gBinds;
+
     fn take_controls(&mut self) -> Option<Ipod4gBinds> {
         let Ipod4gControls {
             mut hold,
