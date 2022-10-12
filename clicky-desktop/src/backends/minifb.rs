@@ -44,23 +44,21 @@ impl MinifbRenderer {
         window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
 
         'ui_loop: while window.is_open() && kill_rx.try_recv().is_err() {
-            if let Some(keys) = window.get_keys_pressed(minifb::KeyRepeat::Yes) {
-                for k in keys {
-                    if k == Key::Escape {
-                        break 'ui_loop;
-                    }
+            let keys = window.get_keys_pressed(minifb::KeyRepeat::Yes);
+            for k in keys {
+                if k == Key::Escape {
+                    break 'ui_loop;
+                }
 
-                    if let Some(cb) = controls.keymap.get_mut(&k) {
-                        cb(true)
-                    }
+                if let Some(cb) = controls.keymap.get_mut(&k) {
+                    cb(true)
                 }
             }
 
-            if let Some(keys) = window.get_keys_released() {
-                for k in keys {
-                    if let Some(cb) = controls.keymap.get_mut(&k) {
-                        cb(false)
-                    }
+            let keys = window.get_keys_released();
+            for k in keys {
+                if let Some(cb) = controls.keymap.get_mut(&k) {
+                    cb(false)
                 }
             }
 
