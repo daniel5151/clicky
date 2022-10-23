@@ -108,8 +108,8 @@ impl Memory for Flash {
                 }
                 
             }
-            (CFIState::ReadSoftwareID, 0x0) => return Ok(0x00BF), // Manufacturer ID (SST)
-            (CFIState::ReadSoftwareID, 0x1) => return Ok(0x273F), // Device ID (SST39WF800A)
+            (CFIState::ReadSoftwareID, 0x0) => Ok(0x00BF), // Manufacturer ID (SST)
+            (CFIState::ReadSoftwareID, 0x1) => Ok(0x273F), // Device ID (SST39WF800A)
             _ => return Err(Unimplemented)
         }        
     }
