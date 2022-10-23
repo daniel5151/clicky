@@ -2,11 +2,20 @@ use crate::devices::prelude::*;
 
 use byteorder::{ByteOrder, LittleEndian};
 
+#[derive(PartialEq, Clone, Copy)]
+enum CFIState {
+    ReadArrayMode,
+    CommandPreambleAA,
+    CommandPreamble55,
+    ReadSoftwareID,
+}
+
 /// Internal iPod Flash ROM. Defaults to HLE mode (where only a few critical
 /// memory locations can be read). Use the `use_dump` method if you have a dump
 /// of a real iPod's flash ROM.
 pub struct Flash {
     dump: Option<Box<[u8]>>,
+    state: CFIState,
 }
 
 impl std::fmt::Debug for Flash {
@@ -19,7 +28,10 @@ impl std::fmt::Debug for Flash {
 
 impl Flash {
     pub fn new() -> Flash {
-        Flash { dump: None }
+        Flash {
+            dump: None,
+            state: CFIState::ReadArrayMode,
+        }
     }
 
     pub fn use_dump(&mut self, dump: Box<[u8]>) -> Result<(), &'static str> {
@@ -85,14 +97,21 @@ impl Memory for Flash {
             return Err(Unexpected);
         }
 
-        if let Some(dump) = self.dump.as_ref() {
-            let offset = offset as usize;
-            let val = LittleEndian::read_u16(&dump[offset..offset + 2]);
-            return Ok(val);
-        }
-
-        // don't support unaligned HLE reads
-        Err(Unimplemented)
+        match (self.state, offset >> 1) {
+            (CFIState::ReadArrayMode, _) => {
+                if let Some(dump) = self.dump.as_ref() {
+                    let offset = offset as usize;
+                    let val = LittleEndian::read_u16(&dump[offset..offset + 2]);
+                    Ok(val)
+                } else {
+                    Err(Unimplemented)
+                }
+                
+            }
+            (CFIState::ReadSoftwareID, 0x0) => Ok(0x00BF), // Manufacturer ID (SST)
+            (CFIState::ReadSoftwareID, 0x1) => Ok(0x273F), // Device ID (SST39WF800A)
+            _ => return Err(Unimplemented)
+        }        
     }
 
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
@@ -110,14 +129,38 @@ impl Memory for Flash {
     }
 
     fn w8(&mut self, _offset: u32, _val: u8) -> MemResult<()> {
-        Err(StubWrite(Warn, ()))
+        Err(Unimplemented)
     }
 
-    fn w16(&mut self, _offset: u32, _val: u16) -> MemResult<()> {
-        Err(StubWrite(Warn, ()))
+    fn w16(&mut self, offset: u32, val: u16) -> MemResult<()> {
+        // Simplified CFI state machine
+        match (offset, val & 0xFF, self.state) {
+            (0xAAAA, 0xAA, CFIState::ReadArrayMode) => {
+                self.state = CFIState::CommandPreambleAA;
+                Ok(())
+            },
+            (0x0000, 0xFF, _) => {
+                // See 'A1.2 CFI Query Flowchart' from Intel AP-646
+                self.state = CFIState::ReadArrayMode;
+                Ok(())
+            }
+            (0x5554, 0x55, CFIState::CommandPreambleAA) => {
+                self.state = CFIState::CommandPreamble55;
+                Ok(())
+            }
+            (0xAAAA, 0x90, CFIState::CommandPreamble55) => {
+                self.state = CFIState::ReadSoftwareID;
+                Ok(())
+            }
+            (0x0000, 0xF0, CFIState::ReadSoftwareID) => {
+                self.state = CFIState::ReadArrayMode;
+                Ok(())
+            }
+            _ => Err(Unimplemented),
+        }
     }
 
     fn w32(&mut self, _offset: u32, _val: u32) -> MemResult<()> {
-        Err(StubWrite(Warn, ()))
+        Err(Unimplemented)
     }
 }
