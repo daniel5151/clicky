@@ -15,10 +15,10 @@ mod intcon;
 mod mailbox;
 mod memcon;
 mod opto;
-mod piezo;
 mod ppcon;
 mod serial;
 mod usec_timer;
+mod pwm;
 
 pub use cachecon::*;
 pub use cfg_timer::*;
@@ -35,10 +35,10 @@ pub use intcon::*;
 pub use mailbox::*;
 pub use memcon::*;
 pub use opto::*;
-pub use piezo::*;
 pub use ppcon::*;
 pub use serial::*;
 pub use usec_timer::*;
+pub use pwm::*;
 
 pub mod common {
     #[derive(Debug, Copy, Clone, PartialEq, Eq)]

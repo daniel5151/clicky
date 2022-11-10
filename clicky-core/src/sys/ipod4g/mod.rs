@@ -341,7 +341,6 @@ pub struct Ipod4gBus {
     pub intcon: devices::IntCon,
     pub eidecon: devices::EIDECon,
     pub memcon: devices::MemCon,
-    pub piezo: devices::Piezo,
     pub cachecon: devices::CacheCon,
     pub i2s: devices::I2SCon,
     pub mailbox: devices::Mailbox,
@@ -354,6 +353,7 @@ pub struct Ipod4gBus {
     pub mystery_flash_stub: devices::Stub,
     pub firewire: devices::Stub,
     pub total_mystery: devices::Stub,
+    pub pwmcon: devices::PWMCon,
 }
 
 impl Ipod4gBus {
@@ -431,7 +431,6 @@ impl Ipod4gBus {
             intcon,
             eidecon: EIDECon::new(ide_irq_tx, ide_dmarq_tx),
             memcon: MemCon::new(),
-            piezo: Piezo::new(),
             cachecon: CacheCon::new(),
             i2s: I2SCon::new(),
             mailbox: Mailbox::new(mbx_cpu_irq_tx, mbx_cop_irq_tx),
@@ -444,6 +443,7 @@ impl Ipod4gBus {
             mystery_flash_stub: Stub::new("Mystery FlashROM Con?"),
             firewire: Stub::new("Firewire Con?"),
             total_mystery: Stub::new("<total mystery>"),
+            pwmcon: PWMCon::new(),
         }
     }
 }
@@ -552,7 +552,7 @@ mmap! {
         0x7000_3000..=0x7000_301f => hd66753,
         0x7000_6000..=0x7000_6020 => serial0,
         0x7000_6040..=0x7000_6060 => serial1,
-        0x7000_a000..=0x7000_a003 => piezo,
+        0x7000_a000..=0x7000_a03f => pwmcon,
         0x7000_c000..=0x7000_c0ff => i2ccon,
         0x7000_c100..=0x7000_c1ff => opto,
         0x7000_2800..=0x7000_28ff => i2s,
@@ -569,7 +569,6 @@ mmap! {
         0x6000_9000..=0x6000_90ff => total_mystery,
         // Diagnostics program reads from address, and write back 0x10000000
         0x6000_f100..=0x6000_f11f => total_mystery,
-        0x7000_a010 => mystery_lcd_con,
         0x7000_3800 => total_mystery,
         0xc031_b1d8 => mystery_flash_stub,
         0xc031_b1e8 => mystery_flash_stub,
