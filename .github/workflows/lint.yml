@@ -1,0 +1,23 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  clippy_check:
+    strategy:
+      matrix:
+        crate:
+          - clicky-core
+          - clicky-desktop
+          - clicky-web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - run: rustup component add clippy
+      - uses: actions-rs/clippy-check@v1
+        with:
+          args: --all-features --package ${{ matrix.crate }}
