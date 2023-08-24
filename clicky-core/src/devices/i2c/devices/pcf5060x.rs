@@ -219,6 +219,7 @@ struct Pcf5060xImpl {
     mbcc2: u8,
     rtc_alarm: [u8; 7],
     bvmc: u8,
+    gp0c1: u8,
 }
 
 impl Pcf5060xImpl {
@@ -233,6 +234,7 @@ impl Pcf5060xImpl {
             mbcc2: 0,
             rtc_alarm: [0; 7],
             bvmc: 0,
+            gp0c1: 0x04,
         }
     }
 
@@ -317,6 +319,7 @@ impl Pcf5060xImpl {
             ADCS3__ => Err(StubRead(Trace, 0)),
             // Battery Voltage Monitor (BVM)
             BVMC___ => Ok(self.bvmc),
+            GPOC1__ => Ok(self.gp0c1),
             _ => Err(Unimplemented),
         }
     }
@@ -366,6 +369,7 @@ impl Pcf5060xImpl {
             ADCS3__ => Err(InvalidAccess),
             // Battery Voltage Monitor (BVM)
             BVMC___ => Ok(self.bvmc = data),
+            GPOC1__ => Ok(self.gp0c1 = data),
             _ => Err(Unimplemented),
         }
     }
