@@ -4,7 +4,7 @@ use crate::devices::prelude::*;
 #[derive(Debug)]
 pub struct CacheCon {
     /// Local exception vector table enable (bit 4)
-    local_evt: bool,
+    pub local_evt: bool,
     /// Cache control enable (bit 1)
     cache_ctrl_enable: bool,
 }
@@ -54,9 +54,6 @@ impl Memory for CacheCon {
         match offset {
             0x00 => {
                 self.local_evt = val.get_bit(4);
-                if self.local_evt {
-                    return Err(Fatal("local exception vector table not implemented".into()));
-                }
                 self.cache_ctrl_enable = val.get_bit(1);
                 Err(StubWrite(Error, ()))
             }

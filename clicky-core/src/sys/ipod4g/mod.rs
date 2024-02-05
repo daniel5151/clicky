@@ -347,6 +347,7 @@ pub struct Ipod4gBus {
     pub dmacon: devices::DmaCon,
     pub serial0: devices::Serial,
     pub serial1: devices::Serial,
+    pub evp: devices::Evp,
 
     pub mystery_irq_con: devices::Stub,
     pub mystery_lcd_con: devices::Stub,
@@ -437,6 +438,7 @@ impl Ipod4gBus {
             dmacon,
             serial0: Serial::new("0"),
             serial1: Serial::new("1"),
+            evp: Evp::new(),
 
             mystery_irq_con: Stub::new("Mystery IRQ Con?"),
             mystery_lcd_con: Stub::new("Mystery LCD Con?"),
@@ -460,7 +462,12 @@ macro_rules! mmap {
         macro_rules! impl_mem_r {
             ($fn:ident, $ret:ty) => {
                 fn $fn(&mut self, addr: u32) -> MemResult<$ret> {
-                    let (addr, prot) = self.memcon.virt_to_phys(addr);
+                    let mut addr = addr;
+                    if (0x00..0x1F).contains(&addr) && self.cachecon.local_evt {
+                        addr = addr | 0x6000_f100;
+                    }
+
+                    let (mut addr, prot) = self.memcon.virt_to_phys(addr);
                     if !prot.r {
                         return Err(MemException::MmuViolation)
                     }
@@ -559,6 +566,10 @@ mmap! {
         0xc300_0000..=0xc300_0fff => eidecon,
         0xf000_0000..=0xf000_ffff => memcon,
 
+        0x6000_f000..=0x6000_f01f => evp, // Tegra drivers mention 0x6000F1xx but 0x6000F0xx is mentioned in PP5020 RE litterature
+        0x6000_f100..=0x6000_f11f => evp, // I assume 0x6000F0xx and 0x6000F1xx are mirrored? Maybe one is used for the main CPU,
+                                          // the other is used for COP?
+
         // all the stubs
 
         0x6000_1038 => mystery_irq_con,
@@ -568,7 +579,6 @@ mmap! {
         0x6000_3000..=0x6000_30ff => total_mystery,
         0x6000_9000..=0x6000_90ff => total_mystery,
         // Diagnostics program reads from address, and write back 0x10000000
-        0x6000_f100..=0x6000_f11f => total_mystery,
         0x7000_3800 => total_mystery,
         0xc031_b1d8 => mystery_flash_stub,
         0xc031_b1e8 => mystery_flash_stub,
