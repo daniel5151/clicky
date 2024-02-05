@@ -467,10 +467,10 @@ macro_rules! mmap {
                 fn $fn(&mut self, addr: u32) -> MemResult<$ret> {
                     let mut addr = addr;
                     if (0x00..0x1F).contains(&addr) && self.cachecon.local_evt {
-                        addr |= 0x6000_f100;
+                        addr = addr | 0x6000_f100;
                     }
 
-                    let (addr, prot) = self.memcon.virt_to_phys(addr);
+                    let (mut addr, prot) = self.memcon.virt_to_phys(addr);
                     if !prot.r {
                         return Err(MemException::MmuViolation)
                     }
