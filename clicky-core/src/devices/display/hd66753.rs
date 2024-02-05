@@ -4,6 +4,8 @@ use std::sync::{Arc, RwLock};
 
 use crate::gui::RenderCallback;
 
+use either::Either;
+
 const CGRAM_WIDTH: usize = 168;
 const CGRAM_HEIGHT: usize = 132;
 #[allow(dead_code)]
@@ -155,15 +157,22 @@ impl Hd66753 {
             };
 
             let cgram_window = cgram
-                .chunks_exact(EMU_CGRAM_WIDTH * 2 / 8 / 2)
-                .take(height)
-                .flat_map(|row| row.iter().take(CGRAM_WIDTH * 2 / 8 / 2).rev());
+                    .chunks_exact(EMU_CGRAM_WIDTH * 2 / 8 / 2)
+                    .take(height)
+                    .flat_map(|row| {
+                        match ireg.sgs {
+                            true => Either::Left(row.iter().take(CGRAM_WIDTH * 2 / 8 / 2)),
+                            false => Either::Right(row.iter().take(CGRAM_WIDTH * 2 / 8 / 2).rev()),
+                        }
+                        
+                     });
 
             // TODO: implement cursor control
 
             let new_buf = cgram_window.flat_map(|w| {
                 // every 16 bits = 8 pixels
-                (0..8).rev().map(move |i| {
+                (0..8).map(move |i| {
+                    let i = if ireg.sgs { i } else { 7 - i };
                     let idx = ((w >> (i * 2)) & 0b11) as usize;
                     if ireg.rev {
                         PALETTE[idx]
