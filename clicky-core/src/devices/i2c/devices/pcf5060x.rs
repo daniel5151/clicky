@@ -220,6 +220,7 @@ struct Pcf5060xImpl {
     rtc_alarm: [u8; 7],
     bvmc: u8,
     gp0c1: u8,
+    adcc2: u8,
 }
 
 impl Pcf5060xImpl {
@@ -235,6 +236,7 @@ impl Pcf5060xImpl {
             rtc_alarm: [0; 7],
             bvmc: 0,
             gp0c1: 0x04,
+            adcc2: 0,
         }
     }
 
@@ -268,6 +270,46 @@ impl Pcf5060xImpl {
         let _ = reg;
         // TODO: support setting the RTC
         Err(StubWrite(Info, ()))
+    }
+
+    fn get_adc_readout(&mut self, reg: Reg) -> MemResult<u8> {
+        let adcrdy = 0x80;
+        let adcmux = self.adcc2.get_bits(1..=4);
+        let adcdat1;
+        let adcdat2;
+        match adcmux {
+            0b0001 => {
+                // BATVOLT, subtractor
+                adcdat1 = 0;
+                adcdat2 = 0;
+            }
+            0b0011 => {
+                // ADCIN1, subtractor
+                adcdat1 = 0;
+                adcdat2 = 0;
+            }
+            0b0101 => {
+                // ADCIN2
+                adcdat1 = 0;
+                adcdat2 = 0;
+            }
+            0b0111 => {
+                // ADCIN3, ratiometric
+                adcdat1 = 0;
+                adcdat2 = 0;
+            }
+            _ => {
+                return Err(Unimplemented);
+            }
+        }
+
+        use Reg::*;
+        match reg {
+            ADCS1__ => Err(StubRead(Info, adcdat1 >> 2 & 0xFF)),
+            ADCS2__ => Err(StubRead(Info, adcrdy | (adcdat1 << 8) & 0x3)),
+            ADCS3__ => Err(StubRead(Info, adcdat2 >> 2 & 0xFF)),
+            _ => Err(Unimplemented),
+        }
     }
 
     fn read(&mut self, reg: Reg) -> MemResult<u8> {
@@ -313,10 +355,8 @@ impl Pcf5060xImpl {
             RTCYRA_ => Ok(self.rtc_alarm[6]),
             // Analog / Digital Converter (ADC)
             // TODO: return better values of charging status?
-            ADCC2__ => Err(StubRead(Trace, 0)),
-            ADCS1__ => Err(StubRead(Trace, 0)),
-            ADCS2__ => Err(StubRead(Trace, 0)),
-            ADCS3__ => Err(StubRead(Trace, 0)),
+            ADCC2__ => Ok(self.adcc2),
+            ADCS1__ | ADCS2__ | ADCS3__ => self.get_adc_readout(reg),
             // Battery Voltage Monitor (BVM)
             BVMC___ => Ok(self.bvmc),
             GPOC1__ => Ok(self.gp0c1),
@@ -363,7 +403,7 @@ impl Pcf5060xImpl {
             RTCMTA_ => Ok(self.rtc_alarm[5] = data),
             RTCYRA_ => Ok(self.rtc_alarm[6] = data),
             // Analog / Digital Converter (ADC)
-            ADCC2__ => Err(StubWrite(Trace, ())),
+            ADCC2__ => Ok(self.adcc2 = data),
             ADCS1__ => Err(InvalidAccess),
             ADCS2__ => Err(InvalidAccess),
             ADCS3__ => Err(InvalidAccess),
