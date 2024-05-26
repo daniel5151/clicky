@@ -48,4 +48,13 @@ pub mod common {
         Cpu,
         Cop,
     }
+
+    impl std::fmt::Display for CpuId {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            match self {
+                CpuId::Cpu => write!(f, "CPU"),
+                CpuId::Cop => write!(f, "COP"),
+            }
+        }
+    }
 }
