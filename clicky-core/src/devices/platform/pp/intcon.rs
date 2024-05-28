@@ -40,8 +40,9 @@ struct IntConCpuRegs {
     priority: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 enum IrqKind {
+    #[default]
     Unregistered,
     Shared(irq::Reciever),
     // i.e: mailbox
@@ -49,12 +50,6 @@ enum IrqKind {
         cpu_irq: irq::Reciever,
         cop_irq: irq::Reciever,
     },
-}
-
-impl Default for IrqKind {
-    fn default() -> IrqKind {
-        IrqKind::Unregistered
-    }
 }
 
 /// Half of the PP5020 Interrupt Controller.
