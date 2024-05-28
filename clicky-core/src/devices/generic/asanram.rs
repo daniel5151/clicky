@@ -67,7 +67,7 @@ impl AsanRam {
         ContractViolation {
             msg,
             severity: log::Level::Warn,
-            stub_val: Some(stub as u32),
+            stub_val: Some(stub),
         }
     }
 }
