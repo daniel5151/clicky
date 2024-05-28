@@ -195,7 +195,7 @@ impl Ipod4g {
                     MemExceptionCtx {
                         pc: cpu.reg_get(cpu.mode(), reg::PC),
                         access,
-                        in_device: format!("{}", devices.probe(access.offset)),
+                        in_device: format!("{}, {}", cpuid, devices.probe(access.offset)),
                     },
                 )?;
             }
