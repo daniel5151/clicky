@@ -43,7 +43,7 @@ pub use usec_timer::*;
 pub use pwm::*;
 
 pub mod common {
-    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
     pub enum CpuId {
         Cpu,
         Cop,

@@ -207,6 +207,7 @@ dependencies = [
  "futures",
  "futures-executor",
  "gdbstub",
+ "gdbstub_arch",
  "log",
  "num_enum",
  "pin-utils",
@@ -503,15 +504,26 @@ dependencies = [
 
 [[package]]
 name = "gdbstub"
-version = "0.4.5"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d79a8fc10e9c4a4009deacc1d1e632cc2860c63c5169abc737f838e07534ab1a"
+checksum = "6341b3480afbb34eaefc7f92713bc92f2d83e338aaa1c44192f9c2956f4a4903"
 dependencies = [
- "cfg-if 0.1.10",
+ "bitflags 2.5.0",
+ "cfg-if 1.0.0",
  "log",
  "managed",
  "num-traits",
  "paste",
+]
+
+[[package]]
+name = "gdbstub_arch"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e3b1357bd3203fc09a6601327ae0ab38865d14231d0b65d3143f5762cc7977d"
+dependencies = [
+ "gdbstub",
+ "num-traits",
 ]
 
 [[package]]

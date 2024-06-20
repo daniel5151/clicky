@@ -25,7 +25,8 @@ thiserror = "1.0"
 
 # emulation related
 armv4t_emu = "0.1"
-gdbstub = "0.4"
+gdbstub = "0.7.1"
+gdbstub_arch = "0.3.0"
 
 # async/await
 async-channel = "1.4"
