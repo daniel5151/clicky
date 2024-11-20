@@ -40,8 +40,7 @@ impl MinifbRenderer {
         )
         .expect("could not create minifb window");
 
-        // ~60 fps
-        window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
+        window.set_target_fps(60);
 
         'ui_loop: while window.is_open() && kill_rx.try_recv().is_err() {
             let keys = window.get_keys_pressed(minifb::KeyRepeat::Yes);

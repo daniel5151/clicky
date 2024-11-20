@@ -17,4 +17,4 @@ log = "0.4"
 pretty_env_logger = "0.3"
 structopt = "0.3"
 
-minifb = { version =  "0.23", optional = true }
+minifb = { version =  "0.27", optional = true }
