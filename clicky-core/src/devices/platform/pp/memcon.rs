@@ -245,6 +245,10 @@ impl Device for MemConImpl {
 }
 
 impl Memory for MemConImpl {
+    fn x32(&mut self, offset: u32) -> MemResult<u32> {
+        
+    }
+
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
             0x0000..=0x1fff => Err(StubRead(Error, self.cache_data[offset as usize])),

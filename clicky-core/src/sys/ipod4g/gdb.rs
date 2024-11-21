@@ -83,6 +83,7 @@ impl Ipod4gGdb {
                 match access.kind {
                     MemAccessKind::Read => Event::WatchRead(access.offset),
                     MemAccessKind::Write => Event::WatchWrite(access.offset),
+                    MemAccessKind::Execute => Event::WatchRead(access.offset),
                 },
                 id,
             )));
