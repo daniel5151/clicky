@@ -232,6 +232,9 @@ impl Ipod4g {
                             .write16(devices::ide::IdeReg::Data, val)
                             .unwrap();
                     }
+                    MemAccessKind::Execute => {
+                        panic!("Unsupported execute DMA");
+                    }
                 }
             }
         }

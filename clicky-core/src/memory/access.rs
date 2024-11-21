@@ -10,6 +10,7 @@ pub enum MemAccessVal {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MemAccessKind {
     Read,
+    Execute,
     Write,
 }
 
@@ -79,6 +80,17 @@ impl std::fmt::Display for MemAccess {
                     MemAccessVal::U8(_) => "w8",
                     MemAccessVal::U16(_) => "w16",
                     MemAccessVal::U32(_) => "w32",
+                },
+                self.offset,
+                self.val
+            ),
+            MemAccessKind::Execute => write!(
+                f,
+                "{}({:#020x?}, {})",
+                match self.val {
+                    MemAccessVal::U8(_) => "x8",
+                    MemAccessVal::U16(_) => "x16",
+                    MemAccessVal::U32(_) => "x32",
                 },
                 self.offset,
                 self.val

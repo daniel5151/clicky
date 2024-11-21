@@ -44,8 +44,7 @@ dependencies = [
 [[package]]
 name = "armv4t_emu"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5df73307140e36ebb0c4298da3c3abf1d90b78b3232d50f091b3b2f46a05689f"
+source = "git+https://github.com/daniel5151/armv4t_emu.git#9647abdaebc5be076fe5ce92f4fb4254d305c577"
 dependencies = [
  "log",
 ]
