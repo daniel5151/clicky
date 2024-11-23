@@ -87,6 +87,8 @@ enum IdeCmd {
     WriteDMA = 0xca,
     WriteDMANoRetry = 0xcb,
 
+    InitializeDriveParameters = 0x91,
+
     Sleep = 0x99,
     SleepAlt = 0xe6,
 
@@ -685,6 +687,10 @@ impl IdeDrive {
                 (self.reg.status).set_bit(reg::STATUS::BSY, false);
 
                 self.irq.assert();
+                Ok(())
+            }
+
+            InitializeDriveParameters => {
                 Ok(())
             }
         }
