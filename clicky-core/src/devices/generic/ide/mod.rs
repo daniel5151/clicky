@@ -691,6 +691,8 @@ impl IdeDrive {
             }
 
             InitializeDriveParameters => {
+                (self.reg.status).set_bit(reg::STATUS::BSY, false);
+                self.irq.assert();
                 Ok(())
             }
         }
