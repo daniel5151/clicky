@@ -53,14 +53,14 @@ impl Device for Evp {
 impl Memory for Evp {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
-            0x0 => Err(StubRead(Error, self.reset_vec)),
-            0x4 => Err(StubRead(Error, self.undefined_instr_vec)),
-            0x8 => Err(StubRead(Error, self.soft_irq_vec)),
-            0xC => Err(StubRead(Error, self.prefetch_abrt_vec)),
-            0x10 => Err(StubRead(Error, self.data_abrt_vec)),
-            0x14 => Err(StubRead(Error, self.reserved_vec)),
-            0x18 => Err(StubRead(Error, self.normal_irq_vec)),
-            0x1C => Err(StubRead(Error, self.high_priority_irq_vec)),
+            0x0 => Ok(self.reset_vec),
+            0x4 => Ok(self.undefined_instr_vec),
+            0x8 => Ok(self.soft_irq_vec),
+            0xC => Ok(self.prefetch_abrt_vec),
+            0x10 => Ok(self.data_abrt_vec),
+            0x14 => Ok(self.reserved_vec),
+            0x18 => Ok(self.normal_irq_vec),
+            0x1C => Ok(self.high_priority_irq_vec),
             _ => Err(Unexpected),
         }
     }
