@@ -152,8 +152,8 @@ impl Memory for GpioPort {
     }
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
-        // it's an 8-bit interface
-        let val = val.trunc_to_u8()?;
+        // it's an 8-bit interface, but everyone does 32 bits accesses to it (eg. ipodloader2's keypad.c:543)
+        let val = val as u8;
 
         match offset {
             0x00 => self.enable = val,
