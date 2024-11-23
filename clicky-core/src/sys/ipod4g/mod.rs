@@ -1,7 +1,6 @@
 use std::io::{Read, Seek};
 
 use armv4t_emu::{reg, Cpu};
-use capstone::prelude::*;
 use thiserror::Error;
 
 use crate::block::BlockDev;
