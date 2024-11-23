@@ -1,4 +1,5 @@
 use crate::devices::prelude::*;
+use crate::memory::MemAccessKind;
 
 use super::common::CpuId;
 
@@ -36,10 +37,10 @@ impl MemCon {
         }
     }
 
-    pub fn virt_to_phys(&self, addr: u32) -> (u32, Protection) {
+    pub fn virt_to_phys(&self, addr: u32, access: MemAccessKind) -> (u32, Protection) {
         match self.selected {
-            CpuId::Cpu => self.cpucon.virt_to_phys(addr),
-            CpuId::Cop => self.copcon.virt_to_phys(addr),
+            CpuId::Cpu => self.cpucon.virt_to_phys(addr, access),
+            CpuId::Cop => self.copcon.virt_to_phys(addr, access),
         }
     }
 
@@ -136,15 +137,15 @@ impl MemConImpl {
         }
     }
 
-    fn virt_to_phys(&self, addr: u32) -> (u32, Protection) {
+    fn virt_to_phys(&self, addr: u32, access: MemAccessKind) -> (u32, Protection) {
         for &Mmap { logical, physical } in self.mmap.iter() {
             if logical == 0 || physical == 0 {
                 continue;
             }
 
-            let mask = logical.get_bits(0..=13) << 16;
-            let virt_addr = logical.get_bits(16..=29) << 16;
-            let phys_addr = physical.get_bits(16..=29) << 16;
+            let mask = logical.get_bits(11..=13) << 28;
+            let virt_addr = logical.get_bits(16..=31) << 16;
+            let phys_addr = physical.get_bits(16..=31) << 16;
             let prot = Protection {
                 r: physical.get_bit(8),
                 w: physical.get_bit(9),
@@ -152,56 +153,25 @@ impl MemConImpl {
                 x: physical.get_bit(11),
             };
 
-            // debug!(
-            //     "[{:x?}:{:x?}|{:x?}] {:x?} ",
-            //     virt_addr, phys_addr, mask, addr
-            // );
+            if access == MemAccessKind::Read && !prot.r && !prot.d {
+                continue;
+            }
+            if access == MemAccessKind::Write && !prot.w{
+                continue;
+            }
+            if access == MemAccessKind::Execute && !prot.x {
+                continue;
+            }
 
             // This is how the translation is supposed to work according to MrH's doc.
-            // Unfortunately, it doesn't work, and I'm not sure why...
-            //
-            // let final_addr = {
-            //     if (addr & mask) != (virt_addr & mask) {
-            //         continue;
-            //     }
-            //     (addr & !mask) | (phys_addr & mask)
-            // };
-            //
-            // return (final_addr, prot);
-
-            // This other approach is based off some random tidbit of info that hinted the
-            // minimum remapable size was 512k. It _also_ doesn't work...
-            //
-            // if (virt_addr..(virt_addr + mask / 2)).contains(&addr) {
-            //     let final_addr = addr - virt_addr + phys_addr;
-            //     return (final_addr, prot);
-            // }
-
-            // XXX: I've spent _way_ too much time trying to decipher how to
-            // mmap properly, so fuck it. I'm just hardcoding the few mappings
-            // software uses on a case-by-case basis.
-            let transform_range = match (mask, virt_addr, phys_addr) {
-                // ipodloader2: map SDRAM to 0x0
-                (0x3a00_0000, 0, 0x1000_0000) => Some(0..0x0200_0000),
-                // ipodloader2: map flash ROM to 0x2000_0000
-                (0x3a00_0000, 0x2000_0000, 0) => Some(0x2000_0000..0x2010_0000),
-                // flashROM: flashROM protection bits
-                (0x3bf0_0000, 0, 0) => Some(0..0),
-
-                // rockbox: like ipodloader2, but with different masks
-                (0x3e00_0000, 0, 0x1000_0000) => Some(0..0x0200_0000),
-                (0x3c00_0000, 0x2000_0000, 0) => Some(0x2000_0000..0x2010_0000),
-
-                _ => None,
-            };
-
-            if let Some(transform_range) = transform_range {
-                if transform_range.contains(&addr) {
-                    return (addr - virt_addr + phys_addr, prot);
+            let final_addr = {
+                if (addr & mask) != (virt_addr & mask) {
+                    continue;
                 }
-            } else {
-                panic!("unimplemented mmap: {:x?}", (mask, virt_addr, phys_addr))
-            }
+                (addr & !mask) | (phys_addr & mask)
+            };
+            
+            return (final_addr, prot);
         }
 
         // no mapping, just use default options
@@ -245,10 +215,6 @@ impl Device for MemConImpl {
 }
 
 impl Memory for MemConImpl {
-    fn x32(&mut self, offset: u32) -> MemResult<u32> {
-        
-    }
-
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
             0x0000..=0x1fff => Err(StubRead(Error, self.cache_data[offset as usize])),
@@ -276,6 +242,25 @@ impl Memory for MemConImpl {
         }
     }
 
+    fn w16(&mut self, offset: u32, val: u16) -> MemResult<()> {
+        match offset {
+            0xf000..=0xf03f if offset & 4 != 0 => {
+                let no = (offset - 0xf000) / 8;
+                self.mmap[no as usize].physical &= !0xffff;
+                self.mmap[no as usize].physical |= val as u32;
+
+                warn!(
+                    target: "MMIO",
+                    "phys_addr:{:x}, rwdx:{:04b}",
+                    self.mmap[no as usize].physical.get_bits(16..=31) << 16,
+                    self.mmap[no as usize].physical.get_bits(8..=11),
+                );
+                Err(StubWrite(Warn, ()))
+            },
+            _ => Err(Unexpected),
+        }
+    }
+
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         match offset {
             0x0000..=0x1fff => Err(StubWrite(Error, self.cache_data[offset as usize] = val)),
@@ -294,8 +279,8 @@ impl Memory for MemConImpl {
                 warn!(
                     target: "MMIO",
                     "virt_addr:{:x}, mask:{:x}",
-                    val.get_bits(16..=29) << 16,
-                    val.get_bits(0..=13) << 16,
+                    val.get_bits(16..=31) << 16,
+                    val.get_bits(0..=16) << 16,
                 );
 
                 Err(StubWrite(Warn, ()))
@@ -307,7 +292,7 @@ impl Memory for MemConImpl {
                 warn!(
                     target: "MMIO",
                     "phys_addr:{:x}, rwdx:{:04b}",
-                    val.get_bits(16..=29) << 16,
+                    val.get_bits(16..=31) << 16,
                     val.get_bits(8..=11),
                 );
                 Err(StubWrite(Warn, ()))

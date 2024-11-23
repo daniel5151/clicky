@@ -16,6 +16,13 @@ pub trait Memory {
     fn r32(&mut self, offset: u32) -> MemResult<u32>;
     /// Write a 32 bit value to the given offset
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()>;
+    /// Read a 32 bit value at a given offset for execution
+    fn x16(&mut self, offset: u32) -> MemResult<u16> {
+        self.r16(offset)
+    }
+    fn x32(&mut self, offset: u32) -> MemResult<u32> {
+        self.r32(offset)
+    }
 
     /// Read a 8 bit value at a given offset
     fn r8(&mut self, offset: u32) -> MemResult<u8> {
@@ -57,6 +64,7 @@ pub trait Memory {
 macro_rules! impl_memfwd {
     ($type:ty) => {
         impl Memory for $type {
+
             fn r32(&mut self, offset: u32) -> MemResult<u32> {
                 (**self).r32(offset)
             }
@@ -79,6 +87,14 @@ macro_rules! impl_memfwd {
 
             fn w16(&mut self, offset: u32, val: u16) -> MemResult<()> {
                 (**self).w16(offset, val)
+            }
+
+            fn x16(&mut self, offset: u32) -> MemResult<u16> {
+                (**self).x16(offset)
+            }
+
+            fn x32(&mut self, offset: u32) -> MemResult<u32> {
+                (**self).x32(offset)
             }
         }
     };

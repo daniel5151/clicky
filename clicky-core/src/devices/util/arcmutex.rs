@@ -70,4 +70,12 @@ impl<D: Memory> Memory for ArcMutexDevice<D> {
     fn w16(&mut self, offset: u32, val: u16) -> MemResult<()> {
         self.device.lock().unwrap().w16(offset, val)
     }
+
+    fn x16(&mut self, offset: u32) -> MemResult<u16> {
+        self.device.lock().unwrap().x16(offset)
+    }
+
+    fn x32(&mut self, offset: u32) -> MemResult<u32> {
+        self.device.lock().unwrap().x32(offset)
+    }
 }

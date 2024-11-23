@@ -1,6 +1,7 @@
 use std::io::{Read, Seek};
 
 use armv4t_emu::{reg, Cpu};
+use capstone::prelude::*;
 use thiserror::Error;
 
 use crate::block::BlockDev;
@@ -8,7 +9,7 @@ use crate::devices::{Device, Probe};
 use crate::error::*;
 use crate::executor::*;
 use crate::gui::RenderCallback;
-use crate::memory::{armv4t_adaptor::MemoryAdapter, MemAccess, Memory};
+use crate::memory::{armv4t_adaptor::MemoryAdapter, MemAccess, MemAccessKind, Memory};
 use crate::signal::{self, gpio, irq};
 
 mod controls;
@@ -470,14 +471,14 @@ macro_rules! mmap {
                         addr = addr | 0x6000_f100;
                     }
 
-                    let (mut addr, prot) = self.memcon.virt_to_phys(addr);
+                    let (phys_addr, prot) = self.memcon.virt_to_phys(addr, MemAccessKind::Read);
                     if !prot.r {
                         return Err(MemException::MmuViolation)
                     }
 
-                    match addr {
-                        $($start_ram$(..=$end_ram)? => self.$ram.$fn(addr - $start_ram),)*
-                        $($start_dev$(..=$end_dev)? => self.$dev.$fn(addr - $start_dev),)*
+                    match phys_addr {
+                        $($start_ram$(..=$end_ram)? => self.$ram.$fn(phys_addr - $start_ram),)*
+                        $($start_dev$(..=$end_dev)? => self.$dev.$fn(phys_addr - $start_dev),)*
                         _ => Err(MemException::Unexpected),
                     }
                 }
@@ -487,14 +488,41 @@ macro_rules! mmap {
         macro_rules! impl_mem_w {
             ($fn:ident, $val:ty) => {
                 fn $fn(&mut self, addr: u32, val: $val) -> MemResult<()> {
-                    let (addr, prot) = self.memcon.virt_to_phys(addr);
+                    let (phys_addr, prot) = self.memcon.virt_to_phys(addr, MemAccessKind::Write);
                     if !prot.w {
                         return Err(MemException::MmuViolation)
                     }
 
-                    match addr {
-                        $($start_ram$(..=$end_ram)? => self.$ram.$fn(addr - $start_ram, val),)*
-                        $($start_dev$(..=$end_dev)? => self.$dev.$fn(addr - $start_dev, val),)*
+                    match phys_addr {
+                        $($start_ram$(..=$end_ram)? => self.$ram.$fn(phys_addr - $start_ram, val),)*
+                        $($start_dev$(..=$end_dev)? => self.$dev.$fn(phys_addr - $start_dev, val),)*
+                        _ => Err(MemException::Unexpected),
+                    }
+                }
+            };
+        }
+
+        macro_rules! impl_mem_x {
+            ($fn:ident, $ret:ty) => {
+                fn $fn(&mut self, addr: u32) -> MemResult<$ret> {
+                    let phys_addr = if (0x00..0x1F).contains(&addr) && self.cachecon.local_evt {
+                        match self.evp.r32(addr) {
+                            Ok(val) => val,
+                            Err(e) => {
+                                return Err(e);
+                            }
+                        }
+                    } else {
+                        let (final_addr, prot) = self.memcon.virt_to_phys(addr, MemAccessKind::Execute);
+                        if !prot.x {
+                            return Err(MemException::MmuViolation)
+                        }
+                        final_addr
+                    };
+
+                    match phys_addr {
+                        $($start_ram$(..=$end_ram)? => self.$ram.$fn(phys_addr - $start_ram),)*
+                        $($start_dev$(..=$end_dev)? => self.$dev.$fn(phys_addr - $start_dev),)*
                         _ => Err(MemException::Unexpected),
                     }
                 }
@@ -507,7 +535,7 @@ macro_rules! mmap {
             }
 
             fn probe(&self, addr: u32) -> Probe {
-                let (addr, _) = self.memcon.virt_to_phys(addr);
+                let (addr, _) = self.memcon.virt_to_phys(addr, MemAccessKind::Read);
                 match addr {
                     $($start_ram$(..=$end_ram)? => {
                         Probe::from_device(&self.$ram, addr - $start_ram)
@@ -527,6 +555,8 @@ macro_rules! mmap {
             impl_mem_w!(w8, u8);
             impl_mem_w!(w16, u16);
             impl_mem_w!(w32, u32);
+            impl_mem_x!(x16, u16);
+            impl_mem_x!(x32, u32);
         }
     };
 }
