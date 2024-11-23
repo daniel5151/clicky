@@ -358,6 +358,8 @@ pub struct Ipod4gBus {
     pub firewire: devices::Stub,
     pub total_mystery: devices::Stub,
     pub pwmcon: devices::PWMCon,
+
+    pub pp5002_serial_stub: devices::Stub,
 }
 
 impl Ipod4gBus {
@@ -449,6 +451,8 @@ impl Ipod4gBus {
             firewire: Stub::new("Firewire Con?"),
             total_mystery: Stub::new("<total mystery>"),
             pwmcon: PWMCon::new(),
+
+            pp5002_serial_stub: Stub::new("PP5002 serial stub"),
         }
     }
 }
@@ -617,5 +621,9 @@ mmap! {
         // Diagnostics program writes 0xffffffff
         0xc600_008c => firewire,
         0xffff_fe00..=0xffff_ffff => mystery_flash_stub,
+
+        // PP5002 addresses, I know, but iPodLinux uses that
+        0xc000_6000..=0xc000_6020 => pp5002_serial_stub,
+        0xc000_6040..=0xc000_6060 => pp5002_serial_stub,
     }
 }
