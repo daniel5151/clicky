@@ -26,6 +26,7 @@ thiserror.workspace = true
 # emulation related
 armv4t_emu.workspace = true
 gdbstub.workspace = true
+gdbstub_arch.workspace = true
 
 # async/await
 async-channel.workspace = true
