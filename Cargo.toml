@@ -34,7 +34,8 @@ fern = "0.5"
 flate2 = "1.0"
 futures = { version = "0.3", default-features = false }
 futures-executor = "0.3"
-gdbstub = "0.4"
+gdbstub = "0.5"
+gdbstub_arch = "0.1.0"
 gloo-timers = { version = "0.2", features = ["futures"] }
 human-size = "0.4"
 hxdmp = "0.2"
