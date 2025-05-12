@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
 use armv4t_emu::reg;
-use gdbstub::arch;
+use gdbstub_arch;
 use gdbstub::common::Tid;
 use gdbstub::target;
+use gdbstub::target::ext::base::GdbInterrupt;
 use gdbstub::target::ext::base::multithread::{
-    Actions, MultiThreadOps, ResumeAction, ThreadStopReason,
+    MultiThreadOps, ResumeAction, ThreadStopReason,
 };
 use gdbstub::target::ext::breakpoints::WatchKind;
 use gdbstub::target::ext::monitor_cmd::{outputln, ConsoleOutput};
@@ -13,7 +14,7 @@ use gdbstub::target::{Target, TargetResult};
 
 use crate::devices::Device;
 use crate::error::*;
-use crate::memory::{MemAccessKind, Memory};
+use crate::memory::{MemAccess, MemAccessKind, MemAccessVal, Memory};
 
 use super::{BlockMode, CpuId, Ipod4g};
 
@@ -32,6 +33,7 @@ pub struct Ipod4gGdb {
     breakpoints: Vec<u32>,
 
     single_step_irq: bool,
+    resume_action_is_step: Option<bool>,
 }
 
 impl Ipod4gGdb {
@@ -42,6 +44,7 @@ impl Ipod4gGdb {
             watchpoint_kinds: HashMap::new(),
             breakpoints: Vec::new(),
             single_step_irq: false,
+            resume_action_is_step: None,
         }
     }
 
@@ -205,18 +208,14 @@ fn event_to_stopreason(e: Event, id: CpuId) -> ThreadStopReason<u32> {
 }
 
 impl Target for Ipod4gGdb {
-    type Arch = arch::arm::Armv4t;
+    type Arch = gdbstub_arch::arm::Armv4t;
     type Error = FatalMemException;
 
     fn base_ops(&mut self) -> target::ext::base::BaseOps<Self::Arch, Self::Error> {
         target::ext::base::BaseOps::MultiThread(self)
     }
 
-    fn sw_breakpoint(&mut self) -> Option<target::ext::breakpoints::SwBreakpointOps<Self>> {
-        Some(self)
-    }
-
-    fn hw_watchpoint(&mut self) -> Option<target::ext::breakpoints::HwWatchpointOps<Self>> {
+    fn breakpoints(&mut self) -> Option<target::ext::breakpoints::BreakpointsOps<Self>> {
         Some(self)
     }
 
@@ -225,18 +224,33 @@ impl Target for Ipod4gGdb {
     }
 }
 
+impl target::ext::breakpoints::Breakpoints for Ipod4gGdb {
+    fn sw_breakpoint(&mut self) -> Option<target::ext::breakpoints::SwBreakpointOps<Self>> {
+        Some(self)
+    }
+
+    fn hw_watchpoint(&mut self) -> Option<target::ext::breakpoints::HwWatchpointOps<Self>> {
+        Some(self)
+    }
+}
+
 impl MultiThreadOps for Ipod4gGdb {
     fn resume(
         &mut self,
-        actions: Actions,
-        check_gdb_interrupt: &mut dyn FnMut() -> bool,
+        default_resume_action: ResumeAction,
+        gdb_interrupt: GdbInterrupt<'_>,
     ) -> Result<ThreadStopReason<u32>, Self::Error> {
-        // FIXME: properly handle multiple actions...
-        let actions = actions.collect::<Vec<_>>();
-        let (_, action) = actions[0];
+        let default_resume_action_is_step = match default_resume_action {
+            ResumeAction::Step => true,
+            ResumeAction::Continue => false,
+            _ => return Ok(ThreadStopReason::DoneStep), // should be an error
+        };
 
-        match action {
-            ResumeAction::Step => {
+        match self
+            .resume_action_is_step
+            .unwrap_or(default_resume_action_is_step)
+        {
+            true => {
                 if !self.single_step_irq {
                     self.sys.skip_irq_check = true;
                 }
@@ -248,12 +262,13 @@ impl MultiThreadOps for Ipod4gGdb {
                     self.sys.skip_irq_check = false;
                 }
                 res
-            }
-            ResumeAction::Continue => {
+            },
+            false => {
+                let mut gdb_interrupt = gdb_interrupt.no_async();
                 let mut cycles: usize = 0;
                 loop {
                     // check for GDB interrupt every 1024 instructions
-                    if cycles % 1024 == 0 && check_gdb_interrupt() {
+                    if cycles % 1024 == 0 && gdb_interrupt.pending() {
                         return Ok(ThreadStopReason::GdbInterrupt);
                     }
                     cycles += 1;
@@ -266,9 +281,47 @@ impl MultiThreadOps for Ipod4gGdb {
         }
     }
 
+    fn clear_resume_actions(&mut self) -> Result<(), Self::Error> {
+        self.resume_action_is_step = None;
+        Ok(())
+    }
+
+    fn set_resume_action(&mut self, tid: Tid, action: ResumeAction) -> Result<(), Self::Error> {
+        // in this emulator, each core runs in lock-step, so we don't actually care
+        // about the specific tid. In real integrations, you very much should!
+
+        if self.resume_action_is_step.is_some() {
+            return Ok(());
+        }
+
+        let cpu = match tid_to_cpuid(tid).unwrap() {
+            CpuId::Cpu => &mut self.sys.cpu,
+            CpuId::Cop => &mut self.sys.cop,
+        };
+
+        self.resume_action_is_step = match action {
+            ResumeAction::Step => Some(true),
+            ResumeAction::Continue => Some(false),
+            _ => return MemException::Fatal("no support for resuming with signal".to_owned()).resolve(
+                "Debug",
+                MemExceptionCtx {
+                    pc: cpu.reg_get(cpu.mode(), reg::PC),
+                    access: MemAccess {
+                        kind: MemAccessKind::Read,
+                        offset: 0,
+                        val: MemAccessVal::U8(0),
+                    },
+                    in_device: format!("{}", tid_to_cpuid(tid).unwrap()),
+                },
+            ),
+        };
+
+        Ok(())
+    }
+
     fn read_registers(
         &mut self,
-        regs: &mut arch::arm::reg::ArmCoreRegs,
+        regs: &mut gdbstub_arch::arm::reg::ArmCoreRegs,
         tid: Tid,
     ) -> TargetResult<(), Self> {
         let cpu = match tid_to_cpuid(tid).unwrap() {
@@ -291,7 +344,7 @@ impl MultiThreadOps for Ipod4gGdb {
 
     fn write_registers(
         &mut self,
-        regs: &arch::arm::reg::ArmCoreRegs,
+        regs: &gdbstub_arch::arm::reg::ArmCoreRegs,
         tid: Tid,
     ) -> TargetResult<(), Self> {
         let cpu = match tid_to_cpuid(tid).unwrap() {
@@ -351,12 +404,12 @@ impl MultiThreadOps for Ipod4gGdb {
 }
 
 impl target::ext::breakpoints::SwBreakpoint for Ipod4gGdb {
-    fn add_sw_breakpoint(&mut self, addr: u32) -> TargetResult<bool, Self> {
+    fn add_sw_breakpoint(&mut self, addr: u32, _kind: gdbstub_arch::arm::ArmBreakpointKind) -> TargetResult<bool, Self> {
         self.breakpoints.push(addr);
         Ok(true)
     }
 
-    fn remove_sw_breakpoint(&mut self, addr: u32) -> TargetResult<bool, Self> {
+    fn remove_sw_breakpoint(&mut self, addr: u32, _kind: gdbstub_arch::arm::ArmBreakpointKind) -> TargetResult<bool, Self> {
         match self.breakpoints.iter().position(|x| *x == addr) {
             None => return Ok(false),
             Some(pos) => self.breakpoints.remove(pos),
