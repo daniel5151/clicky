@@ -429,21 +429,14 @@ impl IdeDrive {
             });
         }
 
-        // TODO?: handle unsupported IDE command according to ATA spec
-        let cmd = IdeCmd::try_from(cmd).map_err(|_| ContractViolation {
-            msg: format!("unknown IDE command: {:#04x?}", cmd),
-            severity: Error, // TODO: this should be Warn, and IDE error bits should be set
-            stub_val: None,
-        })?;
-
         (self.reg.status)
             .set_bit(reg::STATUS::BSY, true)
             .set_bit(reg::STATUS::ERR, false);
         self.reg.error = 0;
 
         use IdeCmd::*;
-        match cmd {
-            IdentifyDevice => {
+        match IdeCmd::try_from(cmd) {
+            Ok(IdentifyDevice) => {
                 let len = self.blockdev.len();
 
                 // fill the iobuf with identification info
@@ -475,7 +468,7 @@ impl IdeDrive {
 
                 Ok(())
             }
-            ReadMultiple => {
+            Ok(ReadMultiple) => {
                 if self.cfg.multi_sect == 0 {
                     // TODO?: use the ATA abort mechanism instead of loudly failing
                     return Err(ContractViolation {
@@ -492,7 +485,7 @@ impl IdeDrive {
                     self.exec_cmd(ReadSectors as u8)
                 }
             }
-            ReadDMA | ReadDMANoRetry => {
+            Ok(ReadDMA) | Ok(ReadDMANoRetry) => {
                 if !self.cfg.transfer_mode.is_dma() {
                     // TODO?: use the ATA abort mechanism instead of loudly failing
                     return Err(ContractViolation {
@@ -508,7 +501,7 @@ impl IdeDrive {
                 (self.reg.status).set_bit(reg::STATUS::BSY, false);
                 self.exec_cmd(ReadSectors as u8)
             }
-            ReadSectors | ReadSectorsNoRetry => {
+            Ok(ReadSectors) | Ok(ReadSectorsNoRetry) => {
                 let offset = match self.get_sector_offset() {
                     Some(offset) => offset,
                     None => {
@@ -554,14 +547,14 @@ impl IdeDrive {
 
                 Ok(())
             }
-            StandbyImmediate | StandbyImmediateAlt => {
+            Ok(StandbyImmediate) | Ok(StandbyImmediateAlt) => {
                 // I mean, it's a virtual disk, there is no "spin up / spin down"
                 self.reg.status.set_bit(reg::STATUS::BSY, false);
 
                 // TODO: fire interrupt
                 Ok(())
             }
-            WriteMultiple => {
+            Ok(WriteMultiple) => {
                 if self.cfg.multi_sect == 0 {
                     // TODO?: use the ATA abort mechanism instead of loudly failing
                     return Err(ContractViolation {
@@ -579,7 +572,7 @@ impl IdeDrive {
                     self.exec_cmd(WriteSectors as u8)
                 }
             }
-            WriteDMA | WriteDMANoRetry => {
+            Ok(WriteDMA) | Ok(WriteDMANoRetry) => {
                 if !self.cfg.transfer_mode.is_dma() {
                     // TODO?: use the ATA abort mechanism instead of loudly failing
                     return Err(ContractViolation {
@@ -595,7 +588,7 @@ impl IdeDrive {
                 (self.reg.status).set_bit(reg::STATUS::BSY, false);
                 self.exec_cmd(WriteSectors as u8)
             }
-            WriteSectors | WriteSectorsNoRetry => {
+            Ok(WriteSectors) | Ok(WriteSectorsNoRetry) => {
                 // NOTE: this code is somewhat UNTESTED
 
                 let offset = match self.get_sector_offset() {
@@ -636,7 +629,7 @@ impl IdeDrive {
                 Ok(())
             }
 
-            SetMultipleMode => {
+            Ok(SetMultipleMode) => {
                 self.cfg.multi_sect = self.reg.sector_count;
 
                 // TODO: implement proper multi-sector support
@@ -650,7 +643,7 @@ impl IdeDrive {
                 Ok(())
             }
 
-            SetFeatures => {
+            Ok(SetFeatures) => {
                 match self.reg.feature {
                     // Enable 8-bit data transfers
                     0x01 => self.cfg.eightbit = true,
@@ -671,7 +664,7 @@ impl IdeDrive {
                 Ok(())
             }
 
-            FlushCache => {
+            Ok(FlushCache) => {
                 // uhh, we don't implement caching
                 (self.reg.status)
                     .set_bit(reg::STATUS::BSY, false)
@@ -681,7 +674,7 @@ impl IdeDrive {
                 Ok(())
             }
 
-            Sleep | SleepAlt => {
+            Ok(Sleep) | Ok(SleepAlt) => {
                 // uhh, it's an emulated drive.
                 // just assert the irq and go on our merry way
                 (self.reg.status).set_bit(reg::STATUS::BSY, false);
@@ -690,10 +683,22 @@ impl IdeDrive {
                 Ok(())
             }
 
-            InitializeDriveParameters => {
+            Ok(InitializeDriveParameters) => {
                 (self.reg.status).set_bit(reg::STATUS::BSY, false);
                 self.irq.assert();
                 Ok(())
+            }
+
+            Err(_) => {
+                (self.reg.status)
+                    .set_bit(reg::STATUS::BSY, false)
+                    .set_bit(reg::STATUS::ERR, true);
+                self.reg.error = 1;
+                Err(ContractViolation {
+                    msg: format!("unknown IDE command: {:#04x?}", cmd),
+                    severity: Warn,
+                    stub_val: None,
+                })
             }
         }
     }
