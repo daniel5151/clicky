@@ -22,6 +22,8 @@ pub struct EIDECon {
     ide1_cfg: IdeDriveCfg,
     ide: IdeController,
 
+    task_spawner: Spawner,
+
     // NOTE: since no pp devices ever used two IDE devices at once, I have no idea if the DMA is
     // per disk or per controller...
 
@@ -38,11 +40,12 @@ pub struct EIDECon {
 pub struct DmaErr;
 
 impl EIDECon {
-    pub fn new(irq: irq::Sender, dmarq: irq::Sender) -> EIDECon {
+    pub fn new(irq: irq::Sender, dmarq: irq::Sender, task_spawner: Spawner) -> EIDECon {
         EIDECon {
             ide0_cfg: Default::default(),
             ide1_cfg: Default::default(),
-            ide: IdeController::new(irq, dmarq),
+            ide: IdeController::new(irq, dmarq, task_spawner.clone()),
+            task_spawner: task_spawner.clone(),
 
             dma_control: 0,
             dma_length: 0,
