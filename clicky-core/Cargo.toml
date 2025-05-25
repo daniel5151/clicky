@@ -24,8 +24,9 @@ static_assertions = "1.1"
 thiserror = "1.0"
 
 # emulation related
-armv4t_emu = { git = "https://github.com/daniel5151/armv4t_emu.git" }
-gdbstub = "0.4"
+armv4t_emu = "0.1.2"
+gdbstub = "0.5"
+gdbstub_arch = "0.1.0"
 
 # async/await
 async-channel = "1.4"

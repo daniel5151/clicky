@@ -175,8 +175,12 @@ fn main() -> DynResult<()> {
                                     info!("Target is still running. Resuming execution...");
                                     system.run()
                                 }
-                                DisconnectReason::TargetHalted => {
-                                    info!("Target halted!");
+                                DisconnectReason::TargetExited(_) => {
+                                    info!("Target exited!");
+                                    Ok(())
+                                }
+                                DisconnectReason::TargetTerminated(_) => {
+                                    info!("Target terminated!");
                                     Ok(())
                                 }
                                 DisconnectReason::Kill => {
