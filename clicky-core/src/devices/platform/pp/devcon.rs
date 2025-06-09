@@ -1,4 +1,23 @@
 use crate::devices::prelude::*;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
+
+#[derive(Debug, Copy, Clone, EnumIter)]
+pub enum DevIdentifier {
+    EXTCLOCKS = 1,
+    SYS = 2,
+    USB0 = 3,
+    SER0 = 6,
+    SER1 = 7,
+    I2S = 11,
+    I2C = 12,
+    ATA = 14,
+    OPTO = 16,
+    USB1 = 22,
+    FIREWIRE = 23,
+    IDE0 = 25,
+    LCD = 26,
+}
 
 /// PP5020 Device Controller.
 #[derive(Debug)]
@@ -26,6 +45,8 @@ impl DevCon {
             mystery: [0; 1],
         }
     }
+
+
 }
 
 impl Device for DevCon {
@@ -73,9 +94,41 @@ impl Memory for DevCon {
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         match offset {
-            0x04 => Err(StubWrite(Error, self.reset[0] = val)),
+            0x04 => Err(StubWrite(Error, {
+                let mut rising_edges = !self.reset[0] & val;
+                for device in DevIdentifier::iter() {
+                    if rising_edges.get_bit(device as usize) {
+                        println!("{:?} got reset", device);
+                        rising_edges.set_bit(device as usize, false);
+                    }
+                }
+                if rising_edges != 0 {
+                    for i in 0..31 {
+                        if rising_edges.get_bit(i) {
+                            println!("Unknown device being reset (bit pos {})", i);
+                        }
+                    }
+                }
+                self.reset[0] = val;
+            })),
             0x08 => Err(StubWrite(Error, self.reset[1] = val)),
-            0x0c => Err(StubWrite(Info, self.enable[0] = val)),
+            0x0c => Err(StubWrite(Info, {
+                let mut rising_edges = !self.enable[0] & val;
+                for device in DevIdentifier::iter() {
+                    if rising_edges.get_bit(device as usize) {
+                        println!("{:?} got enabled", device);
+                        rising_edges.set_bit(device as usize, false);
+                    }
+                }
+                if rising_edges != 0 {
+                    for i in 0..31 {
+                        if rising_edges.get_bit(i) {
+                            println!("Unknown device being enabled (bit pos {})", i);
+                        }
+                    }
+                }
+                self.enable[0] = val;
+            })),
             0x10 => Err(StubWrite(Info, self.enable[1] = val)),
             0x20 => Err(StubWrite(Trace, self.clock_source = val)),
             0x34 => Err(StubWrite(Trace, self.pll_control = val)),

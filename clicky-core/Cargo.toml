@@ -32,6 +32,11 @@ async-channel = "1.4"
 blocking = "0.5"
 futures-executor = { version = "0.3", features = ["thread-pool"] } # TEMP
 pin-utils = "0.1"
+
+# enum
+strum = "0.17.1"
+strum_macros = "0.17.1"
+
 [dependencies.futures]
 version = "0.3"
 default-features = false
