@@ -355,7 +355,7 @@ pub struct Ipod4gBus {
     pub mystery_irq_con: devices::Stub,
     pub mystery_lcd_con: devices::Stub,
     pub mystery_flash_stub: devices::Stub,
-    pub firewire: devices::Stub,
+    pub firewire: devices::Firewire,
     pub total_mystery: devices::Stub,
     pub pwmcon: devices::PWMCon,
 
@@ -418,6 +418,7 @@ impl Ipod4gBus {
             sdram: AsanRam::new(32 * 1024 * 1024, true), // 32 MB
             fastram: AsanRam::new(96 * 1024, true),      // 96 KB
             cpuid: CpuIdReg::new(),
+            firewire: Firewire::new(),
             flash: Flash::new(),
             cpucon: CpuCon::new(task_spawner.clone()),
             hd66753: Hd66753::new(),
@@ -448,7 +449,6 @@ impl Ipod4gBus {
             mystery_irq_con: Stub::new("Mystery IRQ Con?"),
             mystery_lcd_con: Stub::new("Mystery LCD Con?"),
             mystery_flash_stub: Stub::new("Mystery FlashROM Con?"),
-            firewire: Stub::new("Firewire Con?"),
             total_mystery: Stub::new("<total mystery>"),
             pwmcon: PWMCon::new(),
 
@@ -619,7 +619,7 @@ mmap! {
         0xc031_b1d8 => mystery_flash_stub,
         0xc031_b1e8 => mystery_flash_stub,
         // Diagnostics program writes 0xffffffff
-        0xc600_008c => firewire,
+        0xc600_0000..=0xc600_01ff => firewire,
         0xffff_fe00..=0xffff_ffff => mystery_flash_stub,
 
         // PP5002 addresses, I know, but iPodLinux uses that
