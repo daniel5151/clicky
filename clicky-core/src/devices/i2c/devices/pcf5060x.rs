@@ -277,41 +277,23 @@ impl Pcf5060xImpl {
     }
 
     fn get_adc_readout(&mut self, reg: Reg) -> MemResult<u8> {
-        let adcrdy = 0x80;
-        let adcmux = self.adcc2.get_bits(1..=4);
-        let adcdat1;
-        let adcdat2;
-        match adcmux {
-            0b0001 => {
-                // BATVOLT, subtractor
-                adcdat1 = 0;
-                adcdat2 = 0;
-            }
-            0b0011 => {
-                // ADCIN1, subtractor
-                adcdat1 = 0;
-                adcdat2 = 0;
-            }
-            0b0101 => {
-                // ADCIN2
-                adcdat1 = 0;
-                adcdat2 = 0;
-            }
-            0b0111 => {
-                // ADCIN3, ratiometric
-                adcdat1 = 0;
-                adcdat2 = 0;
-            }
-            _ => {
-                return Err(Unimplemented);
-            }
-        }
+        const ADCRDY: u32 = 0x80;
+
+        let mux_sel = self.adcc2.get_bits(1..=4);
+        let readout = match mux_sel {
+            0 => 621, // BATVOLT, resistive divider
+            1 => 232, // BATVOLT, substractor
+            2 => 621, // ADCIN1, resistive divider
+            3 => 621, // ADCIN1, substractor
+            4 => 385, // BATTEMP, radiometric
+            _ => return Err(Unimplemented),
+        };
 
         use Reg::*;
         match reg {
-            ADCS1__ => Err(StubRead(Info, adcdat1 >> 2 & 0xFF)),
-            ADCS2__ => Err(StubRead(Info, adcrdy | (adcdat1 << 8) & 0x3)),
-            ADCS3__ => Err(StubRead(Info, adcdat2 >> 2 & 0xFF)),
+            ADCS1__ => Err(StubRead(Info, (readout >> 2) & 0xff)),
+            ADCS2__ => Err(StubRead(Info, ADCRDY | (readout & 0x3))),
+            ADCS3__ => Err(StubRead(Info, 0)), // Warning: ADCDAT2 is NOT emulated!
             _ => Err(Unimplemented),
         }
     }
