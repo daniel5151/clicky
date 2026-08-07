@@ -61,11 +61,10 @@ impl Memory for Serial {
                 // TODO: properly wire up uart
                 Err(StubRead(Info, 0))
             }
-            0x04 => Err(StubRead(Info, self.ier as u32)),
-            0x08 => Err(StubRead(Info, self.fcr as u32)),
-            0x0c => Err(StubRead(Info, self.lcr as u32)),
-            0x10 => Err(StubRead(Info, self.mcr as u32)),
-            // always ready to tx and rx
+            0x04 => Ok(self.ier as u32),
+            0x08 => Ok(self.fcr as u32),
+            0x0c => Ok(self.lcr as u32),
+            0x10 => Ok(self.mcr as u32),
             0x14 => Ok(0x21),
             0x18..0x28 => Err(Unimplemented),
             0x3c => Ok(self.asr as u32),
