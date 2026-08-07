@@ -9,6 +9,7 @@ pub struct Serial {
     fcr: u8,
     lcr: u8,
     mcr: u8,
+    asr: u8,
 }
 
 impl Serial {
@@ -20,6 +21,7 @@ impl Serial {
             fcr: 0,
             lcr: 0,
             mcr: 0,
+            asr: 0,
         }
     }
 }
@@ -41,8 +43,10 @@ impl Device for Serial {
             0x0c => "LCR",
             0x10 => "MCR",
             0x14 => "LSR",
-            0x18 => "MSR",
-            0x1c => "SPR",
+            0x18 => "MSR", // Modem Status Register
+            0x1c => "SPR", // Scratch Pad Register
+            0x20 => "IRDA", // IrDA Pulse Coding Register
+            0x3c => "ASR", // Autobaud Sense Register
             _ => return Probe::Unmapped,
         };
 
@@ -63,8 +67,8 @@ impl Memory for Serial {
             0x10 => Err(StubRead(Info, self.mcr as u32)),
             // always ready to tx and rx
             0x14 => Ok(0x21),
-            0x18 => Err(Unimplemented),
-            0x1c => Err(Unimplemented),
+            0x18..0x28 => Err(Unimplemented),
+            0x3c => Ok(self.asr as u32),
             _ => Err(Unexpected),
         }
     }
@@ -81,13 +85,13 @@ impl Memory for Serial {
                     print!("\\x{:02x}", val);
                 }
             }),
-            0x04 => Err(StubWrite(Info, self.ier = val)),
-            0x08 => Err(StubWrite(Info, self.fcr = val)),
-            0x0c => Err(StubWrite(Info, self.lcr = val)),
-            0x10 => Err(StubWrite(Info, self.mcr = val)),
+            0x04 => Ok(self.ier = val),
+            0x08 => Ok(self.fcr = val),
+            0x0c => Ok(self.lcr = val),
+            0x10 => Ok(self.mcr = val),
             0x14 => Err(InvalidAccess),
-            0x18 => Err(Unimplemented),
-            0x1c => Err(Unimplemented),
+            0x18..0x28 => Err(Unimplemented),
+            0x3c => Ok(self.asr = val),
             _ => Err(Unexpected),
         }
     }
