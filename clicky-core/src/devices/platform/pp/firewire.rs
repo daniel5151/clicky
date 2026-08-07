@@ -24,7 +24,12 @@ impl Memory for Firewire {
         Err(Unimplemented)
     }
 
-    fn w32(&mut self, _offset: u32, _val: u32) -> MemResult<()> {
-        Err(Unimplemented)
+    fn w32(&mut self, offset: u32, _val: u32) -> MemResult<()> {
+        match offset {
+            0x8C => { // Gets sent 0xFFFFFFFF, reverse CFR endianness to BE (3.4.1)?
+                Ok(())
+            },
+            _ => return Err(Unimplemented)
+        }
     }
 }
