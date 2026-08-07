@@ -315,7 +315,7 @@ impl Pcf5060xImpl {
     fn read(&mut self, reg: Reg) -> MemResult<u8> {
         use Reg::*;
         match reg {
-            ID_____ => Err(StubRead(Info, 0)),
+            ID_____ => Ok(74),
             // On/Off control (OOC)
             OOCC1__ => Err(StubRead(Info, self.oocc1 as u32)),
             OOCC2__ => Err(StubRead(Info, self.oocc2 as u32)),
