@@ -360,7 +360,7 @@ impl Pcf5060xImpl {
             // Analog / Digital Converter (ADC)
             // TODO: return better values of charging status?
             ADCC1__ => Ok(self.adcc1),
-            ADCC2__ => Ok(self.adcc2),
+            ADCC2__ => Ok(self.adcc2 & 0b1111_1110), // Don't store ADCSTART bit
             ADCS1__ | ADCS2__ | ADCS3__ => self.get_adc_readout(reg),
             ACDC1__ => Ok(self.acdc1),
             // Battery Voltage Monitor (BVM)
