@@ -220,6 +220,7 @@ struct Pcf5060xImpl {
     rtc_alarm: [u8; 7],
     bvmc: u8,
     gp0c1: u8,
+    adcc1: u8,
     adcc2: u8,
 }
 
@@ -236,6 +237,7 @@ impl Pcf5060xImpl {
             rtc_alarm: [0; 7],
             bvmc: 0,
             gp0c1: 0x04,
+            adcc1: 0,
             adcc2: 0,
         }
     }
@@ -355,6 +357,7 @@ impl Pcf5060xImpl {
             RTCYRA_ => Ok(self.rtc_alarm[6]),
             // Analog / Digital Converter (ADC)
             // TODO: return better values of charging status?
+            ADCC1__ => Ok(self.adcc1),
             ADCC2__ => Ok(self.adcc2),
             ADCS1__ | ADCS2__ | ADCS3__ => self.get_adc_readout(reg),
             // Battery Voltage Monitor (BVM)
@@ -403,6 +406,7 @@ impl Pcf5060xImpl {
             RTCMTA_ => Ok(self.rtc_alarm[5] = data),
             RTCYRA_ => Ok(self.rtc_alarm[6] = data),
             // Analog / Digital Converter (ADC)
+            ADCC1__ => Ok(self.adcc1 = data & 0b0111_1111), // Bit 7 is read-only (TSCINT)
             ADCC2__ => Ok(self.adcc2 = data),
             ADCS1__ => Err(InvalidAccess),
             ADCS2__ => Err(InvalidAccess),
