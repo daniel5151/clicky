@@ -222,6 +222,7 @@ struct Pcf5060xImpl {
     gp0c1: u8,
     adcc1: u8,
     adcc2: u8,
+    acdc1: u8,
 }
 
 impl Pcf5060xImpl {
@@ -239,6 +240,7 @@ impl Pcf5060xImpl {
             gp0c1: 0x04,
             adcc1: 0,
             adcc2: 0,
+            acdc1: 0,
         }
     }
 
@@ -360,6 +362,7 @@ impl Pcf5060xImpl {
             ADCC1__ => Ok(self.adcc1),
             ADCC2__ => Ok(self.adcc2),
             ADCS1__ | ADCS2__ | ADCS3__ => self.get_adc_readout(reg),
+            ACDC1__ => Ok(self.acdc1),
             // Battery Voltage Monitor (BVM)
             BVMC___ => Ok(self.bvmc),
             GPOC1__ => Ok(self.gp0c1),
@@ -411,6 +414,7 @@ impl Pcf5060xImpl {
             ADCS1__ => Err(InvalidAccess),
             ADCS2__ => Err(InvalidAccess),
             ADCS3__ => Err(InvalidAccess),
+            ACDC1__ => Ok(self.acdc1 = data & 0b1001_1110), // Writable bitmask
             // Battery Voltage Monitor (BVM)
             BVMC___ => Ok(self.bvmc = data),
             GPOC1__ => Ok(self.gp0c1 = data),
