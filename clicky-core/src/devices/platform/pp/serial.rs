@@ -65,7 +65,7 @@ impl Memory for Serial {
             0x08 => Ok(self.fcr as u32),
             0x0c => Ok(self.lcr as u32),
             0x10 => Ok(self.mcr as u32),
-            0x14 => Ok(0x21),
+            0x14 => Ok(0x0),
             0x18..0x28 => Err(Unimplemented),
             0x3c => Ok(self.asr as u32),
             _ => Err(Unexpected),
