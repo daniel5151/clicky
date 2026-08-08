@@ -198,8 +198,8 @@ impl MemConImpl {
             }
 
             let physical_target = physical.get_bits(16..=29) << 16;
-            let final_addr = alias_sdram_address(addr & !mask) | (physical_target & mask);
-            
+            let final_addr = alias_sdram_address((addr & !mask) | (physical_target & mask));
+
             return (final_addr, prot);
         }
 
