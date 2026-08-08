@@ -2,6 +2,8 @@ use crate::devices::prelude::*;
 
 use super::CpuId;
 
+const MAILBOX_QUEUE_SIZE: usize = 4;
+
 /// PP5020 inter-processor Mailbox.
 #[derive(Debug)]
 pub struct Mailbox {
@@ -10,6 +12,9 @@ pub struct Mailbox {
     cop_irq: irq::Sender,
 
     shared_bits: u32,
+
+    cpu_queue: [u32; MAILBOX_QUEUE_SIZE],
+    cop_queue: [u32; MAILBOX_QUEUE_SIZE],
 }
 
 impl Mailbox {
@@ -20,6 +25,9 @@ impl Mailbox {
             cop_irq,
 
             shared_bits: 0,
+
+            cpu_queue: [0; MAILBOX_QUEUE_SIZE],
+            cop_queue: [0; MAILBOX_QUEUE_SIZE],
         }
     }
 
@@ -63,8 +71,20 @@ impl Memory for Mailbox {
             0x04 => Err(InvalidAccess),
             0x08 => Err(InvalidAccess),
             0x0c => Err(Unimplemented),
-            0x10..=0x1f => Err(Unimplemented),
-            0x20..=0x2f => Err(Unimplemented),
+            0x10..=0x1f => {
+                let idx = (offset as usize & 0xf) / 4;
+                if idx == 0 {
+                    self.cpu_irq.clear();
+                }
+                Ok(self.cpu_queue[idx])
+            },
+            0x20..=0x2f => {
+                let idx = (offset as usize & 0xf) / 4;
+                if idx == 0 {
+                    self.cop_irq.clear();
+                }
+                Ok(self.cop_queue[idx])
+            },
             _ => Err(Unexpected),
         }
     }
@@ -91,8 +111,22 @@ impl Memory for Mailbox {
                 fire_irq!()
             }),
             0x0c => Err(Unimplemented),
-            0x10..=0x1f => Err(StubWrite(Error, ())),
-            0x20..=0x2f => Err(StubWrite(Error, ())),
+            0x10..=0x1f => {
+                let idx = (offset as usize & 0xf) / 4;
+                self.cpu_queue[idx] = val;
+                if idx == 0 {
+                    self.cpu_irq.assert();
+                }
+                Ok(())
+            },
+            0x20..=0x2f => {
+                let idx = (offset as usize & 0xf) / 4;
+                self.cop_queue[idx] = val;
+                if idx == 0 {
+                    self.cop_irq.assert();
+                }
+                Ok(())
+            },
             _ => Err(Unexpected),
         }
     }
