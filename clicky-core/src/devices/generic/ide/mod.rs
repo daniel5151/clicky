@@ -2,6 +2,8 @@ use crate::devices::prelude::*;
 
 use std::convert::TryFrom;
 use std::io;
+use std::time::Duration;
+use std::sync::{Arc, RwLock};
 
 use futures::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use num_enum::TryFromPrimitive;
@@ -86,6 +88,8 @@ enum IdeCmd {
     ReadDMANoRetry = 0xc9,
     WriteDMA = 0xca,
     WriteDMANoRetry = 0xcb,
+    Recal=0x10,
+    ReadNativeMax=0xf8,
 
     InitializeDriveParameters = 0x91,
 
@@ -201,7 +205,7 @@ impl IdeTransferMode {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Copy, Clone)]
 struct IdeRegs {
     error: u8,
     feature: u8,
@@ -234,30 +238,32 @@ struct IdeDrive {
     blockdev: Box<dyn BlockDev>,
     irq: irq::Sender,   // shared between both drives
     dmarq: irq::Sender, // shared between both drives
+    task_spawner: Spawner,
 
     state: IdeDriveState,
     remaining_sectors: usize,
 
     iobuf: IdeIoBuf,
-    reg: IdeRegs,
+    reg: Arc<RwLock<IdeRegs>>,
     cfg: IdeDriveConfig,
 }
 
 impl IdeDrive {
-    fn new(irq: irq::Sender, dmarq: irq::Sender, blockdev: Box<dyn BlockDev>) -> IdeDrive {
+    fn new(irq: irq::Sender, dmarq: irq::Sender, blockdev: Box<dyn BlockDev>, task_spawner: Spawner) -> IdeDrive {
         IdeDrive {
             blockdev,
             irq,
             dmarq,
+            task_spawner,
 
             state: IdeDriveState::Idle,
             remaining_sectors: 0,
 
             iobuf: IdeIoBuf::empty(),
-            reg: IdeRegs {
+            reg: Arc::new(RwLock::new(IdeRegs {
                 status: *0u8.set_bit(reg::STATUS::DRDY, true),
                 ..IdeRegs::default()
-            },
+            })),
             cfg: IdeDriveConfig {
                 eightbit: false,
                 multi_sect: 0,
@@ -272,15 +278,17 @@ impl IdeDrive {
     /// Returns `None` when the drive is in CHS mode but the registers contain
     /// invalid cyl/head/sector vals.
     fn get_sector_offset(&self) -> Option<u64> {
-        let offset = if self.reg.lba3_dev_head.get_bit(reg::DEVHEAD::L) {
-            (self.reg.lba3_dev_head.get_bits(reg::DEVHEAD::HS) as u64) << 24
-                | (self.reg.lba2_cyl_hi as u64) << 16
-                | (self.reg.lba1_cyl_lo as u64) << 8
-                | (self.reg.lba0_sector_no as u64)
+        let reg = self.reg.read().unwrap();
+
+        let offset = if reg.lba3_dev_head.get_bit(reg::DEVHEAD::L) {
+            (reg.lba3_dev_head.get_bits(reg::DEVHEAD::HS) as u64) << 24
+                | (reg.lba2_cyl_hi as u64) << 16
+                | (reg.lba1_cyl_lo as u64) << 8
+                | (reg.lba0_sector_no as u64)
         } else {
-            let sector = self.reg.lba0_sector_no as u64;
-            let cyl = ((self.reg.lba2_cyl_hi as u16) << 8 | (self.reg.lba1_cyl_lo as u16)) as u64;
-            let head = self.reg.lba3_dev_head.get_bits(reg::DEVHEAD::HS) as u64;
+            let sector = reg.lba0_sector_no as u64;
+            let cyl = ((reg.lba2_cyl_hi as u16) << 8 | (reg.lba1_cyl_lo as u16)) as u64;
+            let head = reg.lba3_dev_head.get_bits(reg::DEVHEAD::HS) as u64;
 
             let total_cyls = self.blockdev.len() / (NUM_HEADS * NUM_SECTORS * 512) as u64;
 
@@ -316,7 +324,8 @@ impl IdeDrive {
             self.remaining_sectors -= 1; // TODO: this varies under `ReadMultiple`
             if self.remaining_sectors == 0 {
                 self.state = IdeDriveState::Idle;
-                (self.reg.status)
+                let mut reg = self.reg.write().unwrap();
+                (reg.status)
                     .set_bit(reg::STATUS::DRDY, true)
                     .set_bit(reg::STATUS::DRQ, false)
                     .set_bit(reg::STATUS::BSY, false);
@@ -325,9 +334,12 @@ impl IdeDrive {
                 self.dmarq.clear();
             } else {
                 // the next sector needs to be loaded
-                (self.reg.status)
-                    .set_bit(reg::STATUS::DRQ, false)
-                    .set_bit(reg::STATUS::BSY, true);
+                {
+                    let mut reg = self.reg.write().unwrap();
+                    (reg.status)
+                        .set_bit(reg::STATUS::DRQ, false)
+                        .set_bit(reg::STATUS::BSY, true);
+                }
 
                 self.state = IdeDriveState::ReadAsyncLoad;
 
@@ -340,7 +352,8 @@ impl IdeDrive {
 
                     self.iobuf.new_transfer();
                     self.state = IdeDriveState::ReadReady;
-                    (self.reg.status)
+                    let mut reg = self.reg.write().unwrap();
+                    (reg.status)
                         .set_bit(reg::STATUS::DRQ, true)
                         .set_bit(reg::STATUS::BSY, false);
 
@@ -377,9 +390,12 @@ impl IdeDrive {
         if self.iobuf.is_done_transfer() {
             assert!(self.remaining_sectors != 0);
 
-            (self.reg.status)
-                .set_bit(reg::STATUS::DRQ, false)
-                .set_bit(reg::STATUS::BSY, true);
+            {
+                let mut reg = self.reg.write().unwrap();
+                (reg.status)
+                    .set_bit(reg::STATUS::DRQ, false)
+                    .set_bit(reg::STATUS::BSY, true);
+            }
 
             self.state = IdeDriveState::WriteAsyncFlush;
 
@@ -392,7 +408,8 @@ impl IdeDrive {
 
                 self.iobuf.new_transfer();
                 self.state = IdeDriveState::WriteReady;
-                (self.reg.status)
+                let mut reg = self.reg.write().unwrap();
+                (reg.status)
                     .set_bit(reg::STATUS::DRQ, true)
                     .set_bit(reg::STATUS::BSY, false);
 
@@ -405,7 +422,8 @@ impl IdeDrive {
                 self.remaining_sectors -= 1; // FIXME: this varies under `WriteMultiple`
                 if self.remaining_sectors == 0 {
                     self.state = IdeDriveState::Idle;
-                    (self.reg.status)
+                    let mut reg = self.reg.write().unwrap();
+                    (reg.status)
                         .set_bit(reg::STATUS::DRDY, true)
                         .set_bit(reg::STATUS::DRQ, false);
 
@@ -421,7 +439,8 @@ impl IdeDrive {
     }
 
     fn exec_cmd(&mut self, cmd: u8) -> MemResult<()> {
-        if (self.reg.status).get_bit(reg::STATUS::BSY) {
+        let reg = self.reg.read().unwrap().clone();
+        if (reg.status).get_bit(reg::STATUS::BSY) {
             return Err(ContractViolation {
                 msg: "tried to exec IDE cmd while drive is busy".into(),
                 severity: Warn,
@@ -429,10 +448,19 @@ impl IdeDrive {
             });
         }
 
-        (self.reg.status)
-            .set_bit(reg::STATUS::BSY, true)
-            .set_bit(reg::STATUS::ERR, false);
-        self.reg.error = 0;
+        {
+            let mut reg = self.reg.write().unwrap();
+            reg.status = (1 << reg::STATUS::BSY | 1 << reg::STATUS::DRDY) as u8;
+            reg.error = 0;
+        }
+
+        if let Ok(cmd_val) = IdeCmd::try_from(cmd) {
+            trace!(
+                target: "IDE",
+                "Executing command: {:?}",
+                cmd_val,
+            );
+        }
 
         use IdeCmd::*;
         match IdeCmd::try_from(cmd) {
@@ -460,9 +488,12 @@ impl IdeDrive {
                 self.state = IdeDriveState::ReadReady;
                 self.remaining_sectors = 1;
 
-                (self.reg.status)
-                    .set_bit(reg::STATUS::BSY, false)
-                    .set_bit(reg::STATUS::DRQ, true);
+                {
+                    let mut reg = self.reg.write().unwrap();
+                    (reg.status)
+                        .set_bit(reg::STATUS::BSY, false)
+                        .set_bit(reg::STATUS::DRQ, true);
+                }
 
                 self.irq.assert();
 
@@ -481,7 +512,10 @@ impl IdeDrive {
                 if self.cfg.multi_sect != 1 {
                     Err(Fatal("(stubbed Multi-Sector support) cannot ReadMultiple (0xc4) with multi_sect > 1".into()))
                 } else {
-                    (self.reg.status).set_bit(reg::STATUS::BSY, false);
+                    {
+                        let mut reg = self.reg.write().unwrap();
+                        (reg.status).set_bit(reg::STATUS::BSY, false);
+                    }
                     self.exec_cmd(ReadSectors as u8)
                 }
             }
@@ -498,7 +532,10 @@ impl IdeDrive {
                 // basically just ReadSectors, except it only fires a _single_
                 // IRQ at the end of the transfer, and asserts dmarq
                 self.dmarq.assert();
-                (self.reg.status).set_bit(reg::STATUS::BSY, false);
+                {
+                    let mut reg = self.reg.write().unwrap();
+                    (reg.status).set_bit(reg::STATUS::BSY, false);
+                }
                 self.exec_cmd(ReadSectors as u8)
             }
             Ok(ReadSectors) | Ok(ReadSectorsNoRetry) => {
@@ -526,15 +563,17 @@ impl IdeDrive {
                         return Err(e);
                     }
 
-                    self.remaining_sectors = if self.reg.sector_count == 0 {
+                    let mut reg = self.reg.write().unwrap();
+
+                    self.remaining_sectors = if reg.sector_count == 0 {
                         256
                     } else {
-                        self.reg.sector_count as usize
+                        reg.sector_count as usize
                     };
 
                     self.iobuf.new_transfer();
                     self.state = IdeDriveState::ReadReady;
-                    (self.reg.status)
+                    (reg.status)
                         .set_bit(reg::STATUS::BSY, false)
                         .set_bit(reg::STATUS::DSC, true)
                         .set_bit(reg::STATUS::DRDY, true)
@@ -549,9 +588,13 @@ impl IdeDrive {
             }
             Ok(StandbyImmediate) | Ok(StandbyImmediateAlt) => {
                 // I mean, it's a virtual disk, there is no "spin up / spin down"
-                self.reg.status.set_bit(reg::STATUS::BSY, false);
+                {
+                    let mut reg = self.reg.write().unwrap();
+                    reg.status.set_bit(reg::STATUS::BSY, false);
+                }
 
                 // TODO: fire interrupt
+                self.irq.assert();
                 Ok(())
             }
             Ok(WriteMultiple) => {
@@ -568,7 +611,10 @@ impl IdeDrive {
                 if self.cfg.multi_sect != 1 {
                     Err(Fatal("(stubbed Multi-Sector support) cannot WriteMultiple (0xc4) with multi_sect > 1".into()))
                 } else {
-                    (self.reg.status).set_bit(reg::STATUS::BSY, false);
+                    {
+                        let mut reg = self.reg.write().unwrap();
+                        (reg.status).set_bit(reg::STATUS::BSY, false);
+                    }
                     self.exec_cmd(WriteSectors as u8)
                 }
             }
@@ -585,7 +631,10 @@ impl IdeDrive {
                 // basically just WriteSectors, except it only fires a _single_
                 // IRQ at the end of the transfer, and asserts dmarq
                 self.dmarq.assert();
-                (self.reg.status).set_bit(reg::STATUS::BSY, false);
+                {
+                    let mut reg = self.reg.write().unwrap();
+                    (reg.status).set_bit(reg::STATUS::BSY, false);
+                }
                 self.exec_cmd(WriteSectors as u8)
             }
             Ok(WriteSectors) | Ok(WriteSectorsNoRetry) => {
@@ -607,22 +656,25 @@ impl IdeDrive {
                         return Err(e);
                     }
 
-                    self.remaining_sectors = if self.reg.sector_count == 0 {
+                    self.remaining_sectors = if reg.sector_count == 0 {
                         256
                     } else {
-                        self.reg.sector_count as usize
+                        reg.sector_count as usize
                     };
 
                     self.iobuf.new_transfer();
                     self.state = IdeDriveState::WriteReady;
-                    (self.reg.status)
-                        .set_bit(reg::STATUS::BSY, false)
-                        .set_bit(reg::STATUS::DSC, true)
-                        .set_bit(reg::STATUS::DRDY, false)
-                        .set_bit(reg::STATUS::DRQ, true);
+                    {
+                        let mut reg = self.reg.write().unwrap();
+                        (reg.status)
+                            .set_bit(reg::STATUS::BSY, false)
+                            .set_bit(reg::STATUS::DSC, true)
+                            .set_bit(reg::STATUS::DRDY, false)
+                            .set_bit(reg::STATUS::DRQ, true);
+                    }
 
                     // TODO: fire interrupt?
-
+                    self.irq.assert();
                     Ok(())
                 })?;
 
@@ -630,7 +682,7 @@ impl IdeDrive {
             }
 
             Ok(SetMultipleMode) => {
-                self.cfg.multi_sect = self.reg.sector_count;
+                self.cfg.multi_sect = reg.sector_count;
 
                 // TODO: implement proper multi-sector support
                 if self.cfg.multi_sect > 1 {
@@ -639,16 +691,19 @@ impl IdeDrive {
                     ));
                 }
 
-                (self.reg.status).set_bit(reg::STATUS::BSY, false);
+                {
+                    let mut reg = self.reg.write().unwrap();
+                    (reg.status).set_bit(reg::STATUS::BSY, false);
+                }
                 Ok(())
             }
 
             Ok(SetFeatures) => {
-                match self.reg.feature {
+                match reg.feature {
                     // Enable 8-bit data transfers
                     0x01 => self.cfg.eightbit = true,
                     // Set transfer mode based on value in Sector Count register
-                    0x03 => self.cfg.transfer_mode = IdeTransferMode::from(self.reg.sector_count),
+                    0x03 => self.cfg.transfer_mode = IdeTransferMode::from(reg.sector_count),
                     // Disable 8-bit data transfers
                     0x81 => self.cfg.eightbit = false,
                     other => {
@@ -659,14 +714,18 @@ impl IdeDrive {
                     }
                 };
 
-                (self.reg.status).set_bit(reg::STATUS::BSY, false);
+                {
+                    let mut reg = self.reg.write().unwrap();
+                    (reg.status).set_bit(reg::STATUS::BSY, false);
+                }
 
                 Ok(())
             }
 
             Ok(FlushCache) => {
                 // uhh, we don't implement caching
-                (self.reg.status)
+                let mut reg = self.reg.write().unwrap();
+                (reg.status)
                     .set_bit(reg::STATUS::BSY, false)
                     .set_bit(reg::STATUS::DRDY, true)
                     .set_bit(reg::STATUS::DRQ, false);
@@ -677,23 +736,79 @@ impl IdeDrive {
             Ok(Sleep) | Ok(SleepAlt) => {
                 // uhh, it's an emulated drive.
                 // just assert the irq and go on our merry way
-                (self.reg.status).set_bit(reg::STATUS::BSY, false);
+                let mut reg = self.reg.write().unwrap();
+                (reg.status).set_bit(reg::STATUS::BSY, false);
 
                 self.irq.assert();
                 Ok(())
             }
 
             Ok(InitializeDriveParameters) => {
-                (self.reg.status).set_bit(reg::STATUS::BSY, false);
-                self.irq.assert();
+                self.task_spawner
+                    .spawn({
+                        let reg_arc = Arc::clone(&self.reg);
+                        let mut irq = self.irq.clone();
+                        let timer = relativity::Timeout::new(Duration::from_millis(100));
+                        async move {
+                            timer.await;
+                            let mut reg = reg_arc.write().unwrap();
+                            (reg.status)
+                                .set_bit(reg::STATUS::BSY, false)
+                                .set_bit(reg::STATUS::DSC, true);
+                            irq.assert();
+                        }             
+                    })
+                    .expect("failed to spawn timer task");
+                
+                Ok(())
+            }
+
+            Ok(Recal) => {
+                self.task_spawner
+                    .spawn({
+                        let reg_arc = Arc::clone(&self.reg);
+                        let mut irq = self.irq.clone();
+                        let timer = relativity::Timeout::new(Duration::from_millis(100));
+                        async move {
+                            timer.await;
+                            let mut reg = reg_arc.write().unwrap();
+                            (reg.status)
+                                .set_bit(reg::STATUS::BSY, false)
+                                .set_bit(reg::STATUS::DSC, true);
+                            irq.assert();
+                        }             
+                    })
+                    .expect("failed to spawn timer task");
+                
+                Ok(())
+            }
+
+            Ok(ReadNativeMax) => {
+                self.task_spawner
+                    .spawn({
+                        let reg_arc = Arc::clone(&self.reg);
+                        let mut irq = self.irq.clone();
+                        let timer = relativity::Timeout::new(Duration::from_millis(100));
+                        async move {
+                            timer.await;
+                            let mut reg = reg_arc.write().unwrap();
+                            (reg.status)
+                                .set_bit(reg::STATUS::BSY, false)
+                                .set_bit(reg::STATUS::DSC, true);
+                            irq.assert();
+                        }             
+                    })
+                    .expect("failed to spawn timer task");
+                
                 Ok(())
             }
 
             Err(_) => {
-                (self.reg.status)
+                let mut reg = self.reg.write().unwrap();
+                (reg.status)
                     .set_bit(reg::STATUS::BSY, false)
                     .set_bit(reg::STATUS::ERR, true);
-                self.reg.error = 1;
+                self.irq.assert();
                 Err(ContractViolation {
                     msg: format!("unknown IDE command: {:#04x?}", cmd),
                     severity: Warn,
@@ -710,6 +825,7 @@ impl IdeDrive {
 pub struct IdeController {
     common_irq_line: irq::Sender,
     dmarq: irq::Sender,
+    task_spawner: Spawner,
 
     selected_device: IdeIdx,
     ide0: Option<IdeDrive>,
@@ -740,13 +856,14 @@ macro_rules! selected_ide {
 }
 
 impl IdeController {
-    pub fn new(irq: irq::Sender, dmarq: irq::Sender) -> IdeController {
+    pub fn new(irq: irq::Sender, dmarq: irq::Sender, task_spawner: Spawner) -> IdeController {
         IdeController {
             common_irq_line: irq,
             dmarq,
             selected_device: IdeIdx::IDE0,
             ide0: None,
             ide1: None,
+            task_spawner: task_spawner.clone(),
         }
     }
 
@@ -768,6 +885,7 @@ impl IdeController {
             self.common_irq_line.clone(),
             self.dmarq.clone(),
             blockdev,
+            self.task_spawner.clone(),
         ));
         old_drive
     }
@@ -817,7 +935,7 @@ impl IdeController {
             IdeReg::Data => {
                 let ide = selected_ide!(self)?;
 
-                let val = ide.data_read8()?;
+                let val = ide.data_read8()?.clone();
                 let ret = if ide.cfg.eightbit {
                     val as u16
                 } else {
@@ -860,20 +978,21 @@ impl IdeController {
         use IdeReg::*;
 
         let ide = selected_ide!(self)?;
+        let ide_reg = ide.reg.read().unwrap().clone();
 
         match reg {
             Data => ide.data_read8(),
-            Error | Features => Ok(ide.reg.error),
-            SectorCount => Ok(ide.reg.sector_count),
-            SectorNo | Lba0 => Ok(ide.reg.lba0_sector_no),
-            CylinderLo | Lba1 => Ok(ide.reg.lba1_cyl_lo),
-            CylinderHi | Lba2 => Ok(ide.reg.lba2_cyl_hi),
-            DeviceHead | Lba3 => Ok(ide.reg.lba3_dev_head),
+            Error | Features => Ok(ide_reg.error),
+            SectorCount => Ok(ide_reg.sector_count),
+            SectorNo | Lba0 => Ok(ide_reg.lba0_sector_no),
+            CylinderLo | Lba1 => Ok(ide_reg.lba1_cyl_lo),
+            CylinderHi | Lba2 => Ok(ide_reg.lba2_cyl_hi),
+            DeviceHead | Lba3 => Ok(ide_reg.lba3_dev_head),
             Status | Command => {
                 ide.irq.clear(); // ack IRQ
-                Ok(ide.reg.status)
+                Ok(ide_reg.status)
             }
-            AltStatus | DevControl => Ok(ide.reg.status),
+            AltStatus | DevControl => Ok(ide_reg.status),
             DataLatch => Err(Unimplemented),
         }
     }
@@ -888,26 +1007,35 @@ impl IdeController {
                 // FIXME?: Actually strip-out reserved bits?
                 self.selected_device = val.get_bit(reg::DEVHEAD::DEV).into();
                 let ide = selected_ide!(self)?;
-                return Ok(ide.reg.lba3_dev_head = val);
+                return Ok(ide.reg.write().unwrap().lba3_dev_head = val);
             }
             _ => selected_ide!(self)?,
         };
 
+        
+
         match reg {
             Data => ide.data_write8(val),
-            Features | Error => Ok(ide.reg.feature = val),
-            SectorCount => Ok(ide.reg.sector_count = val),
-            SectorNo | Lba0 => Ok(ide.reg.lba0_sector_no = val),
-            CylinderLo | Lba1 => Ok(ide.reg.lba1_cyl_lo = val),
-            CylinderHi | Lba2 => Ok(ide.reg.lba2_cyl_hi = val),
-            DeviceHead | Lba3 => unreachable!("should be handled above"),
             Command | Status => ide.exec_cmd(val),
-            DevControl | AltStatus => {
-                ide.reg.srst = val.get_bit(2);
-                ide.reg.nein = val.get_bit(1);
-                Ok(())
+
+            _ => {
+                let mut ide_reg = ide.reg.write().unwrap();
+                match reg {
+                    Features | Error => Ok(ide_reg.feature = val),
+                    SectorCount => Ok(ide_reg.sector_count = val),
+                    SectorNo | Lba0 => Ok(ide_reg.lba0_sector_no = val),
+                    CylinderLo | Lba1 => Ok(ide_reg.lba1_cyl_lo = val),
+                    CylinderHi | Lba2 => Ok(ide_reg.lba2_cyl_hi = val),
+                    DeviceHead | Lba3 => unreachable!("should be handled above"),
+                    DevControl | AltStatus => {
+                        ide_reg.srst = val.get_bit(2);
+                        ide_reg.nein = val.get_bit(1);
+                        Ok(())
+                    }
+                    //DataLatch => Err(Unimplemented),
+                    _ => Err(Unimplemented),
+                }
             }
-            DataLatch => Err(Unimplemented),
         }
     }
 }
