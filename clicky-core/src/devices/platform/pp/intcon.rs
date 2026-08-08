@@ -214,7 +214,7 @@ impl Memory for IntCon32 {
             0x3c => Ok(self.cop.priority),
 
             0x44 => Err(Unimplemented),
-            0x4c => Err(Unimplemented),
+            0x4c => Err(StubRead(Error, 0)),
             _ => Err(Unexpected),
         }
     }
