@@ -19,6 +19,17 @@ struct Mmap {
     physical: u32,
 }
 
+// PP5020 SDRAM controller supports higher capacities than 32 MB
+// This means that the RAM address space is aliased every 32 MB
+// TODO: Make the aliasing defined per RAM capacity of the iPod model
+fn alias_sdram_address(addr: u32) -> u32 {
+    if addr & 0x7000_0000 == 0x1000_0000 {
+        0x1000_0000 | (addr & 0x01ff_ffff)
+    } else {
+        addr
+    }
+}
+
 /// PP5020 Memory Controller. Content varies based on which CPU/COP is
 /// performing the access.
 #[derive(Debug)]
@@ -138,14 +149,28 @@ impl MemConImpl {
     }
 
     fn virt_to_phys(&self, addr: u32, access: MemAccessKind) -> (u32, Protection) {
+        // Per MrH documentation (memory_controller.txt), bits 30-31 of the mask
+        // are not used. The documentation also mentions 0x4000_0000 as the
+        // boundary for cache operation. It would make sense to consider
+        // memory accesses above this address to bypass MMIO.
+        if addr >= 0x4000_0000 {
+            return (
+                alias_sdram_address(addr),
+                Protection {
+                    r: true,
+                    w: true,
+                    d: true,
+                    x: true,
+                }
+            );
+        }
+
         for &Mmap { logical, physical } in self.mmap.iter() {
             if logical == 0 || physical == 0 {
                 continue;
             }
 
-            let mask = logical.get_bits(11..=13) << 28;
-            let virt_addr = logical.get_bits(16..=31) << 16;
-            let phys_addr = physical.get_bits(16..=31) << 16;
+            let mask = logical.get_bits(0..=13) << 16;
             let prot = Protection {
                 r: physical.get_bit(8),
                 w: physical.get_bit(9),
@@ -153,30 +178,28 @@ impl MemConImpl {
                 x: physical.get_bit(11),
             };
 
-            if access == MemAccessKind::Read && !prot.r && !prot.d {
-                continue;
-            }
-            if access == MemAccessKind::Write && !prot.w{
-                continue;
-            }
-            if access == MemAccessKind::Execute && !prot.x {
+            let access_applies = match access {
+                MemAccessKind::Read => prot.r && prot.d,
+                MemAccessKind::Write => prot.w && prot.d,
+                MemAccessKind::Execute => prot.r && prot.x,
+            };
+            if !access_applies {
                 continue;
             }
 
-            // This is how the translation is supposed to work according to MrH's doc.
-            let final_addr = {
-                if (addr & mask) != (virt_addr & mask) {
-                    continue;
-                }
-                (addr & !mask) | (phys_addr & mask)
-            };
+            if (addr & mask) != (logical & mask) {
+                continue;
+            }
+
+            let physical_target = physical.get_bits(16..=29) << 16;
+            let final_addr = alias_sdram_address(addr & !mask) | (physical_target & mask);
             
             return (final_addr, prot);
         }
 
         // no mapping, just use default options
         (
-            addr,
+            alias_sdram_address(addr),
             Protection {
                 r: true,
                 w: true,
