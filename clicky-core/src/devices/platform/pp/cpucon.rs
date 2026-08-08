@@ -74,6 +74,11 @@ impl CpuCon {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.cpuctl.store(0, Ordering::SeqCst);
+        self.copctl.store(0, Ordering::SeqCst);
+    }
+
     pub fn is_cpu_running(&mut self, cpu: CpuId) -> bool {
         let cpuctl = match cpu {
             CpuId::Cpu => &self.cpuctl,
