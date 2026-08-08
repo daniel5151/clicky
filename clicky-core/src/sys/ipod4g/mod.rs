@@ -351,6 +351,7 @@ pub struct Ipod4gBus {
     pub serial0: devices::Serial,
     pub serial1: devices::Serial,
     pub evp: devices::Evp,
+    pub rtc: devices::Rtc,
 
     pub mystery_irq_con: devices::Stub,
     pub mystery_lcd_con: devices::Stub,
@@ -444,6 +445,7 @@ impl Ipod4gBus {
             serial0: Serial::new("0"),
             serial1: Serial::new("1"),
             evp: Evp::new(),
+            rtc: Rtc::new(),
 
             mystery_irq_con: Stub::new("Mystery IRQ Con?"),
             mystery_lcd_con: Stub::new("Mystery LCD Con?"),
@@ -578,6 +580,7 @@ mmap! {
         0x6000_5000..=0x6000_5007 => timer1,
         0x6000_5008..=0x6000_500f => timer2,
         0x6000_5010..=0x6000_5013 => usec_timer,
+        0x6000_5014..=0x6000_5017 => rtc,
         0x6000_6000..=0x6000_6fff => devcon,
         0x6000_7000..=0x6000_7fff => cpucon,
         0x6000_a000..=0x6000_bfff => dmacon,
