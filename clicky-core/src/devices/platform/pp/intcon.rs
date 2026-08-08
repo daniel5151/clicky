@@ -203,9 +203,9 @@ impl Memory for IntCon32 {
             0x18 => Err(Unimplemented),
             0x1c => Err(Unimplemented),
 
-            0x20 => Ok(self.cpu.enabled),
-            0x24 => Err(InvalidAccess),
-            0x28 => Err(InvalidAccess),
+            0x20 => Ok(self.cpu.enabled), // I'm not exactly sure why RetailOS would read into +0x24 or +0x28
+            0x24 => Ok(self.cpu.enabled), // but it does - and it's okay with it being equal to +0x20.
+            0x28 => Ok(self.cpu.enabled),
             0x2c => Ok(self.cpu.priority),
 
             0x30 => Ok(self.cop.enabled),
