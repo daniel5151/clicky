@@ -48,6 +48,12 @@ impl MemCon {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.cpucon = MemConImpl::new();
+        self.copcon = MemConImpl::new();
+        self.selected = CpuId::Cpu;
+    }
+
     pub fn virt_to_phys(&self, addr: u32, access: MemAccessKind) -> (u32, Protection) {
         match self.selected {
             CpuId::Cpu => self.cpucon.virt_to_phys(addr, access),
