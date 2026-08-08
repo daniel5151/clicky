@@ -16,6 +16,10 @@ impl CacheCon {
             cache_ctrl_enable: false,
         }
     }
+
+    pub fn reset(&mut self) {
+        *self = CacheCon::new();
+    }
 }
 
 impl Device for CacheCon {
