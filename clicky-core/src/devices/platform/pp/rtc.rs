@@ -42,7 +42,10 @@ impl Memory for Rtc {
         }
     }
 
-    fn w32(&mut self, _offset: u32, _val: u32) -> MemResult<()> {
-        Err(Unexpected)
+    fn w32(&mut self, offset: u32, _val: u32) -> MemResult<()> {
+        match offset {
+            0x00 => Ok(()), // Written by RetailOS during boot
+            _ => Err(Unexpected)
+        }
     }
 }
