@@ -37,6 +37,7 @@ const CGRAM_BYTES: usize = (CGRAM_WIDTH * CGRAM_HEIGHT) * 2 / 8; // 168 * 132 at
 const EMU_CGRAM_WIDTH: usize = 256;
 const EMU_CGRAM_BYTES: usize = (EMU_CGRAM_WIDTH * CGRAM_HEIGHT) * 2 / 8;
 const EMU_CGRAM_LEN: usize = EMU_CGRAM_BYTES / 2; // addressed as 16-bit words
+const EMU_CGRAM_OVF: usize = 0x1080; // Overflow address
 
 // TODO: migrate to bit_field crate + mod reg { const X: usize = Y; ... }
 #[derive(Debug, Default, Copy, Clone)]
@@ -325,7 +326,7 @@ impl Hd66753 {
             // RAM Write Data Mask
             0x10 => ireg.wm = val,
             // RAM Address Set
-            0x11 => self.ac = val as usize % 0x1080,
+            0x11 => self.ac = val as usize % EMU_CGRAM_OVF,
             // Write Data to CGRAM
             0x12 => {
                 // Reference the Graphics Operation Function section of the manual for a
@@ -353,32 +354,57 @@ impl Hd66753 {
                 cgram[self.ac] = val;
 
                 // increment the ac appropriately
-                let dx_ac = match ireg.am {
-                    0b00 => 1,
-                    0b01 => return Err(Fatal("unimplemented: vertical CGRAM write".into())),
-                    0b10 => {
-                        return Err(Fatal("unimplemented: two-word vertical CGRAM write".into()))
-                    }
+                match ireg.am {
+                    // Write Mode 1, horizontal (page 49)
+                    0b00 => {
+                        self.ac = match ireg.i_d {
+                            true => self.ac.wrapping_add(1),
+                            false => self.ac.wrapping_sub(1),
+                        };
+
+                        self.ac %= EMU_CGRAM_OVF;
+
+                        // ... and handle wrapping behavior
+                        if self.ac & 0x1f > 0x14 {
+                            self.ac = match ireg.i_d {
+                                true => (self.ac & !0x1f) + 0x20,
+                                false => (self.ac & !0x1f) + 0x14,
+                            };
+                        }
+
+                        self.ac %= EMU_CGRAM_OVF;
+                    },
+
+                    // Write Mode 2, vertical (page 50)
+                    0b01 => {
+                        let next = self.ac + 0x20;
+                        self.ac = if next < EMU_CGRAM_OVF {
+                            next
+                        } else {
+                            let col = self.ac & 0x1f;
+                            match ireg.i_d {
+                                true => {
+                                    if col >= 0x14 {
+                                        0
+                                    } else {
+                                        col + 1
+                                    }
+                                }
+                                false => {
+                                    if col == 0 {
+                                        0x14
+                                    } else {
+                                        col - 1
+                                    }
+                                }
+                            }
+                        };
+                    },
+
+                    0b10 => return Err(Fatal("unimplemented: two-word vertical CGRAM write".into())),
                     0b11 => return Err(Fatal("EntryMode:AM cannot be set to 0b11".into())),
                     _ => unreachable!(),
-                };
-
-                self.ac = match ireg.i_d {
-                    true => self.ac.wrapping_add(dx_ac),
-                    false => self.ac.wrapping_sub(dx_ac),
-                };
-
-                self.ac %= 0x1080;
-
-                // ... and handle wrapping behavior
-                if self.ac & 0x1f > 0x14 {
-                    self.ac = match ireg.i_d {
-                        true => (self.ac & !0x1f) + 0x20,
-                        false => (self.ac & !0x1f) + 0x14,
-                    };
                 }
-
-                self.ac %= 0x1080;
             }
             invalid_cmd => {
                 return Err(Fatal(format!(
