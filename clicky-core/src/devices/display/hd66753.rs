@@ -1,6 +1,7 @@
 use crate::devices::prelude::*;
 
 use std::sync::{Arc, RwLock};
+use relativity::Instant;
 
 use crate::gui::RenderCallback;
 
@@ -134,6 +135,15 @@ impl Hd66753 {
         }
     }
 
+    fn is_in_cursor_region(ireg: &InternalRegs, p_x: usize, p_y: usize) -> bool {
+        // Disabled cursor, invalid region
+        if !ireg.c || (ireg.hs <= ireg.he && ireg.vs <= ireg.ve) {
+            return false;
+        }
+
+        (ireg.hs..=ireg.he).contains(&(p_x as u8)) && (ireg.vs..=ireg.ve).contains(&(p_y as u8))
+    }
+
     /// Returns a callback to update the framebuffer.
     ///
     /// The callback accepts a minifb framebuffer, and returns the rendered
@@ -141,6 +151,7 @@ impl Hd66753 {
     pub fn render_callback(&self) -> RenderCallback {
         let cgram = Arc::clone(&self.cgram);
         let ireg = Arc::clone(&self.ireg);
+        let start = Instant::now();
 
         Box::new(move |buf: &mut Vec<u32>| -> (usize, usize) {
             // TODO: make palette configurable?
@@ -150,6 +161,9 @@ impl Hd66753 {
             // instead of holding the locks, just copy the data locally
             let cgram = *cgram.read().unwrap();
             let ireg = *ireg.read().unwrap();
+
+            // Hardcoded to 1Hz for now
+            let blink_on = (start.elapsed().as_millis() / 500) % 2 == 0;
 
             let height = match ireg.nl {
                 0b11111 => 132,
@@ -167,20 +181,46 @@ impl Hd66753 {
                         
                      });
 
-            // TODO: implement cursor control
-
-            let new_buf = cgram_window.flat_map(|w| {
-                // every 16 bits = 8 pixels
-                (0..8).map(move |i| {
-                    let i = if ireg.sgs { i } else { 7 - i };
-                    let idx = ((w >> (i * 2)) & 0b11) as usize;
+            let new_buf = cgram_window
+                .flat_map(|w| {
+                    (0..8).map(move |i| {
+                        // Extraction of individual pixels from a 16-bit word in CGRAM
+                        // SGS = Shift direction of segment signal
+                        let i = if ireg.sgs { i } else { 7 - i };
+                        ((w >> (i * 2)) & 0b11) as usize
+                    })
+                })
+                .enumerate()
+                .map(move |(i, x)| {
+                    // REV = Inverse color
                     if ireg.rev {
-                        PALETTE[idx]
+                        (i, x)
                     } else {
-                        PALETTE[3 - idx]
+                        (i, 3 - x)
                     }
                 })
-            });
+                .map(move |(i, x)| {
+                    // Cursor window
+                    let p_x = i % CGRAM_WIDTH;
+                    let p_y = i / CGRAM_WIDTH;
+
+                    if Hd66753::is_in_cursor_region(&ireg, p_x, p_y) {
+                        // CM = Cursor display mode
+                        match ireg.cm {
+                            0b00 if blink_on => 0,
+                            0b01 if blink_on => 3,
+                            0b10 => 3 - x,
+                            0b11 if blink_on => 3 - x,
+                            _ => x
+                        }
+                    } else {
+                        x
+                    }
+                })
+                .map(move |x| {
+                    // Apply palette
+                    PALETTE[x]
+                });
 
             // replace in-place
             buf.splice(.., new_buf);
@@ -255,20 +295,6 @@ impl Hd66753 {
             0x08 => {
                 ireg.cm = val.get_bits(0..=1) as u8;
                 ireg.c = val.get_bit(2);
-
-                if ireg.c {
-                    return Err(ContractViolation {
-                        msg: "cursor mode is enabled, but not implemented!".into(),
-                        severity: Warn,
-                        stub_val: None,
-                    });
-                } else {
-                    return Err(ContractViolation {
-                        msg: "cursor mode is now disabled".into(),
-                        severity: Info,
-                        stub_val: None,
-                    });
-                }
             }
             // NOOP
             0x09 => {}
