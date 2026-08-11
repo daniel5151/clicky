@@ -138,7 +138,7 @@ impl Hd66753 {
 
     fn is_in_cursor_region(ireg: &InternalRegs, p_x: usize, p_y: usize) -> bool {
         // Disabled cursor, invalid region
-        if !ireg.c || (ireg.hs <= ireg.he && ireg.vs <= ireg.ve) {
+        if !ireg.c || ireg.hs > ireg.he || ireg.vs > ireg.ve {
             return false;
         }
 
