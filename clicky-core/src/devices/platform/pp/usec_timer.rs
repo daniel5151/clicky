@@ -54,7 +54,7 @@ impl Memory for UsecTimer {
 
     fn w32(&mut self, offset: u32, _val: u32) -> MemResult<()> {
         match offset {
-            0x0 => Err(InvalidAccess),
+            0x0 => Ok(()), // Diagnostic writes to this address
             _ => Err(Unexpected),
         }
     }
