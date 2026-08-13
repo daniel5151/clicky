@@ -331,6 +331,8 @@ pub struct Ipod4gBus {
     pub timer1: devices::CfgTimer,
     pub timer2: devices::CfgTimer,
     pub usec_timer: devices::UsecTimer,
+    pub firewire: devices::Firewire,
+    pub usb: devices::Usb,
     pub gpio_abcd: ArcMutexDevice<devices::GpioBlock>,
     pub gpio_efgh: ArcMutexDevice<devices::GpioBlock>,
     pub gpio_ijkl: ArcMutexDevice<devices::GpioBlock>,
@@ -356,7 +358,6 @@ pub struct Ipod4gBus {
     pub mystery_irq_con: devices::Stub,
     pub mystery_lcd_con: devices::Stub,
     pub mystery_flash_stub: devices::Stub,
-    pub firewire: devices::Firewire,
     pub total_mystery: devices::Stub,
     pub pwmcon: devices::PWMCon,
 
@@ -420,6 +421,7 @@ impl Ipod4gBus {
             fastram: AsanRam::new(96 * 1024, true),      // 96 KB
             cpuid: CpuIdReg::new(),
             firewire: Firewire::new(),
+            usb: Usb::new(),
             flash: Flash::new(),
             cpucon: CpuCon::new(task_spawner.clone()),
             hd66753: Hd66753::new(),
@@ -621,7 +623,7 @@ mmap! {
         0x7000_3800 => total_mystery,
         0xc031_b1d8 => mystery_flash_stub,
         0xc031_b1e8 => mystery_flash_stub,
-        // Diagnostics program writes 0xffffffff
+        0xc500_0000..=0xc500_01ff => firewire,
         0xc600_0000..=0xc600_01ff => firewire,
         0xffff_fe00..=0xffff_ffff => mystery_flash_stub,
 
