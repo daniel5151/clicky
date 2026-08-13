@@ -20,6 +20,7 @@ mod opto;
 mod ppcon;
 mod rtc;
 mod serial;
+mod usb;
 mod usec_timer;
 mod pwm;
 
@@ -43,6 +44,7 @@ pub use opto::*;
 pub use ppcon::*;
 pub use rtc::*;
 pub use serial::*;
+pub use usb::*;
 pub use usec_timer::*;
 pub use pwm::*;
 
