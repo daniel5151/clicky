@@ -43,22 +43,18 @@ impl MinifbRenderer {
         // ~60 fps
         window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
 
+        let mut key_down: HashMap<Key, bool> = HashMap::new();
         'ui_loop: while window.is_open() && kill_rx.try_recv().is_err() {
-            let keys = window.get_keys_pressed(minifb::KeyRepeat::Yes);
-            for k in keys {
-                if k == Key::Escape {
-                    break 'ui_loop;
-                }
-
-                if let Some(cb) = controls.keymap.get_mut(&k) {
-                    cb(true)
-                }
+            if window.is_key_down(Key::Escape) {
+                break 'ui_loop;
             }
 
-            let keys = window.get_keys_released();
-            for k in keys {
-                if let Some(cb) = controls.keymap.get_mut(&k) {
-                    cb(false)
+            for (k, cb) in controls.keymap.iter_mut() {
+                let down = window.is_key_down(*k);
+                let was_down = key_down.entry(*k).or_insert(false);
+                if *was_down != down {
+                    *was_down = down;
+                    cb(down)
                 }
             }
 
