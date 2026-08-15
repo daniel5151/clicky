@@ -461,6 +461,12 @@ impl IdeDrive {
             .set_bit(reg::STATUS::ERR, false);
         self.reg.error = 0;
 
+        if cmd & 0xf0 == 0x10 {
+            (self.reg.status).set_bit(reg::STATUS::BSY, false);
+            self.assert_intrq();
+            return Ok(());
+        }
+
         use IdeCmd::*;
         match IdeCmd::try_from(cmd) {
             Ok(IdentifyDevice) => {
