@@ -14,6 +14,7 @@ const NUM_SECTORS: usize = 63;
 
 mod identify;
 mod reg;
+mod smart;
 
 /// IDE Device (either 0 or 1)
 #[derive(Debug, Copy, Clone)]
@@ -88,6 +89,8 @@ enum IdeCmd {
     WriteDMANoRetry = 0xcb,
 
     InitializeDriveParameters = 0x91,
+
+    Smart = 0xb0,
 
     Sleep = 0x99,
     SleepAlt = 0xe6,
@@ -746,6 +749,116 @@ impl IdeDrive {
                 (self.reg.status).set_bit(reg::STATUS::BSY, false);
                 self.assert_intrq();
                 Ok(())
+            }
+
+            Ok(Smart) => {
+                // The SMART command set is keyed off a signature in the
+                // cylinder registers -- without it the command must abort.
+                if self.reg.lba1_cyl_lo != 0x4f || self.reg.lba2_cyl_hi != 0xc2 {
+                    (self.reg.status)
+                        .set_bit(reg::STATUS::BSY, false)
+                        .set_bit(reg::STATUS::DRDY, true)
+                        .set_bit(reg::STATUS::ERR, true);
+                    self.reg.error = *0u8.set_bit(reg::ERROR::ABRT, true);
+                    self.assert_intrq();
+                    return Err(ContractViolation {
+                        msg: format!(
+                            "SMART (0xb0) without the 0xc24f signature (cyl={:02x}{:02x})",
+                            self.reg.lba2_cyl_hi, self.reg.lba1_cyl_lo
+                        ),
+                        severity: Warn,
+                        stub_val: None,
+                    });
+                }
+
+                // subcommand lives in the features register
+                match self.reg.feature {
+                    // ENABLE / DISABLE OPERATIONS, ENABLE / DISABLE ATTRIBUTE
+                    // AUTOSAVE, EXECUTE OFF-LINE IMMEDIATE. There's no real
+                    // SMART state to keep, so these just succeed.
+                    0xd2 | 0xd4 | 0xd8 | 0xd9 => {
+                        (self.reg.status)
+                            .set_bit(reg::STATUS::BSY, false)
+                            .set_bit(reg::STATUS::DRDY, true);
+                        self.assert_intrq();
+                        Ok(())
+                    }
+                    // RETURN STATUS. The drive reports health back through the
+                    // cylinder registers: the unchanged 0xc24f signature means
+                    // "no threshold exceeded", i.e. a healthy drive.
+                    0xda => {
+                        self.reg.lba1_cyl_lo = 0x4f;
+                        self.reg.lba2_cyl_hi = 0xc2;
+                        (self.reg.status)
+                            .set_bit(reg::STATUS::BSY, false)
+                            .set_bit(reg::STATUS::DRDY, true);
+                        self.assert_intrq();
+                        Ok(())
+                    }
+                    // READ DATA / READ ATTRIBUTE THRESHOLDS. Both hand back a
+                    // 512 byte structure.
+                    0xd0 | 0xd1 => {
+                        use smart::*;
+                        let mut smart = Smart::new();
+                        const ATTRIBUTES: &[(AttributeId, u16, u8, u8, u64, u8)] = &[
+                            (AttributeId::ReadErrorRate, 0x000f, 100, 100, 0, 51),
+                            (AttributeId::SpinUpTime, 0x0027, 100, 100, 1200, 1),
+                            (AttributeId::StartStopCount, 0x0032, 100, 100, 128, 0),
+                            (AttributeId::ReallocatedSectorCount, 0x0033, 100, 100, 0, 5),
+                            (AttributeId::SeekErrorRate, 0x000f, 100, 100, 0, 51),
+                            (AttributeId::PowerOnHours, 0x0032, 100, 100, 42, 0),
+                            (AttributeId::SpinRetryCount, 0x0013, 100, 100, 0, 51),
+                            (AttributeId::PowerCycleCount, 0x0032, 100, 100, 64, 0),
+                            (AttributeId::UnexpectedPowerOffCount, 0x0032, 100, 100, 12, 0),
+                            (AttributeId::Temperature, 0x0022, 100, 100, 30, 0),
+                        ];
+                        for (id, flags, current, worst, raw, threshold) in ATTRIBUTES {
+                            if let Err(e) = smart.add_attribute(Attribute {
+                                id: *id as u8,
+                                flags: *flags,
+                                current: *current,
+                                worst: *worst,
+                                raw: *raw,
+                                threshold: *threshold,
+                            }) {
+                                panic!("Error while adding attribute to SMART: {:?}", e);
+                            }
+                        }
+
+                        match self.reg.feature {
+                            0xd0 => {
+                                self.iobuf.as_raw().copy_from_slice(&smart.serialize_data());
+                            },
+                            0xd1 => {
+                                self.iobuf.as_raw().copy_from_slice(&smart.serialize_threshold());
+                            },
+                            _ => unreachable!("unknown feature"),
+                        }
+                        self.iobuf.new_transfer();
+                        self.state = IdeDriveState::ReadReady;
+                        self.remaining_sectors = 1;
+
+                        (self.reg.status)
+                            .set_bit(reg::STATUS::BSY, false)
+                            .set_bit(reg::STATUS::DRDY, true)
+                            .set_bit(reg::STATUS::DRQ, true);
+                        self.assert_intrq();
+                        Ok(())
+                    }
+                    other => {
+                        (self.reg.status)
+                            .set_bit(reg::STATUS::BSY, false)
+                            .set_bit(reg::STATUS::DRDY, true)
+                            .set_bit(reg::STATUS::ERR, true);
+                        self.reg.error = *0u8.set_bit(reg::ERROR::ABRT, true);
+                        self.assert_intrq();
+                        Err(ContractViolation {
+                            msg: format!("unsupported SMART subcommand (aborted): {:#04x?}", other),
+                            severity: Warn,
+                            stub_val: None,
+                        })
+                    }
+                }
             }
 
             Err(_) => {
