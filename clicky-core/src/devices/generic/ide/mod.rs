@@ -96,6 +96,33 @@ enum IdeCmd {
     FlushCache = 0xe7,
 }
 
+#[derive(Debug, PartialEq, Eq, TryFromPrimitive)]
+#[repr(u8)]
+enum IdeSetFeaturesReg {
+    Enable8BitPIOTransferMode = 0x01,
+    Disable8BitPIOTransferMode = 0x81,
+
+    SetTransferModeBasedOnValueInSectorCountRegister = 0x03,
+
+    EnableWriteCache = 0x02,
+    DisableWriteCache = 0x82,
+
+    EnableReadLookAhead = 0xAA,
+    DisableReadLookAhead = 0x55,
+    
+    EnableRevertingToPowerOnDefaults = 0xcc,
+    DisableRevertingToPowerOnDefaults = 0x66,
+    
+    EnableAdvancedPowerManagement = 0x05,
+    DisableAdvancedPowerManagement = 0x85,
+
+    EnableCFAPowerMode1 = 0x0A,
+    DisableCFAPowerMode1 = 0x8A,
+
+    EnableAutomaticAcousticManagement = 0x42,
+    DisableAutomaticAcousticManagement = 0xC2,
+}
+
 mod iobuf {
     // TODO: provide a zero-copy constructor which uses the `Read` trait
     pub struct IdeIoBuf {
@@ -644,13 +671,27 @@ impl IdeDrive {
             }
 
             Ok(SetFeatures) => {
-                match self.reg.feature {
-                    // Enable 8-bit data transfers
-                    0x01 => self.cfg.eightbit = true,
-                    // Set transfer mode based on value in Sector Count register
-                    0x03 => self.cfg.transfer_mode = IdeTransferMode::from(self.reg.sector_count),
-                    // Disable 8-bit data transfers
-                    0x81 => self.cfg.eightbit = false,
+                use IdeSetFeaturesReg::*;
+                match IdeSetFeaturesReg::try_from(self.reg.feature)   {
+                    Ok(Enable8BitPIOTransferMode) => self.cfg.eightbit = true,
+                    Ok(SetTransferModeBasedOnValueInSectorCountRegister) => self.cfg.transfer_mode = IdeTransferMode::from(self.reg.sector_count),
+                    Ok(Disable8BitPIOTransferMode) => self.cfg.eightbit = false,
+
+                    // Irrelevant on an emulated drive
+                    Ok(EnableWriteCache) |
+                    Ok(DisableWriteCache) |
+                    Ok(EnableReadLookAhead) |
+                    Ok(DisableReadLookAhead) |
+                    Ok(EnableRevertingToPowerOnDefaults) |
+                    Ok(DisableRevertingToPowerOnDefaults) |
+                    Ok(EnableAdvancedPowerManagement) |
+                    Ok(DisableAdvancedPowerManagement) |
+                    Ok(EnableCFAPowerMode1) |
+                    Ok(DisableCFAPowerMode1) |
+                    Ok(EnableAutomaticAcousticManagement) |
+                    Ok(DisableAutomaticAcousticManagement)
+                        => {}
+
                     other => {
                         return Err(Fatal(format!(
                             "SetFeatures (0xef) subcommand not implemented: {:#04x?}",
