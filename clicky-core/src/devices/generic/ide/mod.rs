@@ -736,8 +736,13 @@ impl IdeDrive {
             Err(_) => {
                 (self.reg.status)
                     .set_bit(reg::STATUS::BSY, false)
+                    .set_bit(reg::STATUS::DRDY, true)
+                    .set_bit(reg::STATUS::DRQ, false)
                     .set_bit(reg::STATUS::ERR, true);
-                self.reg.error = 1;
+                self.reg.error = *0u8.set_bit(reg::ERROR::ABRT, true);
+
+                self.assert_intrq();
+
                 Err(ContractViolation {
                     msg: format!("unknown IDE command: {:#04x?}", cmd),
                     severity: Warn,
