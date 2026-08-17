@@ -6,13 +6,13 @@ use crate::devices::generic::ide::{IdeController, IdeIdx, IdeReg};
 struct IdeDriveCfg {
     primary_timing: [u32; 2],
     secondary_timing: [u32; 2],
-    // bit 4: ide0 interrupt status (write 1 to clear)
-    // bit 5: ide1 interrupt status (write 1 to clear)
+    // bits 3/4: ide0 interrupt status
+    // bit 5: ide interrupt enable
     // bit 15: start DMA? (1 = active, 0 = stop)
     // bit 28: cpu > 65MHz
     // bit 29: cpu > 50MHz
     // bit 31: reset device
-    _config: u32,
+    config: u32,
 }
 
 /// PP5020 EIDE Controller
@@ -128,12 +128,13 @@ impl Memory for EIDECon {
             0x018 => Ok(self.ide1_cfg.secondary_timing[0]),
             0x01c => Ok(self.ide1_cfg.secondary_timing[1]),
             0x028 => {
-                let val = *0u32
+                let val = *self
+                    .ide0_cfg
+                    .config
                     // rockbox seems to use bit 3 to check for IDE0 irq when
                     // waiting for a DMA transfer to finish
                     .set_bit(3, self.ide.irq_state(IdeIdx::IDE0))
-                    .set_bit(4, self.ide.irq_state(IdeIdx::IDE0))
-                    .set_bit(5, self.ide.irq_state(IdeIdx::IDE1));
+                    .set_bit(4, self.ide.irq_state(IdeIdx::IDE0));
                 Err(StubRead(Debug, val))
             }
             0x02c => Err(Unimplemented),
@@ -169,15 +170,7 @@ impl Memory for EIDECon {
             0x014 => Ok(self.ide1_cfg.primary_timing[1] = val),
             0x018 => Ok(self.ide1_cfg.secondary_timing[0] = val),
             0x01c => Ok(self.ide1_cfg.secondary_timing[1] = val),
-            0x028 => {
-                if val.get_bit(4) {
-                    self.ide.clear_irq(IdeIdx::IDE0)
-                }
-                if val.get_bit(5) {
-                    self.ide.clear_irq(IdeIdx::IDE1)
-                }
-                Err(StubWrite(Debug, ()))
-            }
+            0x028 => Err(StubWrite(Debug, self.ide0_cfg.config = val)),
             0x02c => Err(Unimplemented),
 
             0x1e0 => self.ide.write16(IdeReg::Data, val as u16),
