@@ -703,8 +703,11 @@ impl IdeDrive {
                     }
                 };
 
-                (self.reg.status).set_bit(reg::STATUS::BSY, false);
+                (self.reg.status)
+                    .set_bit(reg::STATUS::BSY, false)
+                    .set_bit(reg::STATUS::DRDY, true);
 
+                self.assert_intrq();
                 Ok(())
             }
 
