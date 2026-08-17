@@ -26,6 +26,16 @@ impl Evp {
             high_priority_irq_vec: 0x1C,
         }
     }
+
+    /// Address the core should vector to on a normal IRQ.
+    pub fn normal_irq_vec(&self) -> u32 {
+        self.normal_irq_vec
+    }
+
+    /// Address the core should vector to on an FIQ.
+    pub fn high_priority_irq_vec(&self) -> u32 {
+        self.high_priority_irq_vec
+    }
 }
 
 impl Device for Evp {
