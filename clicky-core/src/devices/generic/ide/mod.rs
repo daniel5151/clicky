@@ -568,6 +568,9 @@ impl IdeDrive {
                         .set_bit(reg::STATUS::DRQ, true);
 
                     // TODO: fire interrupt?
+                    if !self.cfg.transfer_mode.is_dma() {
+                        self.assert_intrq();
+                    }
 
                     Ok(())
                 })?;
