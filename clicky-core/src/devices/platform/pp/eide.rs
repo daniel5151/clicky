@@ -104,6 +104,7 @@ impl Device for EIDECon {
             0x3fc => "Data Latch",
 
             0x400 => "DMA Control",
+            0x404 => "(?) DMA Status",
             0x408 => "DMA Length",
             0x40c => "DMA Addr",
             0x410 => "?",
@@ -150,6 +151,7 @@ impl Memory for EIDECon {
             0x3fc => self.ide.read8(IdeReg::DataLatch).map(|v| v as u32),
 
             0x400 => Err(StubRead(Debug, self.dma_control)),
+            0x404 => Err(StubRead(Error, 0)),
             0x408 => Err(StubRead(Info, self.dma_length)),
             0x40c => Err(StubRead(Info, self.dma_addr)),
             0x410 => Err(StubRead(Error, self.unknown)),
