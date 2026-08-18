@@ -6,7 +6,7 @@
 
 ---
 
-**Current focus:** Getting [Rockbox](https://www.rockbox.org/) up and running on an emulated [iPod 4G (Grayscale)](https://everymac.com/systems/apple/ipod/specs/ipod_4thgen.html).
+**Current focus:** Fixing RetailOS emulation bugs on an emulated [iPod 4G (Grayscale)](https://everymac.com/systems/apple/ipod/specs/ipod_4thgen.html).
 
 Here are some clips:
 
@@ -14,10 +14,12 @@ Here are some clips:
   <tr>
     <td><img width="320px" src="screenshots/clicky-ipodloader2-lle.gif" alt="clicky booting ipodloader2"></td>
     <td><img width="320px" src="screenshots/clicky-rockbox-boot.gif" alt="clicky booting rockbox"></td>
+    <td><img width="320px" src="screenshots/clicky-retailos.gif" alt="clicky running RetailOS"></td>
   </tr>
   <tr>
     <td width="320px">Booting <code>ipodloader2</code> (a third-party bootloader for the iPod)</td>
     <td width="320px">Successfully booting into <a href="https://www.rockbox.org/"><code>Rockbox</code></a></td>
+    <td width="320px">Playing Brick in <code>RetailOS</code></td>
   </tr>
 </table>
 
@@ -103,7 +105,7 @@ Since these projects are open source, is should be possible to trace through the
     -   A gargantuan task, one which will involve implementing a _lot_ of misc. hardware
     -   **Goals:**
         -   Boot an actual OS on the iPod
--   [ ] Boot into [iPod Linux](http://www.ipodlinux.org/)
+-   [x] Boot into [iPod Linux](http://www.ipodlinux.org/)
     -   A bigger beast than Rockbox, and likely much more difficult to step through and debug
     -   **Goals:**
         -   Boot _another_ actual OS on the iPod
@@ -117,7 +119,30 @@ Stage 3 will involve running closed-source Apple software, notably, the original
     -   Makes for a great playground to poke at the various hardware features that exist on the iPod, without worrying too much about an OS scheduler getting in the way.
     -   **Goals:**
         -   Run some closed source software
--   [ ] Boot into RetailOS
+    -   **Progress:**
+        -   [x] Boot into diagnostics
+        -   [ ] 5 IN 1
+        -   [x] RESET
+        -   [ ] KEY
+        -   [ ] CHGR CURR
+        -   [ ] REMOTE
+        -   [x] HP STATUS
+        -   [ ] SLEEP
+        -   [ ] BATT A2D
+        -   [ ] A2D STAT
+        -   [ ] FIREWIRE
+        -   [ ] HDD R/W
+        -   [ ] SMRT DAT
+        -   [ ] HDD SCAN
+        -   [ ] READ SN
+        -   [ ] DISKMODE
+        -   [ ] WHEEL
+        -   [ ] CONTRAST
+        -   [ ] AUDIO
+        -   [ ] STATUS
+        -   [ ] DRV TEMP
+        -   [ ] IRAM TEST
+-   [x] Boot into RetailOS
     -   i.e: _the big money goal_
     -   Hopefully, by getting two other OSs up and running, RetailOS will "just work"
     -   Realistically, those Apple engineers probably did some fancy/janky stuff, and things will be very broken
