@@ -208,8 +208,8 @@ impl Hd66753 {
                     if Hd66753::is_in_cursor_region(&ireg, p_x, p_y) {
                         // CM = Cursor display mode
                         match ireg.cm {
-                            0b00 if blink_on => 0,
-                            0b01 if blink_on => 3,
+                            0b00 if blink_on => 3,
+                            0b01 if blink_on => 0,
                             0b10 => 3 - x,
                             0b11 if blink_on => 3 - x,
                             _ => x
