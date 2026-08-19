@@ -26,14 +26,17 @@ pub struct hd_driveid {
     pub max_multsect: u8, /* 0=not_implemented */
     pub vendor3: u8,      /* vendor unique */
     pub dword_io: u16,    /* 0=not_implemented, 1=implemented */
-    pub vendor4: u8,      /* vendor unique */
-    pub capability: u8,   /* (upper byte of word 49)
-                           *  3:        IORDYsup
-                           *  2:        IORDYsw
-                           *  1:        LBA
-                           *  0:        DMA
+    pub capabilities: u16,/* Word 49, capabilities
+                           * 14-15: Reserved for the IDENTIFY PACKET DEVICE command
+                           *    13: Standby timer values as specified in this standard are supported
+                           *    12: Reserved for the IDENTIFY PACKET DEVICE command.
+                           *    11: IORDYsup
+                           *    10: IORDYsw
+                           *    9:  Shall be set to 1
+                           *    8:  Shall be set to 1
+                           *  7-0:  Retired
                            */
-    pub reserved50: u16, /* reserved (word 50) */
+    pub capabilities2: u16, /* Word 50, capabilities (continued) */
     pub vendor5: u8,     /* Obsolete, vendor unique */
     pub tPIO: u8,        /* Obsolete, 0=slow, 1=medium, 2=fast */
     pub vendor6: u8,     /* Obsolete, vendor unique */
@@ -308,9 +311,10 @@ impl IdeDriveMeta<'_> {
             // serial_no: self.serial, // no ergonomic way to init [u8; N] from &[u8]
             // fw_rev: self.fw_version,
             // model: self.model,
-            max_multsect: 1,    // TODO: add proper multi-sector support
-            capability: 0b0111, // DMA and LBA supported, IORDY supported
-            field_valid: 0b11,  // words 54-58,64-70 are valid
+            max_multsect: 1, // TODO: add proper multi-sector support
+            capabilities: 0b0000_1011_0000_0000, // DMA, LBA, IORDY
+            capabilities2: 0b0100_0000_0000_0000,
+            field_valid: 0b11, // words 54-58,64-70 are valid (88 is not: no UDMA)
             cur_cyls: self.cylinders,
             cur_heads: self.heads,
             cur_sectors: self.sectors,
@@ -329,6 +333,18 @@ impl IdeDriveMeta<'_> {
             eide_dma_time: 120,
             eide_pio: 120,
             eide_pio_iordy: 120,
+
+            major_rev_num: 0x003e, // conforms to ATA-1 .. ATA-5
+            minor_rev_num: 0x0015, // ATA/ATAPI-5 T13 1321D revision 1
+
+            // ATA-5 8.12.45
+            command_set_1: (1 << 0) | (1 << 3) | (1 << 5), // SMART (0), power management (3), write cache (5)
+            command_set_2: (1 << 14) | (1 << 12), // Bit 14 means 82h-83h contain valid info, FLUSH CACHE (12)
+            
+            // ATA-5 8.12.46
+            cfs_enable_1: (1 << 0) | (1 << 3) | (1 << 5), // SMART (0), power management (3), write cache en (5)
+            cfs_enable_2: (1 << 14) | (1 << 12), // // NOP command (14), write buffer (12)
+            csf_default: 1 << 14, // Bit 14 means 85h-87h contain valid info
 
             ..hd_driveid::default()
         };
