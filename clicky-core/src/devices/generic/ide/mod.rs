@@ -348,7 +348,7 @@ impl IdeDrive {
                     .set_bit(reg::STATUS::DRQ, false)
                     .set_bit(reg::STATUS::BSY, false);
 
-                self.irq.assert();
+                self.assert_intrq();
                 self.dmarq.clear();
             } else {
                 // the next sector needs to be loaded
@@ -373,7 +373,7 @@ impl IdeDrive {
 
                     // DMA only fires a single IRQ at the end of the transfer
                     if !self.cfg.transfer_mode.is_dma() {
-                        self.irq.assert();
+                        self.assert_intrq();
                     }
 
                     Ok(())
@@ -425,7 +425,7 @@ impl IdeDrive {
 
                 // DMA only fires a single IRQ at the end of the transfer
                 if !self.cfg.transfer_mode.is_dma() {
-                    self.irq.assert();
+                    self.assert_intrq();
                 }
 
                 // check if there are no more sectors remaining
@@ -436,7 +436,7 @@ impl IdeDrive {
                         .set_bit(reg::STATUS::DRDY, true)
                         .set_bit(reg::STATUS::DRQ, false);
 
-                    self.irq.assert();
+                    self.assert_intrq();
                     self.dmarq.clear();
                 }
 
@@ -445,6 +445,12 @@ impl IdeDrive {
         }
 
         Ok(())
+    }
+
+    fn assert_intrq(&mut self) {
+        if !self.reg.nein {
+            self.irq.assert()
+        }
     }
 
     fn exec_cmd(&mut self, cmd: u8) -> MemResult<()> {
@@ -497,7 +503,7 @@ impl IdeDrive {
                     .set_bit(reg::STATUS::BSY, false)
                     .set_bit(reg::STATUS::DRQ, true);
 
-                self.irq.assert();
+                self.assert_intrq();
 
                 Ok(())
             }
@@ -587,7 +593,7 @@ impl IdeDrive {
                 // I mean, it's a virtual disk, there is no "spin up / spin down"
                 self.reg.status.set_bit(reg::STATUS::BSY, false);
 
-                // TODO: fire interrupt
+                self.assert_intrq();
                 Ok(())
             }
             Ok(WriteMultiple) => {
@@ -732,13 +738,13 @@ impl IdeDrive {
                 // just assert the irq and go on our merry way
                 (self.reg.status).set_bit(reg::STATUS::BSY, false);
 
-                self.irq.assert();
+                self.assert_intrq();
                 Ok(())
             }
 
             Ok(InitializeDriveParameters) => {
                 (self.reg.status).set_bit(reg::STATUS::BSY, false);
-                self.irq.assert();
+                self.assert_intrq();
                 Ok(())
             }
 
