@@ -209,8 +209,8 @@ impl Memory for IntCon32 {
             0x2c => Ok(self.cpu.priority),
 
             0x30 => Ok(self.cop.enabled),
-            0x34 => Err(InvalidAccess),
-            0x38 => Err(InvalidAccess),
+            0x34 => Ok(self.cop.enabled),
+            0x38 => Ok(self.cop.enabled),
             0x3c => Ok(self.cop.priority),
 
             0x44 => Err(Unimplemented),
