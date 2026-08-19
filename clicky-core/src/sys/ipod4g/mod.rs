@@ -497,7 +497,7 @@ impl Ipod4gBus {
             mystery_irq_con: Stub::new("Mystery IRQ Con?"),
             mystery_lcd_con: Stub::new("Mystery LCD Con?"),
             mystery_flash_stub: Stub::new("Mystery FlashROM Con?"),
-            total_mystery: Stub::new("<total mystery>"),
+            total_mystery: Stub::new("(?) Arbiter Priority"),
             pwmcon: PWMCon::new(),
 
             pp5002_serial_stub: Stub::new("PP5002 serial stub"),
@@ -663,6 +663,20 @@ mmap! {
         0x6000_111c => mystery_irq_con,
         0x6000_1128 => mystery_irq_con,
         0x6000_1138 => mystery_irq_con,
+
+        // Four registers at +0x00/+0x04/+0x08/+0x0c, RetailOS programs them
+        // from one straight-line routine, never touched in diags.
+        //
+        // The values it writes are a cyclic Latin square:
+        //
+        //           +0x00  +0x04  +0x08  +0x0c
+        //   bits0-1   0      1      2      3
+        //   bits2-3   3      0      1      2
+        //   bits4-5   2      3      0      1
+        //   bits6-7   1      2      3      0
+        //
+        // Undocumented everywhere. Arbiter priority matrix of Multi Path Mem
+        // Controller?
         0x6000_3000..=0x6000_30ff => total_mystery,
         // Diagnostics program reads from address, and write back 0x10000000
         0x7000_3800 => total_mystery,
