@@ -315,6 +315,23 @@ impl IntCon {
         )
     }
 
+    fn update_hi_aggregate(&mut self) {
+        self.hi.update_regs();
+
+        let (hien_cpu, hien_cop) = self.hi_enabled();
+        for (lo, hi, hi_enabled) in [
+            (&mut self.lo.cpu, &self.hi.cpu, hien_cpu),
+            (&mut self.lo.cop, &self.hi.cop, hien_cop),
+        ] {
+            let pending = hi_enabled && (hi.irq_stat != 0 || hi.fiq_stat != 0);
+            // ...and the aggregate itself can be routed to fiq like any other
+            let as_fiq = lo.priority.get_bit(30);
+            lo.irq_stat.set_bit(30, pending && !as_fiq);
+            lo.fiq_stat.set_bit(30, pending && as_fiq);
+        }
+    }
+
+
     /// Check if an IRQ/FIQ is being requested on the (cpu, cop)
     pub fn interrupt_status(&mut self) -> (IntStatus, IntStatus) {
         let (lo_cpu, lo_cop) = self.lo.interrupt_status();
@@ -345,7 +362,10 @@ impl Device for IntCon {
 impl Memory for IntCon {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
-            0x000..=0x0ff => self.lo.r32(offset),
+            0x000..=0x0ff => {
+                self.update_hi_aggregate();
+                self.lo.r32(offset)
+            }
             0x100..=0x1ff => self.hi.r32(offset - 0x100),
             _ => Err(Unexpected),
         }
