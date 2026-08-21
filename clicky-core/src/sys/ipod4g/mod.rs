@@ -155,6 +155,18 @@ impl Ipod4g {
         Ok(sys)
     }
 
+    fn warm_reset(&mut self) {
+        self.devices.memcon.reset();
+        self.devices.cachecon.reset();
+        self.devices.evp.reset();
+        self.devices.cpucon.reset();
+        self.devices.intcon.reset();
+        self.devices.devcon.reset();
+
+        self.cpu = Cpu::new();
+        self.cop = Cpu::new();
+    }
+
     /// Run the system for a single CPU instruction, returning `true` if the
     /// system is still running, or `false` upon reaching some sort of "graceful
     /// exit" condition (e.g: power-off).
