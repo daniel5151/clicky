@@ -244,7 +244,7 @@ impl Ipod4g {
         // reorganized, and moved somewhere more appropriate.
         if self.dma_pending.check() {
             self.dma_pending.clear();
-            if devices.dmacon.do_ide_dma() {
+            if devices.dmacon0.do_ide_dma() {
                 let (kind, addr) = match (devices.eidecon).do_dma() {
                     Ok(tup) => tup,
                     Err(_) => panic!("asd"),
@@ -389,7 +389,8 @@ pub struct Ipod4gBus {
     pub cachecon: devices::CacheCon,
     pub i2s: devices::I2SCon,
     pub mailbox: devices::Mailbox,
-    pub dmacon: devices::DmaCon,
+    pub dmacon0: devices::DmaCon,
+    pub dmacon1: devices::DmaCon,
     pub serial0: devices::Serial,
     pub serial1: devices::Serial,
     pub evp: devices::Evp,
@@ -450,7 +451,9 @@ impl Ipod4gBus {
             // .register(37, ser1_irq_rx)
             .register(40, i2c_irq_rx);
 
-        let dmacon = DmaCon::new(ide_dmarq_rx);
+        let dmacon0 = DmaCon::new("0", Some(ide_dmarq_rx));
+        // the undocumented second engine -- nothing routes DMA requests to it yet
+        let dmacon1 = DmaCon::new("1", None);
 
         let mut i2ccon = I2CCon::new(i2c_irq_tx.clone());
         i2ccon.register_device(0x08, Box::new(i2c::Pcf5060x::new()));
@@ -484,7 +487,8 @@ impl Ipod4gBus {
             cachecon: CacheCon::new(),
             i2s: I2SCon::new(),
             mailbox: Mailbox::new(mbx_cpu_irq_tx, mbx_cop_irq_tx),
-            dmacon,
+            dmacon0,
+            dmacon1,
             serial0: Serial::new("0"),
             serial1: Serial::new("1"),
             evp: Evp::new(),
@@ -625,7 +629,9 @@ mmap! {
         0x6000_5014..=0x6000_5017 => rtc,
         0x6000_6000..=0x6000_6fff => devcon,
         0x6000_7000..=0x6000_7fff => cpucon,
-        0x6000_a000..=0x6000_bfff => dmacon,
+        // Memory accesses to dmacon1 are suspiciously similar to dmacon0
+        0x6000_8000..=0x6000_9fff => dmacon1,
+        0x6000_a000..=0x6000_bfff => dmacon0,
         0x6000_c000..=0x6000_cfff => cachecon,
         0x6000_d000..=0x6000_d07f => gpio_abcd,
         0x6000_d080..=0x6000_d0ff => gpio_efgh,
@@ -658,7 +664,6 @@ mmap! {
         0x6000_1128 => mystery_irq_con,
         0x6000_1138 => mystery_irq_con,
         0x6000_3000..=0x6000_30ff => total_mystery,
-        0x6000_9000..=0x6000_90ff => total_mystery,
         // Diagnostics program reads from address, and write back 0x10000000
         0x7000_3800 => total_mystery,
         0xc031_b1d8 => mystery_flash_stub,

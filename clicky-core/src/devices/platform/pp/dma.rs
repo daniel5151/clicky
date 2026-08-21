@@ -36,9 +36,10 @@ impl Device for Dma {
     }
 }
 
-/// PP5020 DMA Engine
 #[derive(Debug)]
 pub struct DmaCon {
+    label: &'static str,
+
     dma: [Dma; 8],
     master_control: u32,
     master_status: u32,
@@ -50,12 +51,17 @@ pub struct DmaCon {
     //
     // As per the pp5020 spec sheet: "A dedicated, high-performance ATA-66IDE controller with its
     // own DMA engine frees the processors from mundane management tasks."
-    ide_dmarq: irq::Reciever,
+    //
+    // Only the engine the IDE controller was wired to carries this; the other
+    // one gets `None`.
+    ide_dmarq: Option<irq::Reciever>,
 }
 
 impl DmaCon {
-    pub fn new(ide_dmarq: irq::Reciever) -> DmaCon {
+    pub fn new(label: &'static str, ide_dmarq: Option<irq::Reciever>) -> DmaCon {
         let mut dma = DmaCon {
+            label,
+
             dma: Default::default(),
             master_control: 0,
             master_status: 0,
@@ -78,13 +84,21 @@ impl DmaCon {
 
     /// XXX: remove this once DMA is properly sorted out
     pub fn do_ide_dma(&self) -> bool {
-        self.ide_dmarq.asserted()
+        if let Some(ref dmarq) = self.ide_dmarq {
+            dmarq.asserted()
+        } else {
+            false
+        }
     }
 }
 
 impl Device for DmaCon {
     fn kind(&self) -> &'static str {
         "DMA Engine"
+    }
+
+    fn label(&self) -> Option<&'static str> {
+        Some(self.label)
     }
 
     fn probe(&self, offset: u32) -> Probe {
