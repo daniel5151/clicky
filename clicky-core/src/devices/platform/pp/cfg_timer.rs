@@ -23,56 +23,76 @@ async fn interrupter_task(
     let mut state = InterrupterState::Disabled;
 
     loop {
-        let duration = match state {
-            InterrupterState::Disabled => None,
-
-            // If the period is set low enough, and there's a lag spike which causes the interrupter
-            // task to not be polled for a while, it's possible for `next` to have already passed,
-            // resulting in a panic when doing a naive `next - Instant::now()`. In that case, we
-            // simply play "catch up" and immediately fire the interrupt.
-            InterrupterState::Oneshot { next } | InterrupterState::Repeating { next, .. } => {
-                Some({
-                    let now = Instant::now();
-                    if next < now {
-                        warn!("Timer{} can't keep up!", label);
-                        Duration::from_secs(0)
-                    } else {
-                        next - now
-                    }
-                })
-            }
-        };
-
-        let interrupt = match duration {
-            None => Either::Left(future::pending()),
-            Some(duration) => Either::Right(Timeout::new(duration)),
-        };
-
-        let msg_fut = msg_rx.recv();
-        pin_mut!(msg_fut);
-
-        match future::select(msg_fut, interrupt).await {
-            Either::Left((new_state, _)) => match new_state {
-                Ok(new_state) => state = new_state,
+        let (next, period) = match state {
+            InterrupterState::Disabled => match msg_rx.recv().await {
+                Ok(new_state) => {
+                    state = new_state;
+                    continue;
+                }
                 Err(async_channel::RecvError) => {
                     // shutting down
                     return;
                 }
             },
-            Either::Right((_, _)) => {
-                // interrupt!
-                irq.assert();
+            InterrupterState::Oneshot { next } => (next, None),
+            InterrupterState::Repeating { next, period } => (next, Some(period)),
+        };
 
-                match state {
-                    InterrupterState::Disabled => unreachable!(),
-                    InterrupterState::Oneshot { .. } => state = InterrupterState::Disabled,
-                    InterrupterState::Repeating {
-                        ref mut next,
-                        period,
-                    } => *next += period,
+        let now = Instant::now();
+
+        let fired = if next <= now {
+            // If the period is set low enough, and there's a lag spike which causes the interrupter
+            // task to not be polled for a while, it's possible for `next` to have already passed.
+            // Fire immediately rather than waiting on an already-elapsed deadline.
+            true
+        } else {
+            let msg_fut = msg_rx.recv();
+            pin_mut!(msg_fut);
+
+            match future::select(msg_fut, Timeout::new(next - now)).await {
+                Either::Left((new_state, _)) => {
+                    match new_state {
+                        Ok(new_state) => state = new_state,
+                        Err(async_channel::RecvError) => {
+                            // shutting down
+                            return;
+                        }
+                    }
+                    false
                 }
+                Either::Right(_) => true,
             }
+        };
+
+        if !fired {
+            continue;
         }
+
+        irq.assert();
+
+        state = match period {
+            None => InterrupterState::Disabled,
+            Some(period) => {
+                let mut next = next + period;
+
+                // If we've fallen behind, drop the missed ticks instead of
+                // replaying them back-to-back -- the guest would otherwise see
+                // a burst of interrupts that never happened on hardware.
+                let now = Instant::now();
+                if next < now {
+                    let behind = now - next;
+                    if behind > period * 100 {
+                        warn!(
+                            "Timer{} fell {:?} behind, dropping missed ticks",
+                            label, behind
+                        );
+                    }
+                    next = now + period;
+                }
+
+                InterrupterState::Repeating { next, period }
+            }
+        };
     }
 }
 
