@@ -331,6 +331,13 @@ impl IntCon {
         }
     }
 
+    pub fn reset(&mut self) {
+        for half in [&mut self.lo, &mut self.hi] {
+            // Mask every interrupt again, leaving the registered irq lines wired up.
+            half.cpu = IntConCpuRegs::default();
+            half.cop = IntConCpuRegs::default();
+        }
+    }
 
     /// Check if an IRQ/FIQ is being requested on the (cpu, cop)
     pub fn interrupt_status(&mut self) -> (IntStatus, IntStatus) {
