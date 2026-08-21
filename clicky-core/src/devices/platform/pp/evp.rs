@@ -36,6 +36,10 @@ impl Evp {
     pub fn high_priority_irq_vec(&self) -> u32 {
         self.high_priority_irq_vec
     }
+
+    pub fn reset(&mut self) {
+        *self = Evp::new();
+    }
 }
 
 impl Device for Evp {
