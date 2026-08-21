@@ -56,6 +56,7 @@ pub struct OptoWheel {
     hold: Option<gpio::Reciever>,
 
     controls_status: u32,
+    pending_cmd: Option<u32>,
 }
 
 impl OptoWheel {
@@ -66,6 +67,7 @@ impl OptoWheel {
             hold: None,
 
             controls_status: 0,
+            pending_cmd: None,
         }
     }
 
@@ -88,7 +90,7 @@ impl Device for OptoWheel {
         let reg = match offset {
             0x00 => "(?) Keypad IRQ clear",
             0x04 => "(?) Keypad Status",
-            0x20 => "?",
+            0x20 => "(?) Explicit command",
             0x24 => "?",
             0x40 => "Scroll Wheel + Keypad",
             _ => return Probe::Unmapped,
@@ -106,6 +108,12 @@ impl Memory for OptoWheel {
             0x20 => Err(Unimplemented),
             0x24 => Err(Unimplemented),
             0x40 => {
+                // If an explicit command has been sent, serve its content instead
+                // of the automatic fetch
+                if let Some(cmd) = self.pending_cmd.take() {
+                    return Err(StubRead(Debug, cmd));
+                }
+
                 let (controls, hold) = match (&self.controls, &self.hold) {
                     (Some(controls), Some(hold)) => (controls, hold),
                     _ => return Err(Fatal("no controls registered with i2c".into())),
@@ -135,9 +143,16 @@ impl Memory for OptoWheel {
                 self.irq.clear()
             })),
             0x04 => Err(StubWrite(Debug, self.controls_status = val)),
-            0x20 => Err(StubWrite(Debug, ())),
+            0x20 => Err(StubWrite(Debug, {
+                if val.get_bit(31) {
+                    self.pending_cmd = Some(val);
+                }
+            })),
             0x24 => Err(StubWrite(Debug, ())),
             0x40 => Err(StubWrite(Debug, {
+                // the handler acks by writing here, which also retires the
+                // outstanding command reply
+                self.pending_cmd = None;
                 // TODO: explore IRQ behavior if multiple I2C devices fire irqs
                 self.irq.clear()
             })),
