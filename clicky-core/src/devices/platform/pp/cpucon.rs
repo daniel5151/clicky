@@ -117,6 +117,19 @@ impl CpuCon {
                     });
                 }
             }
+
+            // TODO: We don't emulate 'wait N cycles', we just return immediately...
+            if val.get_bit(flags::PROC_CNT_CLKS) {
+                let reg = match cpu {
+                    CpuId::Cpu => &self.cpuctl,
+                    CpuId::Cop => &self.copctl,
+                };
+                let _ = reg.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |mut reg| {
+                    Some(*reg.set_bits(flags::FLOW_MASK, 0))
+                });
+                return Ok(());
+            }
+
             let source = match val {
                 _ if val.get_bit(flags::PROC_CNT_CLKS) => CounterSource::Sysclock,
                 _ if val.get_bit(flags::PROC_CNT_USEC) => CounterSource::Micros,
