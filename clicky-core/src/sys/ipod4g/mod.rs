@@ -668,7 +668,7 @@ mmap! {
         0x7000_3800 => total_mystery,
         0xc031_b1d8 => mystery_flash_stub,
         0xc031_b1e8 => mystery_flash_stub,
-        0xc500_0000..=0xc500_01ff => firewire,
+        0xc500_0000..=0xc500_01ff => usb,
         0xc600_0000..=0xc600_01ff => firewire,
         0xffff_fe00..=0xffff_ffff => mystery_flash_stub,
 
