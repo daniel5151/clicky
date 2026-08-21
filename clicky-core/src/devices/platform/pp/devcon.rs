@@ -1,5 +1,10 @@
 use crate::devices::prelude::*;
 
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
+const DEV_SYSTEM: u32 = 1 << 2;
+
 /// PP5020 Device Controller.
 #[derive(Debug)]
 pub struct DevCon {
@@ -11,6 +16,7 @@ pub struct DevCon {
     cache_priority: u8,
     mystery_i2c: u32,
     mystery: [u32; 1],
+    reset_requested: Arc<AtomicBool>,
 }
 
 impl DevCon {
@@ -24,7 +30,20 @@ impl DevCon {
             cache_priority: 0,
             mystery_i2c: 0,
             mystery: [0; 1],
+            reset_requested: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    /// Handle to the "someone asked for a system reset" flag.
+    pub fn reset_requested(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.reset_requested)
+    }
+
+    /// Restore the register state a reset leaves behind.
+    pub fn reset(&mut self) {
+        let flag = Arc::clone(&self.reset_requested);
+        *self = DevCon::new();
+        self.reset_requested = flag;
     }
 }
 
@@ -75,7 +94,12 @@ impl Memory for DevCon {
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         match offset {
-            0x04 => Err(StubWrite(Error, self.reset[0] = val)),
+            0x04 => Err(StubWrite(Error, {
+                self.reset[0] = val;
+                if val & DEV_SYSTEM != 0 {
+                    self.reset_requested.store(true, Ordering::SeqCst);
+                }
+            })),
             0x08 => Err(StubWrite(Error, self.reset[1] = val)),
             0x0c => Err(StubWrite(Info, self.enable[0] = val)),
             0x10 => Err(StubWrite(Info, self.enable[1] = val)),
