@@ -41,6 +41,7 @@ impl Device for DevCon {
             0x10 => "Device Enable 2",
             0x20 => "Clock Source",
             0x34 => "PLL Control",
+            0x38 => "(?) PLL related",
             0x3c => "PLL Status",
             0x44 => "Cache Priority",
             0xa4 => "(?) I2C related",
@@ -62,6 +63,7 @@ impl Memory for DevCon {
             0x10 => Ok(self.enable[1]),
             0x20 => Ok(self.clock_source),
             0x34 => Ok(self.pll_control),
+            0x38 => Err(StubRead(Error, 0)),
             0x3c => Ok(self.pll_status),
             0x44 => Err(StubRead(Error, self.cache_priority as u32)),
             0xa4 => Err(StubRead(Error, self.mystery_i2c)),
@@ -79,6 +81,7 @@ impl Memory for DevCon {
             0x10 => Err(StubWrite(Info, self.enable[1] = val)),
             0x20 => Err(StubWrite(Trace, self.clock_source = val)),
             0x34 => Err(StubWrite(Trace, self.pll_control = val)),
+            0x38 => Err(StubWrite(Error, ())),
             0x3c => Err(StubWrite(Trace, self.pll_status = val)),
             0x44 => Err(StubWrite(Warn, {
                 let val = val.trunc_to_u8()?;
