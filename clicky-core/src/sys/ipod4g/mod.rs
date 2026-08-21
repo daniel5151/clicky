@@ -70,6 +70,13 @@ pub struct Ipod4g {
     executor: Executor,
 }
 
+/// Helper function for calling vectors of EVP
+fn vector_via_evp(core: &mut Cpu, devices: &Ipod4gBus, vector: u32) {
+    if devices.cachecon.local_evt {
+        core.reg_set(core.mode(), reg::PC, vector);
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum Ipod4gBuildError {
     #[error("invalid flash dump: {0}")]
@@ -287,7 +294,11 @@ impl Ipod4g {
             {
                 if status.irq {
                     devices.cpucon.wake_on_interrupt(*cpuid);
+                    let taken = core.irq_enable();
                     core.exception(Exception::Interrupt);
+                    if taken {
+                        vector_via_evp(core, devices, devices.evp.normal_irq_vec());
+                    }
 
                     if core.irq_enable() {
                         self.irq_pending.clear();
@@ -295,7 +306,11 @@ impl Ipod4g {
                 }
                 if status.fiq {
                     devices.cpucon.wake_on_interrupt(*cpuid);
+                    let taken = core.fiq_enable();
                     core.exception(Exception::FastInterrupt);
+                    if taken {
+                        vector_via_evp(core, devices, devices.evp.high_priority_irq_vec());
+                    }
 
                     if core.fiq_enable() {
                         self.irq_pending.clear();
