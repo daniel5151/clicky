@@ -36,15 +36,6 @@ Here are some clips:
 
 `clicky` is still in it's early stages, and there hasn't been much effort put into making it easy to use.
 
-That said, if you're a cool [hackerman](https://www.youtube.com/watch?v=V4MF2s6MLxY) who can [jam with the console cowboys in cyberspace](https://www.youtube.com/watch?v=BNtcWpY4YLY), check out the [`QUICKSTART.md`](https://github.com/daniel5151/clicky/blob/master/docs/QUICKSTART.md) and/or [`DEVGUIDE.md`](https://github.com/daniel5151/clicky/blob/master/docs/DEVGUIDE.md) for info on how to build `clicky` and start running iPod software!
-
-<p>
-    Join the Developer Discord!
-    <a href="https://discord.gg/kRmKZy7">
-        <img  src="https://img.shields.io/discord/754122157876838441?logo=discord" alt="chat on Discord">
-    </a>
-</p>
-
 ## Call for Contributors!
 
 Up until now, `clicky` has been a one-man hobby project, and while it's been a great way to kill time during my impromptu COVID-induced "staycation" that spanned the months between University graduation and starting full time work, I won't have too much time to dedicate to `clicky` moving forwards.
