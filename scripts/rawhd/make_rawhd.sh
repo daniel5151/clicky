@@ -1,7 +1,7 @@
 # makes a 64Mb drive, and optionally copies a firmware binary into the firmware
 # partition (if the firmware file is specified as the first arg)
 
-dd if=/dev/zero of=ipodhd.img count=$((2 * 1024 * 64)) bs=512
+dd if=/dev/zero of=ipodhd.img bs=512 count=0 seek=$((2 * 1024 * 64)) status=progress
 sfdisk ipodhd.img << EOM
 label: dos
 label-id: 0x04206969
@@ -13,12 +13,12 @@ ipodhd.img2 : start=       12288, size=      118784, type=b
 EOM
 
 if [ -n "$1" ]; then
-    dd if=$1 of=ipodhd.img bs=512 seek=2048 conv=notrunc
+    dd if=$1 of=ipodhd.img bs=512 seek=2048 conv=notrunc status=progress
 fi
 
-dd if=/dev/zero of=ipodhd_fat32.img count=$((118784)) bs=512
+dd if=/dev/zero of=ipodhd_fat32.img bs=512 count=0 seek=$((118784)) status=progress
 mkdosfs -F 32 ipodhd_fat32.img
-dd if=ipodhd_fat32.img of=ipodhd.img bs=512 seek=12288 conv=notrunc
+dd if=ipodhd_fat32.img of=ipodhd.img bs=512 seek=12288 conv=notrunc status=progress
 
 # cleanup
 rm ipodhd_fat32.img
