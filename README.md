@@ -207,5 +207,6 @@ This project would be dead in the waters without these folks and projects:
 
 -   [The iPod Linux Project](http://www.ipodlinux.org/) - for invaluable iPod reverse engineering work
 -   [Rockbox](https://www.rockbox.org/) - for additional iPod reverse engineering work (and preserving _years_ of IRC logs to search through)
+-   [freemyipod](https://freemyipod.org) - for preserving past reverse engineering efforts on S5L iPods (Linux4Nano era) and accomplishing the impossible (running Linux on a clickwheel iPod!)
 -   [QEMU](https://www.qemu.org/) - for insights on how to structure the codebase, and how certain devices aught to work
 -   [Sean Purcell](https://github.com/iburinoc/) - for writing the bulk of [armv4t_emu](https://github.com/daniel5151/armv4t_emu)
