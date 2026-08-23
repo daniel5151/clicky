@@ -16,11 +16,18 @@ Here are some clips:
   <tr>
     <td><img width="320px" src="screenshots/clicky-ipodloader2-lle.gif" alt="clicky booting ipodloader2"></td>
     <td><img width="320px" src="screenshots/clicky-rockbox-boot.gif" alt="clicky booting rockbox"></td>
-    <td><img width="320px" src="screenshots/clicky-retailos.gif" alt="clicky running RetailOS"></td>
   </tr>
   <tr>
     <td width="320px">Booting <code>ipodloader2</code> (a third-party bootloader for the iPod)</td>
     <td width="320px">Successfully booting into <a href="https://www.rockbox.org/"><code>Rockbox</code></a></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td><img width="320px" src="screenshots/clicky-retailos.gif" alt="clicky running RetailOS"></td>
+  </tr>
+  <tr>
     <td width="320px">Playing Brick in <code>RetailOS</code></td>
   </tr>
 </table>
