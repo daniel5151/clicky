@@ -2,6 +2,16 @@
 
 **`clicky` is not ready for general use yet!** This quickstart guide is aimed at _developers_.
 
+tl;dr:
+
+1. Install Rockbox on an iPod 4th Gen (black&white display model!)
+2. Dump internal ROM (in Rockbox menus, System > Debug (Keep Out!) > Dump ROM contents)
+3. Copy `internal_rom_000000-0FFFFF.bin` to your computer
+4. Use `dd if=/dev/sdX of=ipod.img` to copy your iPod's hard drive contents
+5. Start the emulator with `cargo run --release -- --flash-rom internal_rom_000000-0FFFFF.bin --hdd mem:file=ipod.img`
+
+## Project Structure
+
 `clicky` is split up into multiple crates:
 
 | crate            | type |                                                                                  |

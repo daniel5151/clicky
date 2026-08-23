@@ -2,6 +2,8 @@
     <img height="120px" src="screenshots/logo-cropped.png" alt="clicky logo">
     <h1>clicky</h1>
     <p>A clickwheel iPod emulator.</p>
+
+    <p><strong><a href="https://github.com/daniel5151/clicky/blob/master/docs/QUICKSTART.md">Quick Start</a> • <a href="https://github.com/daniel5151/clicky/blob/master/docs/DEVGUIDE.md">Development Guide</a> • <a href="https://discord.gg/kRmKZy7">Discord</a></strong></p>
 </div>
 
 ---
@@ -35,16 +37,6 @@ That said, if you're a cool [hackerman](https://www.youtube.com/watch?v=V4MF2s6M
         <img  src="https://img.shields.io/discord/754122157876838441?logo=discord" alt="chat on Discord">
     </a>
 </p>
-
-## Quick Start
-
-This procedure requires owning an iPod (4th generation, the one with a black & white display):
-
-1. Install Rockbox on the iPod
-2. Dump internal ROM (in Rockbox menus, System > Debug (Keep Out!) > Dump ROM contents)
-3. Copy `internal_rom_000000-0FFFFF.bin` to your computer
-4. Use `dd if=/dev/sdX of=ipod.img` to copy your iPod's hard drive contents
-5. Start the emulator with `cargo run --release -- --flash-rom internal_rom_000000-0FFFFF.bin --hdd mem:file=ipod.img`
 
 ## Call for Contributors!
 
