@@ -36,6 +36,16 @@ That said, if you're a cool [hackerman](https://www.youtube.com/watch?v=V4MF2s6M
     </a>
 </p>
 
+## Quick Start
+
+This procedure requires owning an iPod (4th generation, the one with a black & white display):
+
+1. Install Rockbox on the iPod
+2. Dump internal ROM (in Rockbox menus, System > Debug (Keep Out!) > Dump ROM contents)
+3. Copy `internal_rom_000000-0FFFFF.bin` to your computer
+4. Use `dd if=/dev/sdX of=ipod.img` to copy your iPod's hard drive contents
+5. Start the emulator with `cargo run --release -- --flash-rom internal_rom_000000-0FFFFF.bin --hdd mem:file=ipod.img`
+
 ## Call for Contributors!
 
 Up until now, `clicky` has been a one-man hobby project, and while it's been a great way to kill time during my impromptu COVID-induced "staycation" that spanned the months between University graduation and starting full time work, I won't have too much time to dedicate to `clicky` moving forwards.
