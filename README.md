@@ -2,7 +2,6 @@
     <img height="120px" src="screenshots/logo-cropped.png" alt="clicky logo">
     <h1>clicky</h1>
     <p>A clickwheel iPod emulator.</p>
-
     <p><strong><a href="https://github.com/daniel5151/clicky/blob/master/docs/QUICKSTART.md">Quick Start</a> • <a href="https://github.com/daniel5151/clicky/blob/master/docs/DEVGUIDE.md">Development Guide</a> • <a href="https://discord.gg/kRmKZy7">Discord</a></strong></p>
 </div>
 
