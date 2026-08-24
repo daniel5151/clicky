@@ -65,7 +65,12 @@ impl Memory for Serial {
             0x08 => Ok(self.fcr as u32),
             0x0c => Ok(self.lcr as u32),
             0x10 => Ok(self.mcr as u32),
-            0x14 => Ok(0x0),
+            0x14 => Ok({
+                let mut val : u8 = 0;
+                val.set_bit(5, true) // TMTY / Transmit Shift Reg Empty status (1 = empty)
+                   .set_bit(6, true); // THRE / Transmit Holding Register Empty (1 = empty)
+                val as u32
+            }),
             0x18..0x28 => Err(Unimplemented),
             0x3c => Ok(self.asr as u32),
             _ => Err(Unexpected),
