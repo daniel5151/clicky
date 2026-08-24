@@ -122,24 +122,24 @@ Stage 3 will involve running closed-source Apple software, notably, the original
         -   [x] Boot into diagnostics
         -   [ ] 5 IN 1
         -   [x] RESET
-        -   [ ] KEY
-        -   [ ] CHGR CURR
+        -   [x] KEY
+        -   [x] CHGR CURR
         -   [ ] REMOTE
         -   [x] HP STATUS
         -   [ ] SLEEP
-        -   [ ] BATT A2D
+        -   [x] BATT A2D
         -   [ ] A2D STAT
-        -   [ ] FIREWIRE
+        -   [x] FIREWIRE
         -   [ ] HDD R/W
-        -   [ ] SMRT DAT
-        -   [ ] HDD SCAN
-        -   [ ] READ SN
-        -   [ ] DISKMODE
+        -   [x] SMRT DAT
+        -   [x] HDD SCAN
+        -   [x] READ SN
+        -   [x] DISKMODE
         -   [ ] WHEEL
-        -   [ ] CONTRAST
+        -   [x] CONTRAST
         -   [ ] AUDIO
-        -   [ ] STATUS
-        -   [ ] DRV TEMP
+        -   [x] STATUS
+        -   [x] DRV TEMP
         -   [ ] IRAM TEST
 -   [x] Boot into RetailOS
     -   i.e: _the big money goal_
