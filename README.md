@@ -2,7 +2,7 @@
     <img height="120px" src="screenshots/logo-cropped.png" alt="clicky logo">
     <h1>clicky</h1>
     <p>A clickwheel iPod emulator.</p>
-    <p><strong><a href="https://github.com/daniel5151/clicky/blob/master/docs/QUICKSTART.md">Quick Start</a> • <a href="https://github.com/daniel5151/clicky/blob/master/docs/DEVGUIDE.md">Development Guide</a> • <a href="https://discord.gg/kRmKZy7">Discord</a></strong></p>
+    <p><strong><a href="https://github.com/daniel5151/clicky/blob/master/docs/QUICKSTART.md">Quick Start</a> • <a href="https://github.com/daniel5151/clicky/blob/master/STATUS.md">Status</a> • <a href="https://github.com/daniel5151/clicky/blob/master/docs/DEVGUIDE.md">Development Guide</a> • <a href="https://discord.gg/kRmKZy7">Discord</a></strong></p>
 </div>
 
 ---
@@ -59,26 +59,7 @@ I've got some reverse engineering experience, but truth be told, it's not really
 
 ---
 
-## Emulated Hardware
-
--   MVP: [iPod 4g (Grayscale)](https://everymac.com/systems/apple/ipod/specs/ipod_4thgen.html)
--   End goal: [iPod 5g](https://everymac.com/systems/apple/ipod/specs/ipod_5thgen.html)
-
-Why these models?
-
-The 4g uses the same/similar SOC as some of the later generation models (PP5020), while using a simpler (grayscale) display. This should make it easier to get display emulation up and running, leaving more time to implement other devices.
-
-The 5g is the first iPod model to support [iPod Games](https://en.wikipedia.org/wiki/IPod_game), which are an interesting part of gaming history which have never been preserved!
-
-Theoretically, it wouldn't be too difficult to support all the different generations of iPod models (since they all share roughly the same hardware).
-
 ## Roadmap
-
-_Note:_ This roadmap was written fairly early in the project's development, and hasn't been updated in a while. It's still mostly accurate, though in hindsight, it seems to under/overestimate how complicated certain features are to implement.
-
-The plan is to implement devices and hardware "just in time" throughout development, instead of attempting to one-shot the entire SoC right off the bat. As such, the idea is to gradually test more and more complex software in the emulator, implementing more and more hardware as required.
-
-Stage 1 will be to run some basic bootloader software, and get a feel for the hardware:
 
 -   [x] Execute something _really_ basic, such as https://github.com/iPodLinux/ipodloader/
     -   This rough-little bit of software is simple enough to step through and understand fully, making it a great launching off point for the project.
@@ -148,8 +129,6 @@ Stage 3 will involve running closed-source Apple software, notably, the original
     -   **Goals:**
         -   Get an actual working emulated iPod up and running!
         -   Play some authentic Brick Breaker!
-
-Once things seem stable, it shouldn't be _too_ difficult to get the iPod 5g up and running, since it's mostly the same hardware, mod the color screen.
 
 ### Unknowns that might make things tricky
 
