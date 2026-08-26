@@ -1,9 +1,11 @@
 use crate::devices::i2c::prelude::*;
 
 use std::convert::TryFrom;
+use std::time::Duration;
 
 use chrono::{Datelike, Local, Timelike};
 use num_enum::TryFromPrimitive;
+use relativity::Instant;
 
 /// PCF5060x - Controller for Power Supply and Battery Management + RTC
 #[derive(Debug)]
@@ -120,6 +122,7 @@ impl I2CDevice for Pcf5060x {
     }
 
     fn write(&mut self, data: u8) -> MemResult<()> {
+        self.inner.end_read();
         if !self.last_op_was_write {
             self.register = None; // reset the register
         }
@@ -142,7 +145,7 @@ impl I2CDevice for Pcf5060x {
     }
 }
 
-#[derive(Debug, TryFromPrimitive)]
+#[derive(Clone, Copy, Debug, TryFromPrimitive)]
 #[repr(u8)]
 enum Reg {
     ID_____ = 0x00,
@@ -208,6 +211,73 @@ enum Reg {
     GPOC5__ = 0x3c,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct RtcTime {
+    second: u8,
+    minute: u8,
+    hour: u8,
+    weekday: u8,
+    day: u8,
+    month: u8,
+    year: u8,
+}
+
+impl RtcTime {
+    fn now() -> RtcTime {
+        let now = Local::now();
+        RtcTime {
+            second: now.second() as _,
+            minute: now.minute() as _,
+            hour: now.hour() as _,
+            weekday: now.weekday().num_days_from_sunday() as u8,
+            day: now.day() as _,
+            month: now.month() as _,
+            year: (now.year() % 100) as _,
+        }
+    }
+
+    fn advance(&mut self, seconds: u64) {
+        let seconds =
+            self.second as u64 + self.minute as u64 * 60 + self.hour as u64 * 60 * 60 + seconds;
+        let days = seconds / (24 * 60 * 60);
+        let seconds = seconds % (24 * 60 * 60);
+
+        self.hour = (seconds / (60 * 60)) as _;
+        self.minute = ((seconds / 60) % 60) as _;
+        self.second = (seconds % 60) as _;
+
+        for _ in 0..days {
+            self.advance_day();
+        }
+    }
+
+    fn advance_day(&mut self) {
+        self.weekday = (self.weekday + 1) % 7;
+
+        if self.day < days_in_month(self.month, self.year) {
+            self.day += 1;
+            return;
+        }
+
+        self.day = 1;
+        if self.month < 12 {
+            self.month += 1;
+        } else {
+            self.month = 1;
+            self.year = self.year.wrapping_add(1) % 100;
+        }
+    }
+}
+
+fn days_in_month(month: u8, year: u8) -> u8 {
+    match month {
+        2 if year % 4 == 0 => 29,
+        2 => 28,
+        4 | 6 | 9 | 11 => 30,
+        _ => 31,
+    }
+}
+
 #[derive(Debug)]
 struct Pcf5060xImpl {
     int_mask: [u8; 3],
@@ -223,6 +293,10 @@ struct Pcf5060xImpl {
     adcc1: u8,
     adcc2: u8,
     acdc1: u8,
+    rtc: RtcTime,
+    rtc_last_tick: Instant,
+    rtc_write_awaiting_tick: bool,
+    rtc_read_latch: Option<RtcTime>,
 }
 
 impl Pcf5060xImpl {
@@ -241,39 +315,97 @@ impl Pcf5060xImpl {
             adcc1: 0,
             adcc2: 0,
             acdc1: 0,
+            rtc: RtcTime::now(),
+            rtc_last_tick: Instant::now(),
+            rtc_write_awaiting_tick: false,
+            rtc_read_latch: None,
         }
     }
 
-    fn get_current_time(&self, reg: Reg) -> MemResult<u8> {
+    fn end_read(&mut self) {
+        self.rtc_read_latch = None;
+    }
+
+    fn sync_rtc(&mut self) {
+        let now = Instant::now();
+        let elapsed_ticks = (now - self.rtc_last_tick).as_secs();
+        if elapsed_ticks == 0 {
+            return;
+        }
+
+        // A written value is latched by the first 1 Hz tick, not advanced by it.
+        let elapsed = if self.rtc_write_awaiting_tick {
+            self.rtc_write_awaiting_tick = false;
+            elapsed_ticks - 1
+        } else {
+            elapsed_ticks
+        };
+        self.rtc.advance(elapsed);
+        self.rtc_last_tick += Duration::from_secs(elapsed_ticks);
+    }
+
+    fn get_current_time(&mut self, reg: Reg) -> MemResult<u8> {
         fn dec2bcd(x: u8) -> u8 {
             ((x / 10) << 4) | (x % 10)
         }
 
-        let now = Local::now();
+        if self.rtc_read_latch.is_none() {
+            self.sync_rtc();
+            // Keep auto-increment reads from straddling a one-second boundary.
+            self.rtc_read_latch = Some(self.rtc);
+        }
+        let rtc = self.rtc_read_latch.unwrap();
 
         use Reg::*;
         let val = match reg {
-            RTCSC__ => now.second() as _,
-            RTCMN__ => now.minute() as _,
-            RTCHR__ => now.hour() as _,
-            RTCWD__ => ((now.weekday().num_days_from_monday() + 1) % 8) as _,
-            RTCDT__ => now.day() as _,
-            RTCMT__ => now.month() as _,
-            RTCYR__ => (now.year() % 100) as _,
+            RTCSC__ => rtc.second,
+            RTCMN__ => rtc.minute,
+            RTCHR__ => rtc.hour,
+            RTCWD__ => rtc.weekday,
+            RTCDT__ => rtc.day,
+            RTCMT__ => rtc.month,
+            RTCYR__ => rtc.year,
             _ => unreachable!("invalid reg passed to get_current_time"),
         };
 
         Ok(dec2bcd(val))
     }
 
-    fn set_current_time(&mut self, reg: Reg) -> MemResult<()> {
-        fn _bcd2dec(x: u8) -> u8 {
-            (((x >> 4) & 0x0f) * 10) + (x & 0xf)
+    fn set_current_time(&mut self, reg: Reg, data: u8) -> MemResult<()> {
+        fn bcd2dec(data: u8, mask: u8, min: u8, max: u8) -> Option<u8> {
+            let data = data & mask;
+            let high = data >> 4;
+            let low = data & 0x0f;
+            if high > 9 || low > 9 {
+                return None;
+            }
+
+            let value = high * 10 + low;
+            if (min..=max).contains(&value) {
+                Some(value)
+            } else {
+                None
+            }
         }
 
-        let _ = reg;
-        // TODO: support setting the RTC
-        Err(StubWrite(Info, ()))
+        self.sync_rtc();
+        self.rtc_read_latch = None;
+
+        use Reg::*;
+        let (value, field) = match reg {
+            RTCSC__ => (bcd2dec(data, 0x7f, 0, 59), &mut self.rtc.second),
+            RTCMN__ => (bcd2dec(data, 0x7f, 0, 59), &mut self.rtc.minute),
+            RTCHR__ => (bcd2dec(data, 0x3f, 0, 23), &mut self.rtc.hour),
+            RTCWD__ => (bcd2dec(data, 0x07, 0, 6), &mut self.rtc.weekday),
+            RTCDT__ => (bcd2dec(data, 0x3f, 1, 31), &mut self.rtc.day),
+            RTCMT__ => (bcd2dec(data, 0x1f, 1, 12), &mut self.rtc.month),
+            RTCYR__ => (bcd2dec(data, 0xff, 0, 99), &mut self.rtc.year),
+            _ => unreachable!("invalid reg passed to set_current_time"),
+        };
+
+        *field = value.ok_or(InvalidAccess)?;
+        self.rtc_write_awaiting_tick = true;
+        Ok(())
     }
 
     fn get_adc_readout(&mut self, reg: Reg) -> MemResult<u8> {
@@ -300,6 +432,13 @@ impl Pcf5060xImpl {
 
     fn read(&mut self, reg: Reg) -> MemResult<u8> {
         use Reg::*;
+        if !matches!(
+            reg,
+            RTCSC__ | RTCMN__ | RTCHR__ | RTCWD__ | RTCDT__ | RTCMT__ | RTCYR__
+        ) {
+            self.end_read();
+        }
+
         match reg {
             ID_____ => Ok(74),
             // On/Off control (OOC)
@@ -353,6 +492,8 @@ impl Pcf5060xImpl {
     }
 
     fn write(&mut self, reg: Reg, data: u8) -> MemResult<()> {
+        self.end_read();
+
         use Reg::*;
         match reg {
             ID_____ => Err(InvalidAccess),
@@ -380,7 +521,7 @@ impl Pcf5060xImpl {
             INT3M__ => Ok(self.int_mask[2] = data),
             // RTC registers
             RTCSC__ | RTCMN__ | RTCHR__ | RTCWD__ | RTCDT__ | RTCMT__ | RTCYR__ => {
-                self.set_current_time(reg)
+                self.set_current_time(reg, data)
             }
             // RTC Alarm registers
             RTCSCA_ => Ok(self.rtc_alarm[0] = data),
@@ -402,5 +543,157 @@ impl Pcf5060xImpl {
             GPOC1__ => Ok(self.gp0c1 = data),
             _ => Err(Unimplemented),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rtc_time(
+        second: u8,
+        minute: u8,
+        hour: u8,
+        weekday: u8,
+        day: u8,
+        month: u8,
+        year: u8,
+    ) -> RtcTime {
+        RtcTime {
+            second,
+            minute,
+            hour,
+            weekday,
+            day,
+            month,
+            year,
+        }
+    }
+
+    fn inner_with_rtc(rtc: RtcTime) -> Pcf5060xImpl {
+        let mut inner = Pcf5060xImpl::new();
+        inner.rtc = rtc;
+        inner.rtc_last_tick = Instant::now();
+        inner
+    }
+
+    fn read_i2c_register(device: &mut Pcf5060x, reg: Reg) -> u8 {
+        I2CDevice::write(device, reg as u8).unwrap();
+        I2CDevice::write_done(device).unwrap();
+        I2CDevice::read(device).unwrap()
+    }
+
+    #[test]
+    fn rtc_hour_and_minute_writes_round_trip_through_i2c() {
+        let mut device = Pcf5060x::new();
+        device.inner = inner_with_rtc(rtc_time(56, 34, 12, 3, 14, 8, 26));
+
+        I2CDevice::write(&mut device, Reg::RTCMN__ as u8).unwrap();
+        I2CDevice::write(&mut device, 0x45).unwrap();
+        I2CDevice::write_done(&mut device).unwrap();
+
+        I2CDevice::write(&mut device, Reg::RTCHR__ as u8).unwrap();
+        I2CDevice::write(&mut device, 0x21).unwrap();
+        I2CDevice::write_done(&mut device).unwrap();
+
+        assert_eq!(read_i2c_register(&mut device, Reg::RTCSC__), 0x56);
+        assert_eq!(read_i2c_register(&mut device, Reg::RTCMN__), 0x45);
+        assert_eq!(read_i2c_register(&mut device, Reg::RTCHR__), 0x21);
+        assert_eq!(read_i2c_register(&mut device, Reg::RTCWD__), 0x03);
+        assert_eq!(read_i2c_register(&mut device, Reg::RTCDT__), 0x14);
+        assert_eq!(read_i2c_register(&mut device, Reg::RTCMT__), 0x08);
+        assert_eq!(read_i2c_register(&mut device, Reg::RTCYR__), 0x26);
+    }
+
+    #[test]
+    fn rtc_advances_across_time_and_calendar_boundaries() {
+        let mut rtc = rtc_time(59, 34, 12, 3, 14, 8, 26);
+        rtc.advance(1);
+        assert_eq!(rtc, rtc_time(0, 35, 12, 3, 14, 8, 26));
+
+        let mut rtc = rtc_time(59, 59, 23, 3, 28, 2, 24);
+        rtc.advance(1);
+        assert_eq!(rtc, rtc_time(0, 0, 0, 4, 29, 2, 24));
+
+        let mut rtc = rtc_time(59, 59, 23, 6, 31, 12, 99);
+        rtc.advance(1);
+        assert_eq!(rtc, rtc_time(0, 0, 0, 0, 1, 1, 0));
+    }
+
+    #[test]
+    fn all_rtc_registers_round_trip_valid_masked_bcd_values() {
+        let mut inner = inner_with_rtc(rtc_time(0, 0, 0, 1, 1, 1, 0));
+        let values = [
+            (Reg::RTCSC__, 0xd8, 0x58),
+            (Reg::RTCMN__, 0xd9, 0x59),
+            (Reg::RTCHR__, 0xe3, 0x23),
+            (Reg::RTCWD__, 0xf0, 0x00),
+            (Reg::RTCDT__, 0xf1, 0x31),
+            (Reg::RTCMT__, 0xf2, 0x12),
+            (Reg::RTCYR__, 0x99, 0x99),
+        ];
+
+        for (reg, written, expected) in values {
+            inner.write(reg, written).unwrap();
+            assert_eq!(inner.read(reg).unwrap(), expected);
+        }
+    }
+
+    #[test]
+    fn invalid_rtc_writes_leave_the_clock_unchanged() {
+        let initial = rtc_time(56, 34, 12, 3, 14, 8, 26);
+        let invalid_values = [
+            (Reg::RTCSC__, 0x5a),
+            (Reg::RTCSC__, 0x60),
+            (Reg::RTCMN__, 0x4a),
+            (Reg::RTCMN__, 0x60),
+            (Reg::RTCHR__, 0x1a),
+            (Reg::RTCHR__, 0x24),
+            (Reg::RTCWD__, 0x07),
+            (Reg::RTCDT__, 0x2a),
+            (Reg::RTCDT__, 0x32),
+            (Reg::RTCMT__, 0x1a),
+            (Reg::RTCMT__, 0x13),
+            (Reg::RTCYR__, 0xa0),
+        ];
+
+        for (reg, value) in invalid_values {
+            let mut inner = inner_with_rtc(initial);
+            assert!(matches!(inner.write(reg, value), Err(InvalidAccess)));
+            assert_eq!(inner.rtc, initial);
+            assert!(!inner.rtc_write_awaiting_tick);
+        }
+    }
+
+    #[test]
+    fn rtc_write_takes_effect_on_the_next_tick() {
+        let mut inner = inner_with_rtc(rtc_time(10, 20, 12, 3, 14, 8, 26));
+        inner.write(Reg::RTCMN__, 0x34).unwrap();
+
+        inner.rtc_last_tick = Instant::now() - Duration::from_secs(1);
+        inner.sync_rtc();
+        assert_eq!(inner.rtc, rtc_time(10, 34, 12, 3, 14, 8, 26));
+
+        inner.rtc_last_tick = Instant::now() - Duration::from_secs(1);
+        inner.sync_rtc();
+        assert_eq!(inner.rtc, rtc_time(11, 34, 12, 3, 14, 8, 26));
+    }
+
+    #[test]
+    fn consecutive_i2c_reads_use_a_coherent_rtc_snapshot() {
+        let mut device = Pcf5060x::new();
+        device.inner = inner_with_rtc(rtc_time(59, 59, 23, 6, 31, 12, 99));
+
+        I2CDevice::write(&mut device, Reg::RTCSC__ as u8).unwrap();
+        I2CDevice::write_done(&mut device).unwrap();
+
+        let second = I2CDevice::read(&mut device).unwrap();
+        device.inner.rtc.advance(1);
+        let remaining = (0..6)
+            .map(|_| I2CDevice::read(&mut device).unwrap())
+            .collect::<Vec<_>>();
+
+        assert_eq!(second, 0x59);
+        assert_eq!(remaining, [0x59, 0x23, 0x06, 0x31, 0x12, 0x99]);
     }
 }
