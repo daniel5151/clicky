@@ -208,19 +208,19 @@ impl Target for Ipod4gGdb {
     type Arch = arch::arm::Armv4t;
     type Error = FatalMemException;
 
-    fn base_ops(&mut self) -> target::ext::base::BaseOps<Self::Arch, Self::Error> {
+    fn base_ops(&mut self) -> target::ext::base::BaseOps<'_, Self::Arch, Self::Error> {
         target::ext::base::BaseOps::MultiThread(self)
     }
 
-    fn sw_breakpoint(&mut self) -> Option<target::ext::breakpoints::SwBreakpointOps<Self>> {
+    fn sw_breakpoint(&mut self) -> Option<target::ext::breakpoints::SwBreakpointOps<'_, Self>> {
         Some(self)
     }
 
-    fn hw_watchpoint(&mut self) -> Option<target::ext::breakpoints::HwWatchpointOps<Self>> {
+    fn hw_watchpoint(&mut self) -> Option<target::ext::breakpoints::HwWatchpointOps<'_, Self>> {
         Some(self)
     }
 
-    fn monitor_cmd(&mut self) -> Option<target::ext::monitor_cmd::MonitorCmdOps<Self>> {
+    fn monitor_cmd(&mut self) -> Option<target::ext::monitor_cmd::MonitorCmdOps<'_, Self>> {
         Some(self)
     }
 }
