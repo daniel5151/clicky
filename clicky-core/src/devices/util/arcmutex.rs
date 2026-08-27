@@ -27,7 +27,7 @@ impl<D> ArcMutexDevice<D> {
     }
 
     /// Lock the underlying device
-    pub fn lock(&self) -> LockResult<MutexGuard<D>> {
+    pub fn lock(&self) -> LockResult<MutexGuard<'_, D>> {
         self.device.lock()
     }
 }
