@@ -253,7 +253,7 @@ impl MultiThreadOps for Ipod4gGdb {
                 let mut cycles: usize = 0;
                 loop {
                     // check for GDB interrupt every 1024 instructions
-                    if cycles % 1024 == 0 && check_gdb_interrupt() {
+                    if cycles.is_multiple_of(1024) && check_gdb_interrupt() {
                         return Ok(ThreadStopReason::GdbInterrupt);
                     }
                     cycles += 1;
