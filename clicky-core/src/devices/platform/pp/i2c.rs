@@ -177,7 +177,7 @@ impl I2CCon {
         device: Box<dyn I2CDevice>,
     ) -> Option<Box<dyn I2CDevice>> {
         assert!(addr < 128, "i2c addresses cannt be greater than 127!");
-        std::mem::replace(&mut self.devices[addr as usize], Some(device))
+        self.devices[addr as usize].replace(device)
     }
 
     // TODO?: This could be an async op (setting the busy flag + un-setting
