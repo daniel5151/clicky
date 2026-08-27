@@ -3,6 +3,7 @@ use crate::devices::prelude::*;
 use std::sync::{Arc, RwLock};
 use relativity::Instant;
 
+use crate::devices::display::LcdPanel;
 use crate::gui::RenderCallback;
 
 use either::Either;
@@ -91,10 +92,6 @@ struct InternalRegs {
 
 /// Hitachi HD66753 168x132 monochrome LCD Controller.
 pub struct Hd66753 {
-    // FIXME: not sure if there are separate latches for the command and data registers...
-    write_byte_latch: Option<u8>,
-    read_byte_latch: Option<u8>,
-
     /// Index Register
     ir: u16,
     /// Address counter
@@ -108,8 +105,6 @@ pub struct Hd66753 {
 impl std::fmt::Debug for Hd66753 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Hd66753")
-            .field("write_byte_latch", &self.write_byte_latch)
-            .field("read_byte_latch", &self.read_byte_latch)
             .field("ir", &self.ir)
             .field("ac", &self.ac)
             .field("cgram", &"[...]")
@@ -130,8 +125,6 @@ impl Hd66753 {
             ir: 0,
             ac: 0,
             cgram,
-            write_byte_latch: None,
-            read_byte_latch: None,
             ireg,
         }
     }
@@ -149,7 +142,7 @@ impl Hd66753 {
     ///
     /// The callback accepts a minifb framebuffer, and returns the rendered
     /// dimensions.
-    pub fn render_callback(&self) -> RenderCallback {
+    fn make_render_callback(&self) -> RenderCallback {
         let cgram = Arc::clone(&self.cgram);
         let ireg = Arc::clone(&self.ireg);
         let start = Instant::now();
@@ -429,77 +422,35 @@ impl Hd66753 {
     }
 }
 
-impl Device for Hd66753 {
-    fn kind(&self) -> &'static str {
-        "HD 66753"
+impl LcdPanel for Hd66753 {
+    fn write_command(&mut self, val: u16) -> MemResult<()> {
+        self.ir = val;
+
+        if self.ir > 0x12 {
+            return Err(ContractViolation {
+                msg: format!("set invalid LCD Command: {:#04x?}", val),
+                severity: Error,
+                stub_val: None,
+            });
+        }
+
+        Ok(())
     }
 
-    fn probe(&self, offset: u32) -> Probe {
-        let reg = match offset {
-            0x0 => "LCD Control",
-            0x8 => "LCD Command",
-            0x10 => "LCD Data",
-            _ => return Probe::Unmapped,
-        };
-
-        Probe::Register(reg)
-    }
-}
-
-impl Memory for Hd66753 {
-    fn r32(&mut self, offset: u32) -> MemResult<u32> {
-        if offset == 0x0 {
-            // bypass the latch
-            return Ok(0); // HACK: Emulated LCD is never busy
-        }
-
-        if let Some(val) = self.read_byte_latch.take() {
-            return Ok(val as u32);
-        }
-
-        let val: u16 = match offset {
-            // XXX: not currently tracking driving raster-row position
-            0x8 => self.ireg.read().unwrap().ct as u16,
-            0x10 => self.handle_data_read()?,
-            _ => return Err(Unexpected),
-        };
-
-        self.read_byte_latch = Some(val as u8); // latch lower 8 bits
-        Ok((val >> 8) as u32) // returning the higher 8 bits first
+    fn read_command(&mut self) -> MemResult<u16> {
+        // XXX: not currently tracking driving raster-row position
+        Ok(self.ireg.read().unwrap().ct as u16)
     }
 
-    fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
-        if offset == 0x0 {
-            // bypass the latch
-            return Err(StubWrite(Error, ()));
-        }
+    fn write_data(&mut self, val: u16) -> MemResult<()> {
+        self.handle_data_write(val)
+    }
 
-        // the iPod uses the controller via an 8-bit interface
-        let val = val as u8; // FIXME: this should use trunc_to_u8, but it crashes...
-        let val = match self.write_byte_latch.take() {
-            None => {
-                self.write_byte_latch = Some(val);
-                return Ok(());
-            }
-            Some(hi) => (hi as u16) << 8 | (val as u16),
-        };
+    fn read_data(&mut self) -> MemResult<u16> {
+        self.handle_data_read()
+    }
 
-        match offset {
-            0x8 => {
-                self.ir = val;
-
-                if self.ir > 0x12 {
-                    return Err(ContractViolation {
-                        msg: format!("set invalid LCD Command: {:#04x?}", val),
-                        severity: Error,
-                        stub_val: None,
-                    });
-                }
-
-                Ok(())
-            }
-            0x10 => Ok(self.handle_data_write(val)?),
-            _ => Err(Unexpected),
-        }
+    fn render_callback(&self) -> RenderCallback {
+        self.make_render_callback()
     }
 }
