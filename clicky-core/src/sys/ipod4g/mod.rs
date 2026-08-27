@@ -351,7 +351,7 @@ impl Ipod4g {
 
     /// Return the system's RenderCallback method.
     pub fn render_callback(&self) -> RenderCallback {
-        self.devices.hd66753.render_callback()
+        self.devices.mlcd.render_callback()
     }
 }
 
@@ -367,7 +367,7 @@ pub struct Ipod4gBus {
     pub cpuid: devices::CpuIdReg,
     pub flash: devices::Flash,
     pub cpucon: devices::CpuCon,
-    pub hd66753: devices::Hd66753,
+    pub mlcd: devices::MonoLcdBridge,
     pub timer1: devices::CfgTimer,
     pub timer2: devices::CfgTimer,
     pub usec_timer: devices::UsecTimer,
@@ -467,7 +467,7 @@ impl Ipod4gBus {
             usb: Usb::new(),
             flash: Flash::new(),
             cpucon: CpuCon::new(task_spawner.clone()),
-            hd66753: Hd66753::new(),
+            mlcd: MonoLcdBridge::new(Box::new(Hd66753::new())),
             timer1: CfgTimer::new("1", timer1_irq_tx, task_spawner.clone()),
             timer2: CfgTimer::new("2", timer2_irq_tx, task_spawner),
             usec_timer: UsecTimer::new(),
@@ -643,7 +643,7 @@ mmap! {
         0x6400_4000..=0x6400_41ff => intcon, // i guess there's a mirror?
 
         0x7000_0000..=0x7000_1fff => ppcon,
-        0x7000_3000..=0x7000_301f => hd66753,
+        0x7000_3000..=0x7000_301f => mlcd,
         0x7000_6000..=0x7000_603f => serial0,
         0x7000_6040..=0x7000_607f => serial1,
         0x7000_a000..=0x7000_a03f => pwmcon,
