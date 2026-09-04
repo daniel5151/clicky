@@ -1,0 +1,12 @@
+[package]
+name = "pprom"
+version = "0.1.0"
+authors = ["Jean THOMAS <virgule@jeanthomas.me>"]
+edition = "2018"
+
+[dependencies]
+log = "0.4"
+pretty_env_logger = "0.3"
+structopt = "0.3"
+thiserror = "1.0"
+hxdmp = "0.2"
