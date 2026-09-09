@@ -274,8 +274,6 @@ impl Memory for I2CCon {
             0x14 => Ok(self.data[2] as u32),
             0x18 => Ok(self.data[3] as u32),
             0x1c => {
-                // jiggle the busy status bit
-                self.busy = !self.busy;
                 Ok((self.busy as u32) << 6)
             }
             _ => Err(Unexpected),
