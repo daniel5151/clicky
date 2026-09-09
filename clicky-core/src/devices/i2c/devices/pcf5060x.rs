@@ -223,6 +223,8 @@ struct Pcf5060xImpl {
     adcc1: u8,
     adcc2: u8,
     acdc1: u8,
+    dcdec1: u8,
+    ioregc: u8,
 }
 
 impl Pcf5060xImpl {
@@ -241,6 +243,8 @@ impl Pcf5060xImpl {
             adcc1: 0,
             adcc2: 0,
             acdc1: 0,
+            dcdec1: 0,
+            ioregc: 0,
         }
     }
 
@@ -286,6 +290,7 @@ impl Pcf5060xImpl {
             2 => 621, // ADCIN1, resistive divider
             3 => 621, // ADCIN1, substractor
             4 => 385, // BATTEMP, radiometric
+            7 => 255, // ADCIN3, radiometric
             _ => return Err(Unimplemented),
         };
 
@@ -400,6 +405,9 @@ impl Pcf5060xImpl {
             // Battery Voltage Monitor (BVM)
             BVMC___ => Ok(self.bvmc = data),
             GPOC1__ => Ok(self.gp0c1 = data),
+            // DC/DC and LDO control
+            DCDEC1_ => Ok(self.dcdec1 = data),
+            IOREGC_ => Ok(self.ioregc = data),
             _ => Err(Unimplemented),
         }
     }
