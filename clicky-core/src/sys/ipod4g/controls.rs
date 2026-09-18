@@ -1,9 +1,11 @@
 use super::{Ipod4g, Ipod4gControls};
 
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use crate::devices::platform::pp::Controls;
 use crate::gui::{ButtonCallback, ScrollCallback, TakeControls};
+use crate::signal;
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
 pub enum Ipod4gKey {
@@ -94,4 +96,41 @@ impl TakeControls for Ipod4g {
 
         Some(controls)
     }
+}
+
+impl FromStr for Ipod4gKey {
+    type Err = String;
+
+    // NOTE: the Hold switch is a latching, active-low GPIO rather than a keypad
+    // signal, so it isn't one of the keys that can be parsed here.
+    fn from_str(s: &str) -> Result<Ipod4gKey, String> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "up" => Ok(Ipod4gKey::Up),
+            "down" => Ok(Ipod4gKey::Down),
+            "left" => Ok(Ipod4gKey::Left),
+            "right" => Ok(Ipod4gKey::Right),
+            "action" => Ok(Ipod4gKey::Action),
+            _ => Err(format!(
+                "no such key: {:?} (expected one of: up, down, left, right, action)",
+                s
+            )),
+        }
+    }
+}
+
+/// Returns a handle to the signal driven by `key`
+pub(super) fn key_signal(
+    controls: &Controls<signal::Master>,
+    key: Ipod4gKey,
+) -> Option<signal::Master> {
+    let signal = match key {
+        Ipod4gKey::Up => &controls.up,
+        Ipod4gKey::Down => &controls.down,
+        Ipod4gKey::Left => &controls.left,
+        Ipod4gKey::Right => &controls.right,
+        Ipod4gKey::Action => &controls.action,
+        Ipod4gKey::Hold => return None,
+    };
+
+    Some(signal.clone())
 }

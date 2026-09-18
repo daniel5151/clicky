@@ -11,7 +11,7 @@ use structopt::StructOpt;
 
 use clicky_core::block::{self, BlockDev};
 use clicky_core::gui::TakeControls;
-use clicky_core::sys::ipod4g::{BootKind, Ipod4g, Ipod4gGdb};
+use clicky_core::sys::ipod4g::{BootKind, Ipod4g, Ipod4gGdb, Ipod4gKey};
 
 mod backends;
 mod blockcfg;
@@ -59,6 +59,15 @@ struct Args {
     /// connection before starting execution.
     #[structopt(short, long)]
     gdb: Option<GdbCfg>,
+
+    /// Keys to hold down for the first 3000ms of execution.
+    ///
+    /// Accepts a comma separated list of `up`, `down`, `left`, `right`, and
+    /// `action`.
+    ///
+    /// e.g: `--hold-keys action,down` boots the iPod into Disk Mode.
+    #[structopt(long, use_delimiter = true, parse(try_from_str))]
+    hold_keys: Vec<Ipod4gKey>,
 }
 
 enum System {
@@ -135,6 +144,8 @@ fn main() -> DynResult<()> {
     };
 
     let mut system = Ipod4g::new(hdd, flash_rom, boot_kind)?;
+
+    system.set_hold_keys(args.hold_keys);
 
     // grab a bunch of UI wiring stuff
     let update_fb = system.render_callback();
