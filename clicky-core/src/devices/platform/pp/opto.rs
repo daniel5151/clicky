@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::signal::{self, gpio};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Controls<T> {
     pub action: T,
     pub up: T,

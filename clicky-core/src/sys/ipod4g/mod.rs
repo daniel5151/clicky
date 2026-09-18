@@ -1,6 +1,8 @@
 use std::io::{Read, Seek};
+use std::time::Duration;
 
 use armv4t_emu::{reg, Cpu};
+use relativity::Timeout;
 use thiserror::Error;
 
 use crate::block::BlockDev;
@@ -34,6 +36,9 @@ mod devices {
     };
 }
 
+/// How "--hold-keys" are held down for
+const BOOT_HOLD_DURATION: Duration = Duration::from_millis(3000);
+
 enum BlockMode {
     Blocking,
     NonBlocking,
@@ -60,6 +65,11 @@ pub struct Ipod4g {
     cop: Cpu,
     devices: Ipod4gBus,
     controls: Option<Ipod4gControls>,
+    /// A second set of keypad signal masters, used to synthesize key presses
+    /// independently of whoever took ownership of the system's controls.
+    synthetic_controls: devices::Controls<signal::Master>,
+    /// Keys to hold down once the system starts executing code.
+    boot_hold: Option<Vec<Ipod4gKey>>,
 
     irq_pending: irq::Pending,
     dma_pending: irq::Pending,
@@ -103,6 +113,10 @@ impl Ipod4g {
         let gpio_changed = gpio::Changed::new();
         let i2c_changed = signal::Trigger::new(signal::TriggerKind::Edge);
 
+        // hook-up external controls
+        let (mut hold_tx, hold_rx) = gpio::new(gpio_changed.clone(), "Hold");
+        let (controls_tx, controls_rx) = devices::Controls::new_tx_rx(i2c_changed.clone());
+
         let mut sys = Ipod4g {
             frozen: false,
             skip_irq_check: false,
@@ -111,6 +125,8 @@ impl Ipod4g {
             cop: Cpu::new(),
             devices: Ipod4gBus::new(executor.spawner(), irq_pending.clone(), dma_pending.clone()),
             controls: None,
+            synthetic_controls: controls_tx.clone(),
+            boot_hold: None,
 
             irq_pending,
             dma_pending,
@@ -137,10 +153,6 @@ impl Ipod4g {
                 .map_err(Ipod4gBuildError::InvalidDump)?
         }
 
-        // hook-up external controls
-        let (mut hold_tx, hold_rx) = gpio::new(gpio_changed, "Hold");
-        let (controls_tx, controls_rx) = devices::Controls::new_tx_rx(i2c_changed);
-
         {
             let mut gpio_abcd = sys.devices.gpio_abcd.lock().unwrap();
             gpio_abcd.register_in(5, hold_rx.clone());
@@ -166,6 +178,14 @@ impl Ipod4g {
         Ok(sys)
     }
 
+    /// Set keys hold at boot
+    pub fn set_hold_keys(&mut self, keys: impl IntoIterator<Item = Ipod4gKey>) {
+        let keys = keys.into_iter().collect::<Vec<_>>();
+        if !keys.is_empty() {
+            self.boot_hold = Some(keys);
+        }
+    }
+
     fn warm_reset(&mut self) {
         self.devices.memcon.reset();
         self.devices.cachecon.reset();
@@ -188,6 +208,28 @@ impl Ipod4g {
     ) -> FatalMemResult<bool> {
         if self.frozen {
             return Ok(true);
+        }
+
+        if let Some(keys) = self.boot_hold.take() {
+            let mut signals = keys
+                .iter()
+                .filter_map(|key| controls::key_signal(&self.synthetic_controls, *key))
+                .collect::<Vec<_>>();
+
+            self.executor
+                .spawner()
+                .spawn(async move {
+                    for signal in signals.iter_mut() {
+                        signal.assert()
+                    }
+
+                    Timeout::new(BOOT_HOLD_DURATION).await;
+
+                    for signal in signals.iter_mut() {
+                        signal.clear()
+                    }
+                })
+                .expect("failed to spawn boot-hold task");
         }
 
         if self
