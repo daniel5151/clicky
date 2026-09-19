@@ -572,6 +572,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "hxdmp"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a17b27f28a7466846baca75f0a5244e546e44178eb7f1c07a3820f413e91c6b0"
+
+[[package]]
 name = "iana-time-zone"
 version = "0.1.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -831,6 +837,17 @@ name = "pkg-config"
 version = "0.3.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d231b230927b5e4ad203db57bbcbee2802f6bce620b1e4a9024a07d94e2907ec"
+
+[[package]]
+name = "pprom"
+version = "0.1.0"
+dependencies = [
+ "hxdmp",
+ "log",
+ "pretty_env_logger",
+ "structopt",
+ "thiserror",
+]
 
 [[package]]
 name = "pretty_env_logger"
