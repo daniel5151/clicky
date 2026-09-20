@@ -214,16 +214,20 @@ struct Pcf5060xImpl {
     oocc1: u8,
     oocc2: u8,
     lpregc1: u8,
+    lpregc2: u8,
     dxregc1: [u8; 3],
     dcdcx: [u8; 4],
     mbcc2: u8,
     rtc_alarm: [u8; 7],
     bvmc: u8,
-    gp0c1: u8,
+    gpoc1: u8,
+    gpoc3: u8,
     adcc1: u8,
     adcc2: u8,
     acdc1: u8,
     dcdec1: u8,
+    dcudc1: u8,
+    dcudc2: u8,
     ioregc: u8,
 }
 
@@ -234,16 +238,20 @@ impl Pcf5060xImpl {
             oocc1: 0,
             oocc2: 0,
             lpregc1: 0,
+            lpregc2: 0,
             dxregc1: [0; 3],
             dcdcx: [0; 4],
             mbcc2: 0,
             rtc_alarm: [0; 7],
             bvmc: 0,
-            gp0c1: 0x04,
+            gpoc1: 0x04,
+            gpoc3: 0,
             adcc1: 0,
             adcc2: 0,
             acdc1: 0,
             dcdec1: 0,
+            dcudc1: 0,
+            dcudc2: 0,
             ioregc: 0,
         }
     }
@@ -312,6 +320,7 @@ impl Pcf5060xImpl {
             OOCC2__ => Err(StubRead(Info, self.oocc2 as u32)),
             // low drop-out linear regulators
             LPREGC1 => Ok(self.lpregc1),
+            LPREGC2 => Ok(self.lpregc2),
             D1REGC1 => Ok(self.dxregc1[0]),
             D2REGC1 => Ok(self.dxregc1[1]),
             D3REGC1 => Ok(self.dxregc1[2]),
@@ -352,7 +361,8 @@ impl Pcf5060xImpl {
             ACDC1__ => Ok(self.acdc1),
             // Battery Voltage Monitor (BVM)
             BVMC___ => Ok(self.bvmc),
-            GPOC1__ => Ok(self.gp0c1),
+            GPOC1__ => Ok(self.gpoc1),
+            GPOC3__ => Ok(self.gpoc3),
             _ => Err(Unimplemented),
         }
     }
@@ -366,6 +376,7 @@ impl Pcf5060xImpl {
             OOCC2__ => Err(StubWrite(Info, self.oocc2 = data)),
             // low drop-out linear regulators
             LPREGC1 => Ok(self.lpregc1 = data),
+            LPREGC2 => Ok(self.lpregc2 = data),
             D1REGC1 => Ok(self.dxregc1[0] = data),
             D2REGC1 => Ok(self.dxregc1[1] = data),
             D3REGC1 => Ok(self.dxregc1[2] = data),
@@ -404,9 +415,12 @@ impl Pcf5060xImpl {
             ACDC1__ => Ok(self.acdc1 = data & 0b1001_1110), // Writable bitmask
             // Battery Voltage Monitor (BVM)
             BVMC___ => Ok(self.bvmc = data),
-            GPOC1__ => Ok(self.gp0c1 = data),
+            GPOC1__ => Ok(self.gpoc1 = data),
+            GPOC3__ => Ok(self.gpoc3 = data),
             // DC/DC and LDO control
             DCDEC1_ => Ok(self.dcdec1 = data),
+            DCUDC1_ => Ok(self.dcudc1 = data),
+            DCUDC2_ => Ok(self.dcudc2 = data),
             IOREGC_ => Ok(self.ioregc = data),
             _ => Err(Unimplemented),
         }
