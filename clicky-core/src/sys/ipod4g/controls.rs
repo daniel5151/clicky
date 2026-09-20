@@ -90,7 +90,7 @@ impl TakeControls for Ipod4g {
                 let mut wheel_data = wheel_data.lock().unwrap();
                 // from rockbox button-clickwheel.c
                 // #define WHEELCLICKS_PER_ROTATION     96 /* wheelclicks per full rotation */
-                *wheel_data = (*wheel_data as i32 + (dy * 2.0) as i32).rem_euclid(96) as u8;
+                *wheel_data = (*wheel_data as i32 + (-dy * 2.0) as i32).rem_euclid(96) as u8;
             })
         });
 

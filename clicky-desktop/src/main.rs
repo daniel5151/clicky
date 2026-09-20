@@ -11,7 +11,7 @@ use structopt::StructOpt;
 
 use clicky_core::block::{self, BlockDev};
 use clicky_core::gui::TakeControls;
-use clicky_core::sys::ipod4g::{BootKind, Ipod4g, Ipod4gGdb, Ipod4gKey};
+use clicky_core::sys::ipod4g::{BootKind, Ipod4g, Ipod4gGdb, Ipod4gKey, Model};
 
 mod backends;
 mod blockcfg;
@@ -29,6 +29,10 @@ const SYSDUMP_FILENAME: &str = "sysdump.log";
 An emulator for the classic clickwheel iPod 4g.
 "#)]
 struct Args {
+    /// Select a model
+    #[structopt(long)]
+    model: String,
+
     /// Load a firmware file using the HLE bootloader.
     #[structopt(long, parse(from_os_str))]
     hle: Option<PathBuf>,
@@ -138,12 +142,16 @@ fn main() -> DynResult<()> {
         None => BootKind::ColdBoot,
     };
 
+    let model = Model::from_str(args.model.as_ref());
+
     let flash_rom = match args.flash_rom {
         Some(path) => Some(fs::read(path)?.into_boxed_slice()),
         None => None,
     };
 
-    let mut system = Ipod4g::new(hdd, flash_rom, boot_kind)?;
+    let mut system = Ipod4g::new(hdd, flash_rom, boot_kind, model)?;
+    let display_width = system.model.display_size().width;
+    let display_height = system.model.display_size().height;
 
     system.set_hold_keys(args.hold_keys);
 
@@ -238,7 +246,7 @@ fn main() -> DynResult<()> {
             use crate::backends::minifb::MinifbRenderer;
             MinifbRenderer::run(
                 "iPod 4g",
-                (160, 128),
+                (display_width, display_height),
                 update_fb,
                 controls,
                 kill_ui_rx,

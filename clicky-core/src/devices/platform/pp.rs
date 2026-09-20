@@ -2,6 +2,7 @@
 
 mod cachecon;
 mod cfg_timer;
+mod clcd;
 mod cpucon;
 mod cpuid;
 mod devcon;
@@ -27,6 +28,7 @@ mod pwm;
 
 pub use cachecon::*;
 pub use cfg_timer::*;
+pub use clcd::*;
 pub use cpucon::*;
 pub use cpuid::*;
 pub use devcon::*;

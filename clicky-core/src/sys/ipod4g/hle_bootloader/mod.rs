@@ -45,7 +45,11 @@ pub(super) fn run_hle_bootloader(
         .ok_or(HleBootloaderError::MissingOs)?;
 
     // extract image from firmware file, and copy it into RAM
-    fw_file.seek(SeekFrom::Start(os_image.dev_offset as u64 + 0x200))?;
+    let offset = match fw_info.header.format_version {
+        3 => 0x200,
+        _ => 0,
+    };
+    fw_file.seek(SeekFrom::Start(os_image.dev_offset as u64 + offset))?;
     let mut os_image_data = vec![0; os_image.len as usize];
     fw_file.read_exact(&mut os_image_data)?;
 

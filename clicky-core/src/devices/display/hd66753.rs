@@ -100,6 +100,7 @@ pub struct Hd66753 {
     cgram: Arc<RwLock<[u16; EMU_CGRAM_LEN]>>,
 
     ireg: Arc<RwLock<InternalRegs>>,
+    mirrored: bool, // horizontally
 }
 
 impl std::fmt::Debug for Hd66753 {
@@ -114,7 +115,7 @@ impl std::fmt::Debug for Hd66753 {
 }
 
 impl Hd66753 {
-    pub fn new() -> Hd66753 {
+    pub fn new(mirrored: bool) -> Hd66753 {
         let cgram = Arc::new(RwLock::new([0; EMU_CGRAM_LEN]));
         let ireg = Arc::new(RwLock::new(InternalRegs {
             nl: 0b11111, // 168 x 132
@@ -126,6 +127,7 @@ impl Hd66753 {
             ac: 0,
             cgram,
             ireg,
+            mirrored,
         }
     }
 
@@ -172,7 +174,6 @@ impl Hd66753 {
                             true => Either::Left(row.iter().take(CGRAM_WIDTH * 2 / 8 / 2)),
                             false => Either::Right(row.iter().take(CGRAM_WIDTH * 2 / 8 / 2).rev()),
                         }
-                        
                      });
 
             let new_buf = cgram_window
@@ -236,7 +237,7 @@ impl Hd66753 {
             // Driver output control
             0x01 => {
                 ireg.cms = val.get_bit(9);
-                ireg.sgs = val.get_bit(8);
+                ireg.sgs = val.get_bit(8) ^ self.mirrored;
                 ireg.nl = val.get_bits(0..=4) as u8;
             }
             // LCD-Driving-Waveform Control

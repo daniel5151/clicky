@@ -6,7 +6,7 @@ use relativity::Timeout;
 use thiserror::Error;
 
 use crate::block::BlockDev;
-use crate::devices::{Device, Probe};
+use crate::devices::{Device, Probe, display::LcdPanel};
 use crate::error::*;
 use crate::executor::*;
 use crate::gui::RenderCallback;
@@ -31,6 +31,10 @@ mod devices {
 
     pub use crate::devices::{
         display::hd66753::Hd66753,
+        display::hd66xxx::Hd66xxx,
+        display::hd66789::Hd66789,
+        display::bcm2722::Bcm2722,
+        display::bcm2722_panel::Bcm2722Panel,
         generic::{ide, AsanRam, Stub},
         platform::pp::*,
     };
@@ -42,6 +46,118 @@ const BOOT_HOLD_DURATION: Duration = Duration::from_millis(3000);
 enum BlockMode {
     Blocking,
     NonBlocking,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DisplayType {
+    Mono,
+    Color,
+    Hd66789,
+    Bcm2722,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DisplaySize {
+    pub width: usize,
+    pub height: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Model {
+    pub name: &'static str,
+    pub display_type: DisplayType,
+    pub mirrored: bool,
+    pub width: usize,
+    pub height: usize,
+}
+
+impl Model {
+    pub const ALL: &[Self] = &[
+        Self {
+            name: "1g",
+            display_type: DisplayType::Mono,
+            mirrored: false,
+            width: 160,
+            height: 128,
+        },
+        Self {
+            name: "3g",
+            display_type: DisplayType::Mono,
+            mirrored: false,
+            width: 160,
+            height: 128,
+        },
+        Self {
+            name: "4gmono",
+            display_type: DisplayType::Mono,
+            mirrored: false,
+            width: 160,
+            height: 128,
+        },
+        Self {
+            name: "4gcolor",
+            display_type: DisplayType::Color,
+            mirrored: false,
+            width: 220,
+            height: 176,
+        },
+        Self {
+            name: "5gvideo",
+            display_type: DisplayType::Bcm2722,
+            mirrored: false,
+            width: 320,
+            height: 240,
+        },
+        Self {
+            name: "mini1g",
+            display_type: DisplayType::Mono,
+            mirrored: true,
+            width: 138,
+            height: 110,
+        },
+        Self {
+            name: "mini2g",
+            display_type: DisplayType::Mono,
+            mirrored: true,
+            width: 138,
+            height: 110,
+        },
+        Self {
+            name: "nano1g",
+            display_type: DisplayType::Hd66789,
+            mirrored: false,
+            width: 176,
+            height: 132,
+        },
+    ];
+
+    pub fn from_str(s: &str) -> Self {
+        Self::ALL
+            .iter()
+            .find(|model| model.name == s)
+            .copied()
+            .unwrap_or(Self::ALL[2]) // 4gmono
+    }
+
+    pub fn display_type(self) -> DisplayType {
+        self.display_type
+    }
+
+    pub fn display_size(self) -> DisplaySize {
+        DisplaySize {
+            width: self.width,
+            height: self.height,
+        }
+    }
+
+    pub fn make_panel(&self) -> Box<dyn LcdPanel> {
+        use devices::{Hd66753, Hd66xxx, Hd66789, Bcm2722Panel};
+        match self.display_type() {
+            DisplayType::Mono => Box::new(Hd66753::new(self.mirrored)),
+            DisplayType::Color => Box::new(Hd66xxx::new()),
+            DisplayType::Hd66789 => Box::new(Hd66789::new()),
+            DisplayType::Bcm2722 => Box::new(Bcm2722Panel::new()),
+        }
+    }
 }
 
 pub enum BootKind<F: Read + Seek> {
@@ -58,6 +174,7 @@ struct Ipod4gControls {
 /// A Ipod4g system
 #[derive(Debug)]
 pub struct Ipod4g {
+    pub model: Model,
     frozen: bool,         // set after a fatal error to enable post-mortem debugging
     skip_irq_check: bool, // set by the GDB stub when single-stepping though code
 
@@ -101,6 +218,7 @@ impl Ipod4g {
         hdd: Box<dyn BlockDev>,
         flash_rom: Option<Box<[u8]>>,
         boot_kind: BootKind<F>,
+        model: Model,
     ) -> Result<Ipod4g, Ipod4gBuildError>
     where
         F: Read + Seek,
@@ -118,12 +236,18 @@ impl Ipod4g {
         let (controls_tx, controls_rx) = devices::Controls::new_tx_rx(i2c_changed.clone());
 
         let mut sys = Ipod4g {
+            model: model,
             frozen: false,
             skip_irq_check: false,
 
             cpu: Cpu::new(),
             cop: Cpu::new(),
-            devices: Ipod4gBus::new(executor.spawner(), irq_pending.clone(), dma_pending.clone()),
+            devices: Ipod4gBus::new(
+                executor.spawner(),
+                irq_pending.clone(),
+                dma_pending.clone(),
+                model,
+            ),
             controls: None,
             synthetic_controls: controls_tx.clone(),
             boot_hold: None,
@@ -393,7 +517,11 @@ impl Ipod4g {
 
     /// Return the system's RenderCallback method.
     pub fn render_callback(&self) -> RenderCallback {
-        self.devices.mlcd.render_callback()
+        match self.model.display_type()  {
+            DisplayType::Mono                         => self.devices.mlcd.render_callback(),
+            DisplayType::Color | DisplayType::Hd66789 => self.devices.clcd.render_callback(),
+            DisplayType::Bcm2722                      => self.devices.bcm_video.render_callback(),
+        }
     }
 }
 
@@ -410,6 +538,7 @@ pub struct Ipod4gBus {
     pub flash: devices::Flash,
     pub cpucon: devices::CpuCon,
     pub mlcd: devices::MonoLcdBridge,
+    pub clcd: devices::ColorLcdBridge,
     pub timer1: devices::CfgTimer,
     pub timer2: devices::CfgTimer,
     pub usec_timer: devices::UsecTimer,
@@ -443,6 +572,7 @@ pub struct Ipod4gBus {
     pub mystery_flash_stub: devices::Stub,
     pub total_mystery: devices::Stub,
     pub pwmcon: devices::PWMCon,
+    pub bcm_video: devices::Bcm2722,
 
     pub pp5002_serial_stub: devices::Stub,
 }
@@ -453,6 +583,7 @@ impl Ipod4gBus {
         task_spawner: Spawner,
         irq_pending: irq::Pending,
         dma_pending: irq::Pending,
+        model: Model,
     ) -> Ipod4gBus {
         let (ide_irq_tx, ide_irq_rx) = irq::new(irq_pending.clone(), "IDE");
         let (timer1_irq_tx, timer1_irq_rx) = irq::new(irq_pending.clone(), "Timer1");
@@ -509,7 +640,8 @@ impl Ipod4gBus {
             usb: Usb::new(),
             flash: Flash::new(),
             cpucon: CpuCon::new(task_spawner.clone()),
-            mlcd: MonoLcdBridge::new(Box::new(Hd66753::new())),
+            mlcd: MonoLcdBridge::new(model.make_panel()),
+            clcd: ColorLcdBridge::new(model.make_panel()),
             timer1: CfgTimer::new("1", timer1_irq_tx, task_spawner.clone()),
             timer2: CfgTimer::new("2", timer2_irq_tx, task_spawner),
             usec_timer: UsecTimer::new(),
@@ -541,6 +673,7 @@ impl Ipod4gBus {
             mystery_flash_stub: Stub::new("Mystery FlashROM Con?"),
             total_mystery: Stub::new("(?) Arbiter Priority"),
             pwmcon: PWMCon::new(),
+            bcm_video: Bcm2722::new(model.make_panel()),
 
             pp5002_serial_stub: Stub::new("PP5002 serial stub"),
         }
@@ -662,6 +795,7 @@ mmap! {
 
     DEVICES {
         0x0000_0000..=0x000f_ffff => flash,
+        0x3000_0000..=0x3007_ffff => bcm_video,
         0x6000_0000..=0x6000_0fff => cpuid,
         0x6000_1000..=0x6000_102f => mailbox,
         0x6000_4000..=0x6000_41ff => intcon,
@@ -688,6 +822,7 @@ mmap! {
         0x7000_3000..=0x7000_301f => mlcd,
         0x7000_6000..=0x7000_603f => serial0,
         0x7000_6040..=0x7000_607f => serial1,
+        0x7000_8a00..=0x7000_8b0f => clcd,
         0x7000_a000..=0x7000_a03f => pwmcon,
         0x7000_c000..=0x7000_c0ff => i2ccon,
         0x7000_c100..=0x7000_c1ff => opto,
