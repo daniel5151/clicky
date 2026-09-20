@@ -106,9 +106,10 @@ impl Memory for PPCon {
             0x34 => Err(StubWrite(Debug, self.dev_timing[1] = val)),
             // HACK: flag needs to be set to progress through the Flash ROM bootloader
             0x3c => Err(StubWrite(Info, self.dev_timing[2] = val | 0x80000000)),
+            0x40 => Err(StubWrite(Trace, ())),
             0x80 => Ok(self.gpo_val = val),
             0x84 => Ok(self.gpo_enable = val),
-            0x88 => Err(InvalidAccess),
+            0x88 => Err(StubWrite(Trace, ())),
             0x8c => Ok(self.gpo_input_enable = val),
             _ => Err(Unexpected),
         }
