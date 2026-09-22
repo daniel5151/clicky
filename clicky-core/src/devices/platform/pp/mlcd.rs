@@ -81,6 +81,16 @@ impl Memory for MonoLcdBridge {
             return Err(StubWrite(Error, ()));
         }
 
+        // mini2g/pp5022 change/quirk
+        if offset == 8 && (val & 0xff_0000 == 0x74_0000) {
+            let _ = self.panel.write_command(val as u8 as u16);
+            return Ok(());
+        }
+        if offset == 8 && (val & 0xff_0000 == 0x76_0000) {
+            let _ = self.panel.write_data(val as u16);
+            return Ok(());
+        }
+
         // the iPod uses the controller via an 8-bit interface
         let val = val as u8; // FIXME: this should use trunc_to_u8, but it crashes...
         let val = match self.write_byte_latch.take() {

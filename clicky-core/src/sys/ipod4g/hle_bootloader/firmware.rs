@@ -21,9 +21,7 @@ impl FirmwareMeta {
             return Err(HleBootloaderError::BadMagic);
         }
 
-        // TODO: don't assume FW version is 3, as each fw uses slightly-different
-        // offsets between things
-        if header.format_version != 3 {
+        if header.format_version != 2 && header.format_version != 3 {
             return Err(HleBootloaderError::InvalidVersion(header.format_version));
         }
 

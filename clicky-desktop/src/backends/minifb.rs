@@ -33,7 +33,7 @@ impl MinifbRenderer {
             width,
             height,
             WindowOptions {
-                scale: minifb::Scale::X4,
+                scale: if width >= 320 { minifb::Scale::X2 } else { minifb::Scale::X4 },
                 resize: true,
                 ..WindowOptions::default()
             },

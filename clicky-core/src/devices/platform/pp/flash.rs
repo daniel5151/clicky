@@ -48,7 +48,7 @@ impl Flash {
 
     fn hle_vals(offset: u32) -> MemResult<u32> {
         match offset {
-            // idk what ipodloader/tools.c:get_ipod_rev() is doing lol
+            // used to checks whether SCfg is stored at 0x2000 or 0x4000 (5th gen/Nano1G)
             0x2000 => Ok(u32::from_le_bytes(*b"gfCS")),
             // hardware revision magic number
             // see: https://www.rockbox.org/wiki/IpodHardwareInfo
