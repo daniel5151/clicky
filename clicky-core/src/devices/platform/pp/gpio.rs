@@ -9,7 +9,7 @@ struct GpioPort {
     label: &'static str,
 
     irq: irq::Sender,
-    inputs: [Option<gpio::Reciever>; 8],
+    inputs: [Option<gpio::Receiver>; 8],
     outputs: [Option<gpio::Sender>; 8],
 
     enable: u8,
@@ -43,7 +43,7 @@ impl GpioPort {
     /// # Panics
     ///
     /// Panics if `idx >= 8`
-    fn register_in(&mut self, idx: usize, signal: gpio::Reciever) -> &mut Self {
+    fn register_in(&mut self, idx: usize, signal: gpio::Receiver) -> &mut Self {
         assert!(idx < 8, "idx must be less than 8");
         self.inputs[idx] = Some(signal);
         self
@@ -196,7 +196,7 @@ impl GpioBlock {
     /// # Panics
     ///
     /// Panics if `idx >= 32`
-    pub fn register_in(&mut self, idx: usize, signal: gpio::Reciever) -> &mut Self {
+    pub fn register_in(&mut self, idx: usize, signal: gpio::Receiver) -> &mut Self {
         assert!(idx < 32, "idx must be less than 32");
         self.port[idx / 8].register_in(idx % 8, signal);
         self

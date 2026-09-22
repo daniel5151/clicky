@@ -3,13 +3,13 @@
 use super::{new as new_signal, Master, Slave, Trigger, TriggerKind};
 
 /// Create a new IRQ line. Updates `notify` when the sender asserts the IRQ.
-pub fn new(notify: Pending, debug_label: &'static str) -> (Sender, Reciever) {
+pub fn new(notify: Pending, debug_label: &'static str) -> (Sender, Receiver) {
     let (master, slave) = new_signal(notify.trigger, "IRQ", debug_label);
 
     let sender = Sender { master };
-    let reciever = Reciever { slave };
+    let receiver = Receiver { slave };
 
-    (sender, reciever)
+    (sender, receiver)
 }
 
 /// Tracks IRQ assertions across one-or-more IRQ lines.
@@ -47,11 +47,11 @@ impl Pending {
 
 /// The receiving side of an IRQ line.
 #[derive(Debug, Clone)]
-pub struct Reciever {
+pub struct Receiver {
     slave: Slave,
 }
 
-impl Reciever {
+impl Receiver {
     /// Checks if the IRQ has been set.
     #[inline]
     pub fn asserted(&self) -> bool {

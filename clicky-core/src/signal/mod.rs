@@ -25,9 +25,9 @@ pub fn new(
         debug_group,
         debug_label,
     };
-    let reciever = Slave { signal };
+    let receiver = Slave { signal };
 
-    (sender, reciever)
+    (sender, receiver)
 }
 
 /// Determines a `Trigger`'s behavior.
