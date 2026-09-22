@@ -44,11 +44,11 @@ struct IntConCpuRegs {
 enum IrqKind {
     #[default]
     Unregistered,
-    Shared(irq::Reciever),
+    Shared(irq::Receiver),
     // i.e: mailbox
     CoreSpecific {
-        cpu_irq: irq::Reciever,
-        cop_irq: irq::Reciever,
+        cpu_irq: irq::Receiver,
+        cop_irq: irq::Receiver,
     },
 }
 
@@ -88,7 +88,7 @@ impl IntCon32 {
     /// # Panics
     ///
     /// Panics if `idx >= 32`
-    pub fn register(&mut self, idx: usize, irq: irq::Reciever) -> &mut Self {
+    pub fn register(&mut self, idx: usize, irq: irq::Receiver) -> &mut Self {
         assert!(idx < 32, "idx must be less than 32");
         self.irqs[idx] = IrqKind::Shared(irq);
         self
@@ -104,8 +104,8 @@ impl IntCon32 {
     pub fn register_core_specific(
         &mut self,
         idx: usize,
-        cpu_irq: irq::Reciever,
-        cop_irq: irq::Reciever,
+        cpu_irq: irq::Receiver,
+        cop_irq: irq::Receiver,
     ) -> &mut Self {
         assert!(idx < 32, "idx must be less than 32");
         self.irqs[idx] = IrqKind::CoreSpecific { cpu_irq, cop_irq };
@@ -271,7 +271,7 @@ impl IntCon {
     ///
     /// Panics if `idx >= 64 || idx == 30` (IRQ 30 is a "master toggle"
     /// for all hi IRQs, i.e: IRQs with `idx >= 32`)
-    pub fn register(&mut self, idx: usize, irq: irq::Reciever) -> &mut Self {
+    pub fn register(&mut self, idx: usize, irq: irq::Receiver) -> &mut Self {
         assert!(idx < 64, "idx must be less than 64");
         assert!(idx != 30, "idx 30 is reserved for internal use");
         if idx < 32 {
@@ -294,8 +294,8 @@ impl IntCon {
     pub fn register_core_specific(
         &mut self,
         idx: usize,
-        cpu_irq: irq::Reciever,
-        cop_irq: irq::Reciever,
+        cpu_irq: irq::Receiver,
+        cop_irq: irq::Receiver,
     ) -> &mut Self {
         assert!(idx < 64, "idx must be less than 64");
         assert!(idx != 30, "idx 30 is reserved for internal use");

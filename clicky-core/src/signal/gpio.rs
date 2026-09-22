@@ -4,13 +4,13 @@ use super::{new as new_signal, Master, Slave, Trigger, TriggerKind};
 
 /// Create a new GPIO line. Updates `notify` whenever the sender updates the
 /// signal.
-pub fn new(notify: Changed, debug_label: &'static str) -> (Sender, Reciever) {
+pub fn new(notify: Changed, debug_label: &'static str) -> (Sender, Receiver) {
     let (master, slave) = new_signal(notify.trigger, "GPIO", debug_label);
 
     let sender = Sender { master };
-    let reciever = Reciever { slave };
+    let receiver = Receiver { slave };
 
-    (sender, reciever)
+    (sender, receiver)
 }
 
 /// Tracks GPIO signal changes across one-or-more GPIO lines.
@@ -42,11 +42,11 @@ impl Changed {
 
 /// The receiving side of a GPIO line.
 #[derive(Debug, Clone)]
-pub struct Reciever {
+pub struct Receiver {
     slave: Slave,
 }
 
-impl Reciever {
+impl Receiver {
     /// Checks if the GPIO line is high.
     #[inline]
     pub fn is_high(&self) -> bool {

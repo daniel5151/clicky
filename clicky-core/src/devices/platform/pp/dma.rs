@@ -54,11 +54,11 @@ pub struct DmaCon {
     //
     // Only the engine the IDE controller was wired to carries this; the other
     // one gets `None`.
-    ide_dmarq: Option<irq::Reciever>,
+    ide_dmarq: Option<irq::Receiver>,
 }
 
 impl DmaCon {
-    pub fn new(label: &'static str, ide_dmarq: Option<irq::Reciever>) -> DmaCon {
+    pub fn new(label: &'static str, ide_dmarq: Option<irq::Receiver>) -> DmaCon {
         let mut dma = DmaCon {
             label,
 

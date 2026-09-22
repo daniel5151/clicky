@@ -53,7 +53,7 @@ impl Controls<()> {
 pub struct OptoWheel {
     irq: irq::Sender,
     controls: Option<Controls<signal::Slave>>,
-    hold: Option<gpio::Reciever>,
+    hold: Option<gpio::Receiver>,
 
     controls_status: u32,
     pending_cmd: Option<u32>,
@@ -71,7 +71,7 @@ impl OptoWheel {
         }
     }
 
-    pub fn register_controls(&mut self, controls: Controls<signal::Slave>, hold: gpio::Reciever) {
+    pub fn register_controls(&mut self, controls: Controls<signal::Slave>, hold: gpio::Receiver) {
         self.controls = Some(controls);
         self.hold = Some(hold);
     }
