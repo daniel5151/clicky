@@ -31,7 +31,7 @@ mod devices {
 
     pub use crate::devices::{
         display::hd66753::Hd66753,
-        generic::{ide, AsanRam, Stub},
+        generic::{ide, AsanRam, Piezo, PiezoAudio, Stub},
         platform::pp::*,
     };
 }
@@ -65,6 +65,7 @@ pub struct Ipod4g {
     cop: Cpu,
     devices: Ipod4gBus,
     controls: Option<Ipod4gControls>,
+    piezo_audio: devices::PiezoAudio,
     /// A second set of keypad signal masters, used to synthesize key presses
     /// independently of whoever took ownership of the system's controls.
     synthetic_controls: devices::Controls<signal::Master>,
@@ -116,6 +117,7 @@ impl Ipod4g {
         // hook-up external controls
         let (mut hold_tx, hold_rx) = gpio::new(gpio_changed.clone(), "Hold");
         let (controls_tx, controls_rx) = devices::Controls::new_tx_rx(i2c_changed.clone());
+        let (piezo, piezo_audio) = devices::Piezo::new();
 
         let mut sys = Ipod4g {
             frozen: false,
@@ -127,6 +129,7 @@ impl Ipod4g {
             controls: None,
             synthetic_controls: controls_tx.clone(),
             boot_hold: None,
+            piezo_audio,
 
             irq_pending,
             dma_pending,
@@ -169,6 +172,8 @@ impl Ipod4g {
             hold: hold_tx,
             controls: controls_tx,
         });
+
+        sys.devices.pwmcon.attach(0, Box::new(piezo));
 
         // Run the HLE bootloader if an HLE boot was requested
         if let BootKind::HLEBoot { fw_file } = boot_kind {
@@ -399,9 +404,7 @@ impl Ipod4g {
     /// Returns a callback that renders the system audio
     /// Should later be replaced with mixing from I2S DAC and piezo
     pub fn audio_callback(&self) -> AudioCallback {
-        Box::new(move |out: &mut [f32], _sample_rate: u32| {
-            out.fill(0.0)
-        })
+        self.piezo_audio.audio_callback()
     }
 }
 
