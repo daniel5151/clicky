@@ -12,6 +12,7 @@ pub mod display;
 pub mod generic;
 pub mod i2c;
 pub mod platform;
+pub mod pwm;
 pub mod util;
 
 /// Common trait implemented by all emulated devices.
