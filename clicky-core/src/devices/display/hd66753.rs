@@ -3,7 +3,7 @@ use crate::devices::prelude::*;
 use std::sync::{Arc, RwLock};
 use relativity::Instant;
 
-use crate::devices::display::LcdController;
+use crate::devices::display::{LcdController, LcdPanel};
 use crate::gui::RenderCallback;
 
 use either::Either;
@@ -92,6 +92,8 @@ struct InternalRegs {
 
 /// Hitachi HD66753 168x132 monochrome LCD Controller.
 pub struct Hd66753 {
+    panel: LcdPanel,
+
     /// Index Register
     ir: u16,
     /// Address counter
@@ -114,7 +116,7 @@ impl std::fmt::Debug for Hd66753 {
 }
 
 impl Hd66753 {
-    pub fn new() -> Hd66753 {
+    pub fn new(panel: LcdPanel) -> Hd66753 {
         let cgram = Arc::new(RwLock::new([0; EMU_CGRAM_LEN]));
         let ireg = Arc::new(RwLock::new(InternalRegs {
             nl: 0b11111, // 168 x 132
@@ -122,6 +124,7 @@ impl Hd66753 {
         }));
 
         Hd66753 {
+            panel,
             ir: 0,
             ac: 0,
             cgram,
@@ -145,6 +148,7 @@ impl Hd66753 {
     fn make_render_callback(&self) -> RenderCallback {
         let cgram = Arc::clone(&self.cgram);
         let ireg = Arc::clone(&self.ireg);
+        let panel = self.panel.clone();
         let start = Instant::now();
 
         Box::new(move |buf: &mut Vec<u32>| -> (usize, usize) {
@@ -218,6 +222,12 @@ impl Hd66753 {
 
             // replace in-place
             buf.splice(.., new_buf);
+
+            if panel.reverse_hor {
+                for row in buf.chunks_exact_mut(CGRAM_WIDTH) {
+                    row.reverse()
+                }
+            }
 
             assert_eq!(buf.len(), CGRAM_WIDTH * height);
 
