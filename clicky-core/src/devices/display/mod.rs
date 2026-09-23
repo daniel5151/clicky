@@ -25,3 +25,17 @@ pub trait LcdController: std::fmt::Debug + Send + Sync {
     /// The callback accepts a framebuffer, and returns the rendered dimensions.
     fn render_callback(&self) -> RenderCallback;
 }
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct LcdPanel {
+    /// Panel pixel width
+    pub width: usize,
+
+    /// Panel pixel height
+    pub height: usize,
+
+    /// Reversed horizontal axis
+    /// 
+    /// Panel segments are connected in the reverse order
+    pub reverse_hor: bool,
+}
