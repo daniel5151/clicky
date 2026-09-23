@@ -7,6 +7,7 @@ use thiserror::Error;
 
 use crate::block::BlockDev;
 use crate::devices::{Device, Probe};
+use crate::devices::display::LcdPanel;
 use crate::error::*;
 use crate::executor::*;
 use crate::gui::RenderCallback;
@@ -500,6 +501,12 @@ impl Ipod4gBus {
         let mut i2ccon = I2CCon::new(i2c_irq_tx.clone());
         i2ccon.register_device(0x08, Box::new(i2c::Pcf5060x::new()));
 
+        let lcd_panel = LcdPanel {
+            width: 160,
+            height: 128,
+            reverse_hor: false,
+        };
+
         use devices::*;
         Ipod4gBus {
             sdram: AsanRam::new(32 * 1024 * 1024, true), // 32 MB
@@ -509,7 +516,7 @@ impl Ipod4gBus {
             usb: Usb::new(),
             flash: Flash::new(),
             cpucon: CpuCon::new(task_spawner.clone()),
-            mlcd: MonoLcdBridge::new(Box::new(Hd66753::new())),
+            mlcd: MonoLcdBridge::new(Box::new(Hd66753::new(lcd_panel))),
             timer1: CfgTimer::new("1", timer1_irq_tx, task_spawner.clone()),
             timer2: CfgTimer::new("2", timer2_irq_tx, task_spawner),
             usec_timer: UsecTimer::new(),
