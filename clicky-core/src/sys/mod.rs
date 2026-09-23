@@ -1,7 +1,7 @@
 //! Concrete system implementations.
 
 use crate::error::FatalMemResult;
-use crate::gui::{IpodKey, RenderCallback, TakeControls};
+use crate::gui::{AudioCallback, IpodKey, RenderCallback, TakeControls};
 
 pub mod ipod4g;
 pub mod ipodmini1g;
@@ -13,6 +13,12 @@ pub trait System: TakeControls + std::fmt::Debug + Send {
     fn screen_size(&self) -> (usize, usize);
 
     fn render_callback(&self) -> RenderCallback;
+
+    /// Returns a callback that renders the system audio
+    /// Should later be replaced with mixing from I2S DAC and piezo
+    fn audio_callback(&self) -> AudioCallback {
+        Box::new(move |out: &mut [f32], _sample_rate: u32| out.fill(0.0))
+    }
 
     /// Set keys hold at boot
     fn set_hold_keys(&mut self, keys: Vec<IpodKey>);

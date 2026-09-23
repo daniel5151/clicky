@@ -213,6 +213,7 @@ fn main() -> DynResult<()> {
     let model_name = system.model_name();
     let screen_size = system.screen_size();
     let update_fb = system.render_callback();
+    let render_audio = system.audio_callback();
     let controls = system.take_controls().unwrap();
     let (kill_ui_tx, kill_ui_rx) = std::sync::mpsc::channel();
 
@@ -291,6 +292,14 @@ fn main() -> DynResult<()> {
 
         Ok(())
     });
+
+    let _audio = match backends::audio::start(render_audio) {
+        Ok(device) => Some(device),
+        Err(e) => {
+            error!("audio disabled: {}", e);
+            None
+        }
+    };
 
     // run the UI on the main thread
     cfg_if::cfg_if! {
