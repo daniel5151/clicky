@@ -1,6 +1,6 @@
 use crate::devices::prelude::*;
 
-use crate::devices::display::LcdPanel;
+use crate::devices::display::LcdController;
 use crate::gui::RenderCallback;
 
 /// PP5020 monochrome LCD controller.
@@ -15,11 +15,11 @@ pub struct MonoLcdBridge {
     write_byte_latch: Option<u8>,
     read_byte_latch: Option<u8>,
 
-    panel: Box<dyn LcdPanel>,
+    panel: Box<dyn LcdController>,
 }
 
 impl MonoLcdBridge {
-    pub fn new(panel: Box<dyn LcdPanel>) -> MonoLcdBridge {
+    pub fn new(panel: Box<dyn LcdController>) -> MonoLcdBridge {
         MonoLcdBridge {
             write_byte_latch: None,
             read_byte_latch: None,
