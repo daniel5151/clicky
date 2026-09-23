@@ -19,3 +19,4 @@ pretty_env_logger.workspace = true
 structopt.workspace = true
 
 minifb = { workspace = true, optional = true }
+tinyaudio.workspace = true
