@@ -3,7 +3,7 @@ use crate::devices::prelude::*;
 use std::sync::{Arc, RwLock};
 use relativity::Instant;
 
-use crate::devices::display::LcdPanel;
+use crate::devices::display::LcdController;
 use crate::gui::RenderCallback;
 
 use either::Either;
@@ -422,7 +422,7 @@ impl Hd66753 {
     }
 }
 
-impl LcdPanel for Hd66753 {
+impl LcdController for Hd66753 {
     fn write_command(&mut self, val: u16) -> MemResult<()> {
         self.ir = val;
 

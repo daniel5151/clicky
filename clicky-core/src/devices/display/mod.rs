@@ -7,7 +7,7 @@ use crate::gui::RenderCallback;
 pub mod hd66753;
 
 /// LCD Controller IC trait (eg. HD66753)
-pub trait LcdPanel: std::fmt::Debug + Send + Sync {
+pub trait LcdController: std::fmt::Debug + Send + Sync {
     /// Select a register / issue a command (i.e: write the Index Register).
     fn write_command(&mut self, val: u16) -> MemResult<()>;
 
