@@ -9,7 +9,7 @@ use crate::block::BlockDev;
 use crate::devices::{Device, Probe};
 use crate::error::*;
 use crate::executor::*;
-use crate::gui::RenderCallback;
+use crate::gui::{AudioCallback, RenderCallback};
 use crate::memory::{armv4t_adaptor::MemoryAdapter, MemAccess, MemAccessKind, Memory};
 use crate::signal::{self, gpio, irq};
 
@@ -394,6 +394,14 @@ impl Ipod4g {
     /// Return the system's RenderCallback method.
     pub fn render_callback(&self) -> RenderCallback {
         self.devices.mlcd.render_callback()
+    }
+
+    /// Returns a callback that renders the system audio
+    /// Should later be replaced with mixing from I2S DAC and piezo
+    pub fn audio_callback(&self) -> AudioCallback {
+        Box::new(move |out: &mut [f32], _sample_rate: u32| {
+            out.fill(0.0)
+        })
     }
 }
 

@@ -4,6 +4,9 @@
 /// dimensions of the image.
 pub type RenderCallback =
     Box<dyn FnMut(/* rgba_framebuffer: */ &mut Vec<u32>) -> (usize, usize) + Send>;
+/// `AudioCallback` is called with a mono samples buffer (f32, within
+/// [-1.0, 1.0] range)). Sample rate in Hz.
+pub type AudioCallback = Box<dyn FnMut(/* out: */ &mut [f32], /* sample_rate: */ u32) + Send>;
 /// `ButtonCallback` should be called whenever a button is pressed and released
 /// (passing `true` and `false` respectively)
 pub type ButtonCallback = Box<dyn FnMut(/* pressed: */ bool) + Send>;
