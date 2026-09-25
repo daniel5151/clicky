@@ -12,6 +12,7 @@ wasm-bindgen = [ "relativity/wasm-bindgen", "chrono/wasmbind" ]
 relativity = { path = "../relativity/" }
 
 # general utilities
+biquad = "0.6"
 bit_field = "0.10"
 bytemuck = "1.2"
 byteorder = "1.3"
