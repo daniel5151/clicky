@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::mpsc as chan;
 
-use minifb::{Key, Window, WindowOptions};
+use minifb::{Key, ScaleMode, Window, WindowOptions};
 
 use clicky_core::gui::{ButtonCallback, RenderCallback, ScrollCallback};
 
@@ -34,6 +34,7 @@ impl MinifbRenderer {
             height,
             WindowOptions {
                 scale: minifb::Scale::X4,
+                scale_mode: ScaleMode::AspectRatioStretch,
                 resize: true,
                 ..WindowOptions::default()
             },
