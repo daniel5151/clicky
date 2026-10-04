@@ -1,5 +1,6 @@
 [workspace]
 members = ["clicky-core", "clicky-desktop", "clicky-web", "pprom", "relativity"]
+default-members = ["clicky-desktop"]
 
 [profile.release]
 panic = "abort"
