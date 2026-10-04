@@ -12,6 +12,7 @@ use structopt::StructOpt;
 use clicky_core::block::{self, BlockDev};
 use clicky_core::gui::TakeControls;
 use clicky_core::sys::ipod4g::{BootKind, Ipod4g, Ipod4gGdb, Ipod4gKey};
+use pprom::{PMPModel, Rom as PpRom};
 
 mod backends;
 mod blockcfg;
@@ -59,6 +60,15 @@ struct Args {
     /// connection before starting execution.
     #[structopt(short, long)]
     gdb: Option<GdbCfg>,
+
+    /// Media player model to emulate.
+    ///
+    /// Required in HLE. Auto-detected from ROM dump.
+    ///
+    /// Valid values: ipod1g, ipod2g, ipod3g, ipod4g, ipod5g, ipodmini1g,
+    /// ipodmini2g, ipodcolor, ipodphoto, ipodnano1g
+    #[structopt(long, required_unless("flash-rom"))]
+    model: Option<PMPModel>,
 
     /// Keys to hold down for the first 3000ms of execution.
     ///
@@ -143,7 +153,35 @@ fn main() -> DynResult<()> {
         None => None,
     };
 
-    let mut system = Ipod4g::new(hdd, flash_rom, boot_kind)?;
+    // Detect model from flash ROM if available
+    let detected_model = match flash_rom {
+        Some(ref rom) => {
+            let rom = PpRom::from_dump(rom)?;
+            match rom.model() {
+                PMPModel::Unknown => None,
+                model => Some(model),
+            }
+        },
+        None => None,
+    };
+
+    // Warn if user override doesn't match detected model
+    if let (Some(user_model), Some(detected)) = (args.model, detected_model) {
+        if user_model != detected {
+            warn!(
+                "Model override ({}) does not match model detected in flash ROM ({})",
+                user_model, detected
+            );
+        }
+    }
+
+    let model = args.model.or(detected_model);
+
+    let mut system = match model {
+        Some(PMPModel::Ipod4g) => Ipod4g::new(hdd, flash_rom, boot_kind)?,
+        Some(other) => return Err(format!("unsupported model: {}", other).into()),
+        None => return Err("no model detected in firmware and none specified".into()),
+    };
 
     system.set_hold_keys(args.hold_keys);
 
@@ -152,6 +190,7 @@ fn main() -> DynResult<()> {
     let controls = system.take_controls().unwrap();
     let (kill_ui_tx, kill_ui_rx) = std::sync::mpsc::channel();
 
+    // TODO: Only iPod 4G can use Ipod4gGdb
     let mut system = match args.gdb {
         Some(cfg) => System::Debug {
             system_gdb: Ipod4gGdb::new(system),

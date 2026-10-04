@@ -225,6 +225,7 @@ dependencies = [
  "human-size",
  "log",
  "minifb",
+ "pprom",
  "pretty_env_logger",
  "structopt",
 ]

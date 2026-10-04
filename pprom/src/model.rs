@@ -53,4 +53,51 @@ impl PMPModel {
 			_ => Unknown,
 		}
 	}
+
+    pub fn model_name(self) -> &'static str {
+        match self {
+            PMPModel::Ipod1g => "iPod (1st generation)",
+            PMPModel::Ipod2g => "iPod (2nd generation)",
+            PMPModel::Ipod3g => "iPod (3rd generation)",
+            PMPModel::Ipod4g => "iPod (4th generation)",
+            PMPModel::Ipod5g => "iPod (5th generation)",
+            PMPModel::IpodMini1g => "iPod mini (1st generation)",
+            PMPModel::IpodMini2g => "iPod mini (2nd generation)",
+            PMPModel::IpodColor => "iPod color",
+            PMPModel::IpodPhoto => "iPod photo",
+            PMPModel::IpodNano1g => "iPod nano (1st generation)",
+            PMPModel::Unknown => "Unknown PMP",
+        }
+    }
+
+}
+
+impl std::fmt::Display for PMPModel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.model_name())
+    }
+}
+
+impl std::str::FromStr for PMPModel {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "ipod1g" => Ok(PMPModel::Ipod1g),
+            "ipod2g" => Ok(PMPModel::Ipod2g),
+            "ipod3g" => Ok(PMPModel::Ipod3g),
+            "ipod4g" => Ok(PMPModel::Ipod4g),
+            "ipod5g" => Ok(PMPModel::Ipod5g),
+            "ipodmini1g" => Ok(PMPModel::IpodMini1g),
+            "ipodmini2g" => Ok(PMPModel::IpodMini2g),
+            "ipodcolor" => Ok(PMPModel::IpodColor),
+            "ipodphoto" => Ok(PMPModel::IpodPhoto),
+            "ipodnano1g" => Ok(PMPModel::IpodNano1g),
+            _ => Err(format!(
+                "unknown model {:?}; valid values: ipod1g, ipod2g, ipod3g, ipod4g, ipod5g, \
+                 ipodmini1g, ipodmini2g, ipodcolor, ipodphoto, ipodnano1g",
+                s
+            )),
+        }
+    }
 }

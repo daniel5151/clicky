@@ -9,6 +9,7 @@ default = ["minifb"]
 
 [dependencies]
 clicky-core = { path = "../clicky-core/" }
+pprom = { path = "../pprom/" }
 
 cfg-if = "0.1"
 gdbstub = "0.4"
