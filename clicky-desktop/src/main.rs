@@ -186,6 +186,8 @@ fn main() -> DynResult<()> {
     system.set_hold_keys(args.hold_keys);
 
     // grab a bunch of UI wiring stuff
+    let model_name = system.model_name();
+    let screen_size = system.screen_size();
     let update_fb = system.render_callback();
     let controls = system.take_controls().unwrap();
     let (kill_ui_tx, kill_ui_rx) = std::sync::mpsc::channel();
@@ -276,8 +278,8 @@ fn main() -> DynResult<()> {
         if #[cfg(feature = "minifb")] {
             use crate::backends::minifb::MinifbRenderer;
             MinifbRenderer::run(
-                "iPod 4g",
-                (160, 128),
+                model_name,
+                screen_size,
                 update_fb,
                 controls,
                 kill_ui_rx,

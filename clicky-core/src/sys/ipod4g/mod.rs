@@ -97,6 +97,14 @@ pub enum Ipod4gBuildError {
 }
 
 impl Ipod4g {
+    pub fn model_name(&self) -> &'static str {
+        "iPod 4g"
+    }
+
+    pub fn screen_size(&self) -> (usize, usize) {
+        (160, 128)
+    }
+
     /// Returns a new Ipod4g instance.
     pub fn new<F>(
         hdd: Box<dyn BlockDev>,
