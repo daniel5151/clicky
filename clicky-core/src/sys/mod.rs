@@ -1,6 +1,10 @@
 //! Concrete system implementations.
 
 pub mod ipod4g;
+pub enum BootKind<F: std::io::Read + std::io::Seek> {
+    ColdBoot,
+    HLEBoot { fw_file: F },
+}
 
 #[allow(dead_code)]
 mod size_asserts {
