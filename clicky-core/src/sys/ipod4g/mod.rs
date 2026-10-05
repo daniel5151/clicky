@@ -20,6 +20,7 @@ mod hle_bootloader;
 
 pub use controls::{Ipod4gBinds, Ipod4gKey};
 pub use gdb::Ipod4gGdb;
+pub use crate::sys::BootKind;
 
 use hle_bootloader::run_hle_bootloader;
 
@@ -45,11 +46,6 @@ const BOOT_HOLD_DURATION: Duration = Duration::from_millis(3000);
 enum BlockMode {
     Blocking,
     NonBlocking,
-}
-
-pub enum BootKind<F: Read + Seek> {
-    ColdBoot,
-    HLEBoot { fw_file: F },
 }
 
 #[derive(Debug)]
