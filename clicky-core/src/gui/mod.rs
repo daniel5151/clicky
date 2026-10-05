@@ -16,6 +16,5 @@ pub type ButtonCallback = Box<dyn FnMut(/* pressed: */ bool) + Send>;
 pub type ScrollCallback = Box<dyn FnMut(/* (dx, dy): */ (f32, f32)) + Send>;
 
 pub trait TakeControls {
-    type Controls;
-    fn take_controls(&mut self) -> Option<Self::Controls>;
+    fn take_controls(&mut self) -> Option<IpodBinds>;
 }

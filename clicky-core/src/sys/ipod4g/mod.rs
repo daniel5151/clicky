@@ -395,8 +395,6 @@ impl Ipod4g {
 }
 
 impl TakeControls for Ipod4g {
-    type Controls = IpodBinds;
-
     fn take_controls(&mut self) -> Option<IpodBinds> {
         Some(self.controls.take()?.into_binds())
     }
