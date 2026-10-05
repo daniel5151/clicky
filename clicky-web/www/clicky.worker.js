@@ -7,16 +7,16 @@ import("clicky-web").then((x) => {
 });
 
 let ipod4g = null;
-let ipod4g_controls = null;
+let ipod_controls = null;
 let cycles_per_tick = 1024; // adjust for responsiveness
 
 function init_handler({ kind, data }) {
     switch (kind) {
         case "init":
             ipod4g = new wasm.Ipod4gContainer(data.bootloader, data.disk);
-            ipod4g_controls = ipod4g.take_controls();
+            ipod_controls = ipod4g.take_controls();
             console.log(ipod4g);
-            console.log(ipod4g_controls);
+            console.log(ipod_controls);
             postMessage({ kind: "init" });
             return true;
             break;
@@ -62,22 +62,22 @@ function run_handler({ kind, data }) {
             console.log("pressed ", data);
             switch (data) {
                 case "ArrowDown":
-                    ipod4g_controls.on_keydown(wasm.Ipod4gKeyKind.Down);
+                    ipod_controls.on_keydown(wasm.IpodKeyKind.Down);
                     break;
                 case "ArrowUp":
-                    ipod4g_controls.on_keydown(wasm.Ipod4gKeyKind.Up);
+                    ipod_controls.on_keydown(wasm.IpodKeyKind.Up);
                     break;
                 case "ArrowLeft":
-                    ipod4g_controls.on_keydown(wasm.Ipod4gKeyKind.Left);
+                    ipod_controls.on_keydown(wasm.IpodKeyKind.Left);
                     break;
                 case "ArrowRight":
-                    ipod4g_controls.on_keydown(wasm.Ipod4gKeyKind.Right);
+                    ipod_controls.on_keydown(wasm.IpodKeyKind.Right);
                     break;
                 case "Enter":
-                    ipod4g_controls.on_keydown(wasm.Ipod4gKeyKind.Action);
+                    ipod_controls.on_keydown(wasm.IpodKeyKind.Action);
                     break;
                 case "H":
-                    ipod4g_controls.on_keydown(wasm.Ipod4gKeyKind.Hold);
+                    ipod_controls.on_keydown(wasm.IpodKeyKind.Hold);
                     break;
             }
             break;
@@ -85,32 +85,32 @@ function run_handler({ kind, data }) {
             console.log("released ", data);
             switch (data) {
                 case "ArrowDown":
-                    ipod4g_controls.on_keyup(wasm.Ipod4gKeyKind.Down);
+                    ipod_controls.on_keyup(wasm.IpodKeyKind.Down);
                     break;
                 case "ArrowUp":
-                    ipod4g_controls.on_keyup(wasm.Ipod4gKeyKind.Up);
+                    ipod_controls.on_keyup(wasm.IpodKeyKind.Up);
                     break;
                 case "ArrowLeft":
-                    ipod4g_controls.on_keyup(wasm.Ipod4gKeyKind.Left);
+                    ipod_controls.on_keyup(wasm.IpodKeyKind.Left);
                     break;
                 case "ArrowRight":
-                    ipod4g_controls.on_keyup(wasm.Ipod4gKeyKind.Right);
+                    ipod_controls.on_keyup(wasm.IpodKeyKind.Right);
                     break;
                 case "Enter":
-                    ipod4g_controls.on_keyup(wasm.Ipod4gKeyKind.Action);
+                    ipod_controls.on_keyup(wasm.IpodKeyKind.Action);
                     break;
                 case "H":
-                    ipod4g_controls.on_keyup(wasm.Ipod4gKeyKind.Hold);
+                    ipod_controls.on_keyup(wasm.IpodKeyKind.Hold);
                     break;
             }
             break;
         case "scroll":
             if (data.deltaY < 0) {
                 console.log("scolled up");
-                ipod4g_controls.on_scroll(0, 2);
+                ipod_controls.on_scroll(0, 2);
             } else {
                 console.log("scolled down");
-                ipod4g_controls.on_scroll(0, -2);
+                ipod_controls.on_scroll(0, -2);
             }
             break;
         case "cycles_per_tick":
