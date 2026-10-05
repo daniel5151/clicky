@@ -45,7 +45,7 @@ impl PMPModel {
 			0x00030001 => Ipod3g,
 			0x00050013 | 0x00050014 => Ipod4g,
 			0x000B0005 | 0x000B0010 => Ipod5g,
-			0x00040013 => IpodMini1g,
+			0x00040012 | 0x00040013 => IpodMini1g,
 			0x00070002 => IpodMini2g,
 			0x000C0005 | 0x000C0006 => IpodNano1g,
 			0x00060000 => IpodPhoto,
