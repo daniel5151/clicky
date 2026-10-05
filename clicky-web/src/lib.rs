@@ -75,8 +75,8 @@ impl Ipod4gContainer {
     }
 
     #[wasm_bindgen]
-    pub fn take_controls(&mut self) -> Result<Ipod4gController, JsValue> {
-        Ok(Ipod4gController {
+    pub fn take_controls(&mut self) -> Result<IpodController, JsValue> {
+        Ok(IpodController {
             controls: self
                 .system
                 .take_controls()
@@ -128,7 +128,7 @@ impl Frame {
 }
 
 #[wasm_bindgen]
-pub enum Ipod4gKeyKind {
+pub enum IpodKeyKind {
     Up,
     Down,
     Left,
@@ -137,35 +137,35 @@ pub enum Ipod4gKeyKind {
     Hold,
 }
 
-impl From<Ipod4gKeyKind> for IpodKey {
-    fn from(wasm_key: Ipod4gKeyKind) -> IpodKey {
+impl From<IpodKeyKind> for IpodKey {
+    fn from(wasm_key: IpodKeyKind) -> IpodKey {
         match wasm_key {
-            Ipod4gKeyKind::Up => IpodKey::Up,
-            Ipod4gKeyKind::Down => IpodKey::Down,
-            Ipod4gKeyKind::Left => IpodKey::Left,
-            Ipod4gKeyKind::Right => IpodKey::Right,
-            Ipod4gKeyKind::Action => IpodKey::Action,
-            Ipod4gKeyKind::Hold => IpodKey::Hold,
+            IpodKeyKind::Up => IpodKey::Up,
+            IpodKeyKind::Down => IpodKey::Down,
+            IpodKeyKind::Left => IpodKey::Left,
+            IpodKeyKind::Right => IpodKey::Right,
+            IpodKeyKind::Action => IpodKey::Action,
+            IpodKeyKind::Hold => IpodKey::Hold,
         }
     }
 }
 
 #[wasm_bindgen]
-pub struct Ipod4gController {
+pub struct IpodController {
     controls: IpodBinds,
 }
 
 #[wasm_bindgen]
-impl Ipod4gController {
+impl IpodController {
     #[wasm_bindgen]
-    pub fn on_keydown(&mut self, key: Ipod4gKeyKind) {
+    pub fn on_keydown(&mut self, key: IpodKeyKind) {
         if let Some(cb) = self.controls.keys.get_mut(&key.into()) {
             cb(true)
         }
     }
 
     #[wasm_bindgen]
-    pub fn on_keyup(&mut self, key: Ipod4gKeyKind) {
+    pub fn on_keyup(&mut self, key: IpodKeyKind) {
         if let Some(cb) = self.controls.keys.get_mut(&key.into()) {
             cb(false)
         }
