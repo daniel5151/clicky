@@ -67,6 +67,8 @@ clicky-core
     ├── executor ................. Custom `async/await` executor
     │  
     ├── gui ...................... Types / Traits for exposing GUI interfaces
+    │   ├── controls.rs ............ User input structures shared by all iPod models
+    │   └── mod.rs
     │  
     ├── memory ................... Core `Memory` interface + helper types
     │  
@@ -77,7 +79,6 @@ clicky-core
     │  
     └── sys ...................... Top-level System Definitions
         ├── ipod4g ................. e.g: Defines the `iPod 4g` system
-        │   ├── controls.rs .......... System-specific user input structures
         │   ├── gdb.rs ............... GDB stub
         │   ├── hle_bootloader ........HLE bootloader implementation
         │   └── mod.rs ............... Core implementation

@@ -10,8 +10,8 @@ pub type DynResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 use structopt::StructOpt;
 
 use clicky_core::block::{self, BlockDev};
-use clicky_core::gui::TakeControls;
-use clicky_core::sys::ipod4g::{BootKind, Ipod4g, Ipod4gGdb, Ipod4gKey};
+use clicky_core::gui::{IpodKey, TakeControls};
+use clicky_core::sys::ipod4g::{BootKind, Ipod4g, Ipod4gGdb};
 use pprom::{PMPModel, Rom as PpRom};
 
 mod backends;
@@ -77,7 +77,7 @@ struct Args {
     ///
     /// e.g: `--hold-keys action,down` boots the iPod into Disk Mode.
     #[structopt(long, use_delimiter = true, parse(try_from_str))]
-    hold_keys: Vec<Ipod4gKey>,
+    hold_keys: Vec<IpodKey>,
 }
 
 enum System {
