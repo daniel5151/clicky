@@ -3,7 +3,7 @@ use super::{Ipod4g, Ipod4gControls};
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use crate::devices::platform::pp::Controls;
+use crate::devices::input::Controls;
 use crate::gui::{ButtonCallback, ScrollCallback, TakeControls};
 use crate::signal;
 

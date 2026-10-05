@@ -33,6 +33,7 @@ mod devices {
     pub use crate::devices::{
         display::hd66753::Hd66753,
         generic::{ide, AsanRam, Stub},
+        input::{clickwheel::ClickWheel, Controls},
         platform::pp::*,
     };
 }
@@ -167,7 +168,11 @@ impl Ipod4g {
             gpio_abcd.register_in(5, hold_rx.clone());
         }
 
-        (sys.devices.opto).attach(Box::new(devices::ClickWheel::new(controls_rx, hold_rx)));
+        {
+            let mut clickwheel = devices::ClickWheel::new();
+            clickwheel.register_controls(controls_rx, hold_rx);
+            sys.devices.opto.attach(Box::new(clickwheel));
+        }
 
         // HACK: Hold is active-low, so set it to high by default
         hold_tx.set_high();
@@ -536,6 +541,7 @@ impl Ipod4gBus {
             gpio_mirror_efgh: GpioBlockAtomicMirror::new(gpio_mirror_efgh),
             gpio_mirror_ijkl: GpioBlockAtomicMirror::new(gpio_mirror_ijkl),
             i2ccon,
+            // (According to Rockbox) opto IRQ is shared with I2C
             opto: OptoWheel::new(i2c_irq_tx),
             ppcon: PPCon::new(),
             devcon: DevCon::new(),
