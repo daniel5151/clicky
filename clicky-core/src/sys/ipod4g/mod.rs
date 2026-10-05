@@ -10,15 +10,13 @@ use crate::devices::Device;
 use crate::devices::display::LcdPanel;
 use crate::error::*;
 use crate::executor::*;
-use crate::gui::RenderCallback;
+use crate::gui::{IpodBinds, IpodControls, IpodKey, RenderCallback, TakeControls};
 use crate::memory::{armv4t_adaptor::MemoryAdapter, MemAccess, Memory};
 use crate::signal::{self, gpio, irq};
 
-mod controls;
 mod gdb;
 mod hle_bootloader;
 
-pub use controls::{Ipod4gBinds, Ipod4gKey};
 pub use gdb::Ipod4gGdb;
 pub use crate::sys::BootKind;
 
@@ -48,12 +46,6 @@ enum BlockMode {
     NonBlocking,
 }
 
-#[derive(Debug)]
-struct Ipod4gControls {
-    hold: gpio::Sender,
-    controls: devices::Controls<signal::Master>,
-}
-
 /// A Ipod4g system
 #[derive(Debug)]
 pub struct Ipod4g {
@@ -63,12 +55,12 @@ pub struct Ipod4g {
     cpu: Cpu,
     cop: Cpu,
     devices: Ipod4gBoard,
-    controls: Option<Ipod4gControls>,
+    controls: Option<IpodControls>,
     /// A second set of keypad signal masters, used to synthesize key presses
     /// independently of whoever took ownership of the system's controls.
     synthetic_controls: devices::Controls<signal::Master>,
     /// Keys to hold down once the system starts executing code.
-    boot_hold: Option<Vec<Ipod4gKey>>,
+    boot_hold: Option<Vec<IpodKey>>,
 
     irq_pending: irq::Pending,
     dma_pending: irq::Pending,
@@ -175,7 +167,7 @@ impl Ipod4g {
         // HACK: Hold is active-low, so set it to high by default
         hold_tx.set_high();
 
-        sys.controls = Some(Ipod4gControls {
+        sys.controls = Some(IpodControls {
             hold: hold_tx,
             controls: controls_tx,
         });
@@ -189,7 +181,7 @@ impl Ipod4g {
     }
 
     /// Set keys hold at boot
-    pub fn set_hold_keys(&mut self, keys: impl IntoIterator<Item = Ipod4gKey>) {
+    pub fn set_hold_keys(&mut self, keys: impl IntoIterator<Item = IpodKey>) {
         let keys = keys.into_iter().collect::<Vec<_>>();
         if !keys.is_empty() {
             self.boot_hold = Some(keys);
@@ -218,7 +210,7 @@ impl Ipod4g {
         if let Some(keys) = self.boot_hold.take() {
             let mut signals = keys
                 .iter()
-                .filter_map(|key| controls::key_signal(&self.synthetic_controls, *key))
+                .filter_map(|key| crate::gui::key_signal(&self.synthetic_controls, *key))
                 .collect::<Vec<_>>();
 
             self.executor
@@ -399,6 +391,14 @@ impl Ipod4g {
     /// Return the system's RenderCallback method.
     pub fn render_callback(&self) -> RenderCallback {
         self.devices.soc.mlcd.render_callback().expect("no LCD controller attached to the mono LCD bridge")
+    }
+}
+
+impl TakeControls for Ipod4g {
+    type Controls = IpodBinds;
+
+    fn take_controls(&mut self) -> Option<IpodBinds> {
+        Some(self.controls.take()?.into_binds())
     }
 }
 

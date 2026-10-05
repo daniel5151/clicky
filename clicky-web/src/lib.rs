@@ -7,8 +7,8 @@ use flate2::read::GzDecoder;
 use wasm_bindgen::prelude::*;
 
 use clicky_core::block::{self, BlockDev};
-use clicky_core::gui::{RenderCallback, TakeControls};
-use clicky_core::sys::ipod4g::{BootKind, Ipod4g, Ipod4gBinds, Ipod4gKey};
+use clicky_core::gui::{IpodBinds, IpodKey, RenderCallback, TakeControls};
+use clicky_core::sys::ipod4g::{BootKind, Ipod4g};
 
 #[wasm_bindgen(start)]
 pub fn init() {
@@ -137,22 +137,22 @@ pub enum Ipod4gKeyKind {
     Hold,
 }
 
-impl From<Ipod4gKeyKind> for Ipod4gKey {
-    fn from(wasm_key: Ipod4gKeyKind) -> Ipod4gKey {
+impl From<Ipod4gKeyKind> for IpodKey {
+    fn from(wasm_key: Ipod4gKeyKind) -> IpodKey {
         match wasm_key {
-            Ipod4gKeyKind::Up => Ipod4gKey::Up,
-            Ipod4gKeyKind::Down => Ipod4gKey::Down,
-            Ipod4gKeyKind::Left => Ipod4gKey::Left,
-            Ipod4gKeyKind::Right => Ipod4gKey::Right,
-            Ipod4gKeyKind::Action => Ipod4gKey::Action,
-            Ipod4gKeyKind::Hold => Ipod4gKey::Hold,
+            Ipod4gKeyKind::Up => IpodKey::Up,
+            Ipod4gKeyKind::Down => IpodKey::Down,
+            Ipod4gKeyKind::Left => IpodKey::Left,
+            Ipod4gKeyKind::Right => IpodKey::Right,
+            Ipod4gKeyKind::Action => IpodKey::Action,
+            Ipod4gKeyKind::Hold => IpodKey::Hold,
         }
     }
 }
 
 #[wasm_bindgen]
 pub struct Ipod4gController {
-    controls: Ipod4gBinds,
+    controls: IpodBinds,
 }
 
 #[wasm_bindgen]

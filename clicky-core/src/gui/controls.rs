@@ -1,14 +1,12 @@
-use super::{Ipod4g, Ipod4gControls};
-
 use std::collections::HashMap;
 use std::str::FromStr;
 
 use crate::devices::input::Controls;
-use crate::gui::{ButtonCallback, ScrollCallback, TakeControls};
-use crate::signal;
+use crate::gui::{ButtonCallback, ScrollCallback};
+use crate::signal::{self, gpio};
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
-pub enum Ipod4gKey {
+pub enum IpodKey {
     Up,
     Down,
     Left,
@@ -18,16 +16,20 @@ pub enum Ipod4gKey {
 }
 
 #[derive(Default)]
-pub struct Ipod4gBinds {
-    pub keys: HashMap<Ipod4gKey, ButtonCallback>,
+pub struct IpodBinds {
+    pub keys: HashMap<IpodKey, ButtonCallback>,
     pub wheel: Option<ScrollCallback>,
 }
 
-impl TakeControls for Ipod4g {
-    type Controls = Ipod4gBinds;
+#[derive(Debug)]
+pub struct IpodControls {
+    pub hold: gpio::Sender,
+    pub controls: Controls<signal::Master>,
+}
 
-    fn take_controls(&mut self) -> Option<Ipod4gBinds> {
-        let Ipod4gControls {
+impl IpodControls {
+    pub fn into_binds(self) -> IpodBinds {
+        let IpodControls {
             mut hold,
             controls:
                 Controls {
@@ -38,15 +40,14 @@ impl TakeControls for Ipod4g {
                     mut right,
                     wheel: (mut wheel_active, wheel_data),
                 },
-        } = self.controls.take()?;
+        } = self;
 
-        let mut controls = Ipod4gBinds::default();
+        let mut controls = IpodBinds::default();
 
         controls.keys.insert(
-            Ipod4gKey::Hold,
+            IpodKey::Hold,
             Box::new(move |pressed| {
                 if pressed {
-                    // toggle on and off
                     match hold.is_set_high() {
                         false => hold.set_high(),
                         true => hold.set_low(),
@@ -70,11 +71,11 @@ impl TakeControls for Ipod4g {
             };
         }
 
-        connect_controls_btn!(Ipod4gKey::Up, up);
-        connect_controls_btn!(Ipod4gKey::Down, down);
-        connect_controls_btn!(Ipod4gKey::Left, left);
-        connect_controls_btn!(Ipod4gKey::Right, right);
-        connect_controls_btn!(Ipod4gKey::Action, action);
+        connect_controls_btn!(IpodKey::Up, up);
+        connect_controls_btn!(IpodKey::Down, down);
+        connect_controls_btn!(IpodKey::Left, left);
+        connect_controls_btn!(IpodKey::Right, right);
+        connect_controls_btn!(IpodKey::Action, action);
 
         // TODO: make sensitivity adjustable based on user's scroll speed
         controls.wheel = Some({
@@ -94,22 +95,22 @@ impl TakeControls for Ipod4g {
             })
         });
 
-        Some(controls)
+        controls
     }
 }
 
-impl FromStr for Ipod4gKey {
+impl FromStr for IpodKey {
     type Err = String;
 
     // NOTE: the Hold switch is a latching, active-low GPIO rather than a keypad
     // signal, so it isn't one of the keys that can be parsed here.
-    fn from_str(s: &str) -> Result<Ipod4gKey, String> {
+    fn from_str(s: &str) -> Result<IpodKey, String> {
         match s.trim().to_ascii_lowercase().as_str() {
-            "up" => Ok(Ipod4gKey::Up),
-            "down" => Ok(Ipod4gKey::Down),
-            "left" => Ok(Ipod4gKey::Left),
-            "right" => Ok(Ipod4gKey::Right),
-            "action" => Ok(Ipod4gKey::Action),
+            "up" => Ok(IpodKey::Up),
+            "down" => Ok(IpodKey::Down),
+            "left" => Ok(IpodKey::Left),
+            "right" => Ok(IpodKey::Right),
+            "action" => Ok(IpodKey::Action),
             _ => Err(format!(
                 "no such key: {:?} (expected one of: up, down, left, right, action)",
                 s
@@ -119,17 +120,14 @@ impl FromStr for Ipod4gKey {
 }
 
 /// Returns a handle to the signal driven by `key`
-pub(super) fn key_signal(
-    controls: &Controls<signal::Master>,
-    key: Ipod4gKey,
-) -> Option<signal::Master> {
+pub fn key_signal(controls: &Controls<signal::Master>, key: IpodKey) -> Option<signal::Master> {
     let signal = match key {
-        Ipod4gKey::Up => &controls.up,
-        Ipod4gKey::Down => &controls.down,
-        Ipod4gKey::Left => &controls.left,
-        Ipod4gKey::Right => &controls.right,
-        Ipod4gKey::Action => &controls.action,
-        Ipod4gKey::Hold => return None,
+        IpodKey::Up => &controls.up,
+        IpodKey::Down => &controls.down,
+        IpodKey::Left => &controls.left,
+        IpodKey::Right => &controls.right,
+        IpodKey::Action => &controls.action,
+        IpodKey::Hold => return None,
     };
 
     Some(signal.clone())

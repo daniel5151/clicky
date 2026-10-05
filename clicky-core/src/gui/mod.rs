@@ -1,5 +1,9 @@
 //! GUI related types and traits
 
+mod controls;
+
+pub use controls::{key_signal, IpodBinds, IpodControls, IpodKey};
+
 /// `RenderCallback` is called with an ARGB Framebuffer, and returns the
 /// dimensions of the image.
 pub type RenderCallback =
