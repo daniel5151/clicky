@@ -1,5 +1,7 @@
 //! Platform support for the PortalPlayer 50xx line of SoCs.
 
+mod mmap;
+
 mod cachecon;
 mod cfg_timer;
 mod cpucon;
@@ -21,6 +23,7 @@ mod opto;
 mod ppcon;
 mod rtc;
 mod serial;
+mod soc;
 mod usb;
 mod usec_timer;
 mod pwm;
@@ -46,6 +49,7 @@ pub use opto::*;
 pub use ppcon::*;
 pub use rtc::*;
 pub use serial::*;
+pub use soc::*;
 pub use usb::*;
 pub use usec_timer::*;
 pub use pwm::*;

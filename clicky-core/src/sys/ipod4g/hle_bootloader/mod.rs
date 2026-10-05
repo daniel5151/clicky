@@ -68,7 +68,7 @@ pub(super) fn run_hle_bootloader(
     const SYSINFO_PTR: u32 = 0x4001_7f1c;
     const SYSINFO_LOC: u32 = 0x4000_ff18;
     ipod.devices.w32(SYSINFO_PTR, SYSINFO_LOC).unwrap(); // pointer to sysinfo
-    ipod.devices.fastram.bulk_write(
+    ipod.devices.soc.fastram.bulk_write(
         SYSINFO_LOC - 0x4000_0000,
         // FIXME?: this will break on big-endian systems
         bytemuck::bytes_of(&sysinfo_t {
@@ -81,6 +81,7 @@ pub(super) fn run_hle_bootloader(
 
     // The bootloader enables the GPIOA:5 pin (i.e: the Hold button)
     ipod.devices
+        .soc
         .gpio_abcd
         .lock()
         .unwrap()
