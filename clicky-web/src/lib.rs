@@ -8,8 +8,8 @@ use wasm_bindgen::prelude::*;
 
 use clicky_core::block::{self, BlockDev};
 use clicky_core::gui::{IpodBinds, IpodKey, RenderCallback, TakeControls};
-use clicky_core::sys::ipod4g::{BootKind, Ipod4g};
-use clicky_core::sys::System;
+use clicky_core::sys::ipod4g::Ipod4g;
+use clicky_core::sys::{BootKind, System};
 
 #[wasm_bindgen(start)]
 pub fn init() {
