@@ -394,7 +394,7 @@ impl Ipod4g {
 
     /// Return the system's RenderCallback method.
     pub fn render_callback(&self) -> RenderCallback {
-        self.devices.mlcd.render_callback()
+        self.devices.mlcd.render_callback().expect("no LCD controller attached to the mono LCD bridge")
     }
 }
 
@@ -507,6 +507,9 @@ impl Ipod4gBus {
             reverse_hor: false,
         };
 
+        let mut mlcd = MonoLcdBridge::new();
+        mlcd.attach(Box::new(Hd66753::new(lcd_panel)));
+
         use devices::*;
         Ipod4gBus {
             sdram: AsanRam::new(32 * 1024 * 1024, true), // 32 MB
@@ -516,7 +519,7 @@ impl Ipod4gBus {
             usb: Usb::new(),
             flash: Flash::new(),
             cpucon: CpuCon::new(task_spawner.clone()),
-            mlcd: MonoLcdBridge::new(Box::new(Hd66753::new(lcd_panel))),
+            mlcd,
             timer1: CfgTimer::new("1", timer1_irq_tx, task_spawner.clone()),
             timer2: CfgTimer::new("2", timer2_irq_tx, task_spawner),
             usec_timer: UsecTimer::new(),

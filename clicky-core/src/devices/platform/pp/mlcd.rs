@@ -15,21 +15,31 @@ pub struct MonoLcdBridge {
     write_byte_latch: Option<u8>,
     read_byte_latch: Option<u8>,
 
-    panel: Box<dyn LcdController>,
+    controller: Option<Box<dyn LcdController>>,
 }
 
 impl MonoLcdBridge {
-    pub fn new(panel: Box<dyn LcdController>) -> MonoLcdBridge {
+    pub fn new() -> MonoLcdBridge {
         MonoLcdBridge {
             write_byte_latch: None,
             read_byte_latch: None,
-            panel,
+            controller: None,
         }
     }
 
-    /// Returns a callback to update the framebuffer.
-    pub fn render_callback(&self) -> RenderCallback {
-        self.panel.render_callback()
+    pub fn attach(&mut self, controller: Box<dyn LcdController>) {
+        self.controller = Some(controller);
+    }
+
+    fn controller(&mut self) -> MemResult<&mut Box<dyn LcdController>> {
+        self.controller
+            .as_mut()
+            .ok_or_else(|| Fatal("no LCD controller attached to the mono LCD bridge".into()))
+    }
+
+    /// Returns a callback to update the framebuffer (if a controller is attached)
+    pub fn render_callback(&self) -> Option<RenderCallback> {
+        self.controller.as_ref().map(|c| c.render_callback())
     }
 }
 
@@ -66,8 +76,8 @@ impl Memory for MonoLcdBridge {
         }
 
         let val: u16 = match offset {
-            0x8 => self.panel.read_command()?,
-            0x10 => self.panel.read_data()?,
+            0x8 => self.controller()?.read_command()?,
+            0x10 => self.controller()?.read_data()?,
             _ => return Err(Unexpected),
         };
 
@@ -92,8 +102,8 @@ impl Memory for MonoLcdBridge {
         };
 
         match offset {
-            0x8 => self.panel.write_command(val),
-            0x10 => self.panel.write_data(val),
+            0x8 => self.controller()?.write_command(val),
+            0x10 => self.controller()?.write_data(val),
             _ => Err(Unexpected),
         }
     }
