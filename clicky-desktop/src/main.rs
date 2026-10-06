@@ -10,9 +10,9 @@ pub type DynResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 use structopt::StructOpt;
 
 use clicky_core::block::{self, BlockDev};
-use clicky_core::gui::{IpodKey, TakeControls};
+use clicky_core::gui::IpodKey;
+use clicky_core::sys::{self, System as _};
 use clicky_core::sys::ipod4g::{BootKind, Ipod4g, Ipod4gGdb};
-use clicky_core::sys::System as _;
 use pprom::{PMPModel, Rom as PpRom};
 
 mod backends;
@@ -82,27 +82,27 @@ struct Args {
 }
 
 enum System {
-    Bare(Ipod4g),
+    Bare(Box<dyn sys::System>),
     Debug { system_gdb: Ipod4gGdb, cfg: GdbCfg },
 }
 
 impl core::ops::Deref for System {
-    type Target = Ipod4g;
+    type Target = dyn sys::System;
 
-    fn deref(&self) -> &Ipod4g {
+    fn deref(&self) -> &Self::Target {
         use self::System::*;
         match self {
-            Bare(sys) => sys,
+            Bare(sys) => &**sys,
             Debug { system_gdb, .. } => system_gdb.sys_ref(),
         }
     }
 }
 
 impl core::ops::DerefMut for System {
-    fn deref_mut(&mut self) -> &mut Ipod4g {
+    fn deref_mut(&mut self) -> &mut Self::Target {
         use self::System::*;
         match self {
-            Bare(sys) => sys,
+            Bare(sys) => &mut **sys,
             Debug { system_gdb, .. } => system_gdb.sys_mut(),
         }
     }
@@ -178,8 +178,22 @@ fn main() -> DynResult<()> {
 
     let model = args.model.or(detected_model);
 
+    // TODO: unify GDB targets across systems
+    if args.gdb.is_some() && model != Some(PMPModel::Ipod4g) {
+        return Err("GDB is only supported on ipod4g".into());
+    }
+
     let mut system = match model {
-        Some(PMPModel::Ipod4g) => Ipod4g::new(hdd, flash_rom, boot_kind)?,
+        Some(PMPModel::Ipod4g) => {
+            let system = Ipod4g::new(hdd, flash_rom, boot_kind)?;
+            match args.gdb {
+                Some(cfg) => System::Debug {
+                    system_gdb: Ipod4gGdb::new(system),
+                    cfg,
+                },
+                None => System::Bare(Box::new(system)),
+            }
+        }
         Some(other) => return Err(format!("unsupported model: {}", other).into()),
         None => return Err("no model detected in firmware and none specified".into()),
     };
@@ -192,15 +206,6 @@ fn main() -> DynResult<()> {
     let update_fb = system.render_callback();
     let controls = system.take_controls().unwrap();
     let (kill_ui_tx, kill_ui_rx) = std::sync::mpsc::channel();
-
-    // TODO: Only iPod 4G can use Ipod4gGdb
-    let mut system = match args.gdb {
-        Some(cfg) => System::Debug {
-            system_gdb: Ipod4gGdb::new(system),
-            cfg,
-        },
-        None => System::Bare(system),
-    };
 
     // the UI must run on the main thread (thanks macOS), so we run the system
     // in a separate thread
@@ -248,7 +253,7 @@ fn main() -> DynResult<()> {
         if let Err(fatal_error) = system_result {
             error!("Fatal Error! Caused by: {:#010x?}", fatal_error);
             error!("Dumping system state to {}", SYSDUMP_FILENAME);
-            std::fs::write(SYSDUMP_FILENAME, format!("{:#x?}", *system))?;
+            std::fs::write(SYSDUMP_FILENAME, format!("{:#x?}", &*system))?;
 
             match &mut system {
                 System::Bare(_system) => {}
