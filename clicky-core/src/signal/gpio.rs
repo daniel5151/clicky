@@ -57,7 +57,7 @@ impl Receiver {
 /// The sending side of a GPIO line. Senders can be cloned, whereupon each
 /// Sender will share the signal line. The signal is asserted if ANY Sender
 /// asserts, and cleared only if ALL Senders have called clear.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Sender {
     master: Master,
 }
