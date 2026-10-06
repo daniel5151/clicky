@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use crate::signal;
 
 pub mod clickwheel;
+pub mod quadrature;
 
 pub trait OptoDevice: std::fmt::Debug + Send + Sync {
     fn read_status(&mut self, command: Option<u32>) -> MemResult<u32>;

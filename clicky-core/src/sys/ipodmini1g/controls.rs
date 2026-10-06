@@ -1,5 +1,8 @@
+use crate::devices::input::quadrature::QuadratureEncoder;
 use crate::gui::{IpodBinds, IpodKey};
 use crate::signal::gpio;
+
+const WHEEL_STEPS_PER_SCROLL: f32 = 6.0;
 
 /// The GPIO lines driven by the 1st gen iPod mini's controls.
 /// Clickwheel also communicates over GPIO on this model.
@@ -11,6 +14,7 @@ pub(super) struct IpodMini1gControls {
     pub down: gpio::Sender,
     pub left: gpio::Sender,
     pub right: gpio::Sender,
+    pub wheel: QuadratureEncoder,
 }
 
 impl IpodMini1gControls {
@@ -23,6 +27,7 @@ impl IpodMini1gControls {
             mut down,
             mut left,
             mut right,
+            wheel,
         } = self;
 
         let mut controls = IpodBinds::default();
@@ -62,7 +67,16 @@ impl IpodMini1gControls {
         connect_controls_btn!(IpodKey::Right, right);
         connect_controls_btn!(IpodKey::Action, action);
 
-        // TODO: the wheel is a quadrature encoder on GPIO B4 / B5
+        controls.wheel = Some({
+            let mut remainder = 0.0;
+            Box::new(move |(_dx, dy)| {
+                // scrolling down turns the wheel clockwise
+                remainder += -dy * WHEEL_STEPS_PER_SCROLL;
+                let steps = remainder.trunc();
+                remainder -= steps;
+                wheel.rotate(steps as i32);
+            })
+        });
 
         controls
     }

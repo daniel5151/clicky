@@ -25,6 +25,8 @@ mod devices {
         pub use crate::devices::i2c::devices::Pcf5060x;
     }
 
+    pub use crate::devices::input::quadrature::QuadratureEncoder;
+
     pub use crate::devices::{
         display::hd66753::Hd66753,
         generic::{ide, AsanRam},
@@ -90,6 +92,8 @@ impl IpodMini1g {
         let (mut down_tx, down_rx) = gpio::new(gpio_changed.clone(), "KeyDown");
         let (mut right_tx, right_rx) = gpio::new(gpio_changed.clone(), "KeyRight");
         let (mut left_tx, left_rx) = gpio::new(gpio_changed.clone(), "KeyLeft");
+        let (wheel_a_tx, wheel_a_rx) = gpio::new(gpio_changed.clone(), "WheelA");
+        let (wheel_b_tx, wheel_b_rx) = gpio::new(gpio_changed.clone(), "WheelB");
 
         let mut sys = IpodMini1g {
             frozen: false,
@@ -127,7 +131,7 @@ impl IpodMini1g {
         }
 
         {
-            // GPIO A0..=A5
+            // GPIO A0..=A5, B4..=B5
             let mut gpio_abcd = sys.devices.soc.gpio_abcd.lock().unwrap();
             gpio_abcd
                 .register_in(0, action_rx)
@@ -135,7 +139,9 @@ impl IpodMini1g {
                 .register_in(2, down_rx)
                 .register_in(3, right_rx)
                 .register_in(4, left_rx)
-                .register_in(5, hold_rx);
+                .register_in(5, hold_rx)
+                .register_in(12, wheel_a_rx)
+                .register_in(13, wheel_b_rx);
         }
 
         // Hold and the buttons are all active-low, so set them to high by default
@@ -153,6 +159,11 @@ impl IpodMini1g {
             down: down_tx,
             left: left_tx,
             right: right_tx,
+            wheel: devices::QuadratureEncoder::new(
+                wheel_a_tx,
+                wheel_b_tx,
+                &sys.executor.spawner(),
+            ),
         });
 
         Ok(sys)
