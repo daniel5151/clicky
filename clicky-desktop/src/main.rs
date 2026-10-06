@@ -12,6 +12,7 @@ use structopt::StructOpt;
 use clicky_core::block::{self, BlockDev};
 use clicky_core::gui::IpodKey;
 use clicky_core::sys::ipod4g::{Ipod4g, Ipod4gGdb};
+use clicky_core::sys::ipodmini1g::IpodMini1g;
 use clicky_core::sys::{self, BootKind, System as _};
 use pprom::{PMPModel, Rom as PpRom};
 
@@ -193,6 +194,9 @@ fn main() -> DynResult<()> {
                 },
                 None => System::Bare(Box::new(system)),
             }
+        }
+        Some(PMPModel::IpodMini1g) => {
+            System::Bare(Box::new(IpodMini1g::new(hdd, flash_rom, boot_kind)?))
         }
         Some(other) => return Err(format!("unsupported model: {}", other).into()),
         None => return Err("no model detected in firmware and none specified".into()),
