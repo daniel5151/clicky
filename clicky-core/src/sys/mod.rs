@@ -4,6 +4,7 @@ use crate::error::FatalMemResult;
 use crate::gui::{IpodKey, RenderCallback, TakeControls};
 
 pub mod ipod4g;
+pub mod ipodmini1g;
 
 pub trait System: TakeControls + std::fmt::Debug + Send {
     fn model_name(&self) -> &'static str;
@@ -48,4 +49,5 @@ mod size_asserts {
     const MAX_SYS_SIZE: usize = DEFAULT_WASM_STACK_SIZE / 4;
 
     const_assert!(std::mem::size_of::<ipod4g::Ipod4g>() < MAX_SYS_SIZE);
+    const_assert!(std::mem::size_of::<ipodmini1g::IpodMini1g>() < MAX_SYS_SIZE);
 }
