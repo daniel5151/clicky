@@ -18,8 +18,7 @@ mod gdb;
 mod hle_bootloader;
 
 pub use gdb::Ipod4gGdb;
-pub use crate::sys::BootKind;
-use crate::sys::System;
+use crate::sys::{BootKind, System};
 
 use hle_bootloader::run_hle_bootloader;
 
