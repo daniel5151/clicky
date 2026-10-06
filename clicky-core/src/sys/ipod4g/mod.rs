@@ -159,9 +159,7 @@ impl Ipod4g {
             gpio_abcd.register_in(5, hold_rx.clone());
         }
 
-        {
-            sys.devices.opto.register_controls(controls_rx, hold_rx)
-        }
+        (sys.devices.opto).attach(Box::new(devices::ClickWheel::new(controls_rx, hold_rx)));
 
         // HACK: Hold is active-low, so set it to high by default
         hold_tx.set_high();

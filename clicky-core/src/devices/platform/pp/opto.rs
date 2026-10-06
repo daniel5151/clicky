@@ -48,12 +48,58 @@ impl Controls<()> {
     }
 }
 
+/// A device attached to the opto controller.
+pub trait OptoDevice: std::fmt::Debug + Send + Sync {
+    fn read_status(&mut self, command: Option<u32>) -> MemResult<u32>;
+}
+
+#[derive(Debug)]
+pub struct ClickWheel {
+    controls: Controls<signal::Slave>,
+    hold: gpio::Receiver,
+}
+
+impl ClickWheel {
+    pub fn new(controls: Controls<signal::Slave>, hold: gpio::Receiver) -> ClickWheel {
+        ClickWheel { controls, hold }
+    }
+}
+
+impl OptoDevice for ClickWheel {
+    fn read_status(&mut self, command: Option<u32>) -> MemResult<u32> {
+        let ClickWheel { controls, hold } = self;
+
+        let buttons = *0u32
+            .set_bit(0, controls.action.asserted())
+            .set_bit(1, controls.right.asserted())
+            .set_bit(2, controls.left.asserted())
+            .set_bit(3, controls.down.asserted())
+            .set_bit(4, controls.up.asserted());
+
+        // iPod 4G bootloader requests `0x023a` and looks for that
+        // signature in bits 31 + 0..15, having masked out 16..30; it
+        // then takes the buttons from bits 16..20. Rockbox knows this
+        // format to, see `(status & 0x8000FFFF) == 0x8000023A` in
+        // button-clickwheel.c (even though Rockbox only checks for
+        // this value for S5L iPods, not PP ones)
+        if matches!(command, Some(cmd) if cmd & 0xffff == 0x023a) {
+            return Ok(0x8000_023a | (buttons << 16));
+        }
+
+        Ok(*0u32
+            .set_bits(0..=7, if hold.is_high() { 0x1a } else { 0 }) // 0x1a, or 0 if hold is engaged
+            .set_bits(8..=12, buttons)
+            .set_bits(16..=22, *controls.wheel.1.lock().unwrap() as u32)
+            .set_bit(30, true) // FIXME: don't always return clickwheel active?
+            .set_bit(31, hold.is_high())) // set unless hold switch is engaged
+    }
+}
+
 /// I2C Controller
 #[derive(Debug)]
 pub struct OptoWheel {
     irq: irq::Sender,
-    controls: Option<Controls<signal::Slave>>,
-    hold: Option<gpio::Receiver>,
+    device: Option<Box<dyn OptoDevice>>,
 
     controls_status: u32,
     pending_cmd: Option<u32>,
@@ -63,17 +109,21 @@ impl OptoWheel {
     pub fn new(irq: irq::Sender) -> OptoWheel {
         OptoWheel {
             irq,
-            controls: None,
-            hold: None,
+            device: None,
 
             controls_status: 0,
             pending_cmd: None,
         }
     }
 
-    pub fn register_controls(&mut self, controls: Controls<signal::Slave>, hold: gpio::Receiver) {
-        self.controls = Some(controls);
-        self.hold = Some(hold);
+    pub fn attach(&mut self, device: Box<dyn OptoDevice>) {
+        self.device = Some(device);
+    }
+
+    fn device(&mut self) -> MemResult<&mut Box<dyn OptoDevice>> {
+        self.device
+            .as_mut()
+            .ok_or_else(|| Fatal("no device attached to the opto controller".into()))
     }
 
     pub fn on_change(&mut self) {
@@ -110,34 +160,7 @@ impl Memory for OptoWheel {
             0x40 => {
                 let command = self.pending_cmd.take();
 
-                let (controls, hold) = match (&self.controls, &self.hold) {
-                    (Some(controls), Some(hold)) => (controls, hold),
-                    _ => return Err(Fatal("no controls registered with i2c".into())),
-                };
-
-                let buttons = *0u32
-                    .set_bit(0, controls.action.asserted())
-                    .set_bit(1, controls.right.asserted())
-                    .set_bit(2, controls.left.asserted())
-                    .set_bit(3, controls.down.asserted())
-                    .set_bit(4, controls.up.asserted());
-
-                // iPod 4G bootloader requests `0x023a` and looks for that
-                // signature in bits 31 + 0..15, having masked out 16..30; it
-                // then takes the buttons from bits 16..20. Rockbox knows this
-                // format to, see `(status & 0x8000FFFF) == 0x8000023A` in
-                // button-clickwheel.c (even though Rockbox only checks for
-                // this value for S5L iPods, not PP ones)
-                if matches!(command, Some(cmd) if cmd & 0xffff == 0x023a) {
-                    return Err(StubRead(Debug, 0x8000_023a | (buttons << 16)));
-                }
-
-                let val = *0u32
-                    .set_bits(0..=7, if hold.is_high() { 0x1a } else { 0 }) // 0x1a, or 0 if hold is engaged
-                    .set_bits(8..=12, buttons)
-                    .set_bits(16..=22, *controls.wheel.1.lock().unwrap() as u32)
-                    .set_bit(30, true) // FIXME: don't always return clickwheel active?
-                    .set_bit(31, hold.is_high()); // set unless hold switch is engaged
+                let val = self.device()?.read_status(command)?;
 
                 Err(StubRead(Debug, val))
             }
