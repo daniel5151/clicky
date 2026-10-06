@@ -11,8 +11,8 @@ use structopt::StructOpt;
 
 use clicky_core::block::{self, BlockDev};
 use clicky_core::gui::IpodKey;
-use clicky_core::sys::{self, System as _};
-use clicky_core::sys::ipod4g::{BootKind, Ipod4g, Ipod4gGdb};
+use clicky_core::sys::ipod4g::{Ipod4g, Ipod4gGdb};
+use clicky_core::sys::{self, BootKind, System as _};
 use pprom::{PMPModel, Rom as PpRom};
 
 mod backends;
@@ -28,7 +28,7 @@ const SYSDUMP_FILENAME: &str = "sysdump.log";
 #[derive(StructOpt)]
 #[structopt(name = "clicky")]
 #[structopt(about = r#"
-An emulator for the classic clickwheel iPod 4g.
+An emulator for classic clickwheel iPods.
 "#)]
 struct Args {
     /// Load a firmware file using the HLE bootloader.
