@@ -12,6 +12,7 @@ use structopt::StructOpt;
 use clicky_core::block::{self, BlockDev};
 use clicky_core::gui::{IpodKey, TakeControls};
 use clicky_core::sys::ipod4g::{BootKind, Ipod4g, Ipod4gGdb};
+use clicky_core::sys::System as _;
 use pprom::{PMPModel, Rom as PpRom};
 
 mod backends;
