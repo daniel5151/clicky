@@ -63,6 +63,16 @@ pub struct Sender {
 }
 
 impl Sender {
+    /// Set the GPIO to a specific level
+    #[inline]
+    pub fn set_level(&mut self, level: bool) {
+        if level {
+            self.set_high()
+        } else {
+            self.set_low()
+        }
+    }
+
     /// Set the GPIO line high.
     #[inline]
     pub fn set_high(&mut self) {
