@@ -19,6 +19,7 @@ mod hle_bootloader;
 
 pub use gdb::Ipod4gGdb;
 pub use crate::sys::BootKind;
+use crate::sys::System;
 
 use hle_bootloader::run_hle_bootloader;
 
@@ -87,14 +88,6 @@ pub enum Ipod4gBuildError {
 }
 
 impl Ipod4g {
-    pub fn model_name(&self) -> &'static str {
-        "iPod 4g"
-    }
-
-    pub fn screen_size(&self) -> (usize, usize) {
-        (160, 128)
-    }
-
     /// Returns a new Ipod4g instance.
     pub fn new<F>(
         hdd: Box<dyn BlockDev>,
@@ -178,14 +171,6 @@ impl Ipod4g {
         }
 
         Ok(sys)
-    }
-
-    /// Set keys hold at boot
-    pub fn set_hold_keys(&mut self, keys: impl IntoIterator<Item = IpodKey>) {
-        let keys = keys.into_iter().collect::<Vec<_>>();
-        if !keys.is_empty() {
-            self.boot_hold = Some(keys);
-        }
     }
 
     fn warm_reset(&mut self) {
@@ -360,19 +345,30 @@ impl Ipod4g {
 
         Ok(true)
     }
+}
 
-    /// Run the system, returning successfully on "graceful exit"
-    /// (e.g: power-off).
-    pub fn run(&mut self) -> FatalMemResult<()> {
+impl System for Ipod4g {
+    fn model_name(&self) -> &'static str {
+        "iPod 4g"
+    }
+
+    fn screen_size(&self) -> (usize, usize) {
+        (160, 128)
+    }
+
+    fn set_hold_keys(&mut self, keys: Vec<IpodKey>) {
+        if !keys.is_empty() {
+            self.boot_hold = Some(keys);
+        }
+    }
+
+    fn run(&mut self) -> FatalMemResult<()> {
         let dummy_sniff_memory = |_, _| {};
         while self.step(BlockMode::Blocking, (&[], dummy_sniff_memory))? {}
         Ok(())
     }
 
-    /// Run the system, returning successfully on "graceful exit" (e.g:
-    /// power-off). This method will return after the specified number of cycles
-    /// have been executed.
-    pub fn run_cycles(&mut self, cycles: usize) -> FatalMemResult<()> {
+    fn run_cycles(&mut self, cycles: usize) -> FatalMemResult<()> {
         let dummy_sniff_memory = |_, _| {};
         for _ in 0..cycles {
             self.step(BlockMode::Blocking, (&[], dummy_sniff_memory))?;
@@ -380,16 +376,11 @@ impl Ipod4g {
         Ok(())
     }
 
-    /// Freeze the system such that `step` becomes a noop. Called prior to
-    /// spawning a "post-mortem" GDB session.
-    ///
-    /// WARNING - THERE IS NO WAY TO "THAW" A FROZEN SYSTEM!
-    pub fn freeze(&mut self) {
+    fn freeze(&mut self) {
         self.frozen = true;
     }
 
-    /// Return the system's RenderCallback method.
-    pub fn render_callback(&self) -> RenderCallback {
+    fn render_callback(&self) -> RenderCallback {
         self.devices.soc.mlcd.render_callback().expect("no LCD controller attached to the mono LCD bridge")
     }
 }
