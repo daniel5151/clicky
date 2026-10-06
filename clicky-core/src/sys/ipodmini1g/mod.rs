@@ -1,6 +1,8 @@
 use std::io::{Read, Seek};
+use std::time::Duration;
 
 use armv4t_emu::{reg, Cpu};
+use relativity::Timeout;
 use thiserror::Error;
 
 use crate::block::BlockDev;
@@ -34,6 +36,9 @@ mod devices {
     };
 }
 
+/// How "--hold-keys" are held down for
+const BOOT_HOLD_DURATION: Duration = Duration::from_millis(3000);
+
 #[derive(Debug)]
 pub struct IpodMini1g {
     frozen: bool, // set after a fatal error to enable post-mortem debugging
@@ -42,6 +47,11 @@ pub struct IpodMini1g {
     cop: Cpu,
     devices: IpodMini1gBoard,
     controls: Option<IpodMini1gControls>,
+    /// A second handle on each key line, used to synthesize key presses
+    /// independently of whoever took ownership of the system's controls.
+    synthetic_keys: Vec<(IpodKey, gpio::Sender)>,
+    /// Keys to hold down once the system starts executing code.
+    boot_hold: Option<Vec<IpodKey>>,
 
     irq_pending: irq::Pending,
     dma_pending: irq::Pending,
@@ -106,6 +116,14 @@ impl IpodMini1g {
                 dma_pending.clone(),
             ),
             controls: None,
+            synthetic_keys: vec![
+                (IpodKey::Action, action_tx.clone()),
+                (IpodKey::Up, up_tx.clone()),
+                (IpodKey::Down, down_tx.clone()),
+                (IpodKey::Right, right_tx.clone()),
+                (IpodKey::Left, left_tx.clone()),
+            ],
+            boot_hold: None,
 
             irq_pending,
             dma_pending,
@@ -182,6 +200,29 @@ impl IpodMini1g {
     fn step(&mut self) -> FatalMemResult<bool> {
         if self.frozen {
             return Ok(true);
+        }
+
+        if let Some(keys) = self.boot_hold.take() {
+            let mut lines = (self.synthetic_keys.iter())
+                .filter(|(key, _)| keys.contains(key))
+                .map(|(_, line)| line.clone())
+                .collect::<Vec<_>>();
+
+            self.executor
+                .spawner()
+                .spawn(async move {
+                    // buttons are active-low
+                    for line in lines.iter_mut() {
+                        line.set_low()
+                    }
+
+                    Timeout::new(BOOT_HOLD_DURATION).await;
+
+                    for line in lines.iter_mut() {
+                        line.set_high()
+                    }
+                })
+                .expect("failed to spawn boot-hold task");
         }
 
         if self
@@ -320,6 +361,7 @@ impl System for IpodMini1g {
         if !keys.is_empty() {
             // TODO: hold keys down at boot
             warn!("holding keys at boot isn't supported on the iPod mini 1g yet");
+            self.boot_hold = Some(keys);
         }
     }
 
