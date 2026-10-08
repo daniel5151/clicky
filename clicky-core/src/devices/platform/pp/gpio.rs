@@ -1,5 +1,8 @@
 use crate::devices::prelude::*;
 
+use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::Arc;
+
 use crate::devices::util::ArcMutexDevice;
 use crate::signal::{gpio, irq};
 
@@ -8,7 +11,9 @@ use crate::signal::{gpio, irq};
 struct GpioPort {
     label: &'static str,
 
-    irq: irq::Sender,
+    /// Pending IRQ lines, shared with the block that owns this port.
+    irq_mask: Arc<AtomicU8>,
+
     inputs: [Option<gpio::Receiver>; 8],
     outputs: [Option<gpio::Sender>; 8],
 
@@ -22,11 +27,12 @@ struct GpioPort {
 }
 
 impl GpioPort {
-    fn new(irq: irq::Sender, label: &'static str) -> GpioPort {
+    fn new(label: &'static str, irq_mask: Arc<AtomicU8>) -> GpioPort {
         GpioPort {
             label,
 
-            irq,
+            irq_mask,
+
             inputs: Default::default(),
             outputs: Default::default(),
 
@@ -99,15 +105,13 @@ impl GpioPort {
                 // rising edge trigger
                 true => !prev_level && level,
             };
-            self.interrupt_status.set_bit(i, trigger_irq);
+            // status bits are latched until acknowledged through IntClear
+            if trigger_irq {
+                self.interrupt_status.set_bit(i, true);
+            }
         }
 
-        // check if the IRQ line should be asserted / cleared
-        if (self.interrupt_status & self.interrupt_enable) != 0 {
-            self.irq.assert()
-        } else {
-            self.irq.clear()
-        }
+        (self.irq_mask).store(self.interrupt_status & self.interrupt_enable, Ordering::SeqCst);
     }
 }
 
@@ -177,17 +181,31 @@ impl Memory for GpioPort {
 #[derive(Debug)]
 pub struct GpioBlock {
     port: [GpioPort; 4],
+    irq: irq::Sender,
+    irq_masks: [Arc<AtomicU8>; 4],
 }
 
 impl GpioBlock {
     pub fn new(irq: irq::Sender, labels: [&'static str; 4]) -> GpioBlock {
+        let irq_masks: [Arc<AtomicU8>; 4] = Default::default();
+
         GpioBlock {
             port: [
-                GpioPort::new(irq.clone(), labels[0]),
-                GpioPort::new(irq.clone(), labels[1]),
-                GpioPort::new(irq.clone(), labels[2]),
-                GpioPort::new(irq, labels[3]),
+                GpioPort::new(labels[0], irq_masks[0].clone()),
+                GpioPort::new(labels[1], irq_masks[1].clone()),
+                GpioPort::new(labels[2], irq_masks[2].clone()),
+                GpioPort::new(labels[3], irq_masks[3].clone()),
             ],
+            irq,
+            irq_masks,
+        }
+    }
+
+    fn sync_irq(&mut self) {
+        if (self.irq_masks.iter()).any(|mask| mask.load(Ordering::SeqCst) != 0) {
+            self.irq.assert()
+        } else {
+            self.irq.clear()
         }
     }
 
@@ -219,6 +237,7 @@ impl GpioBlock {
         for port in self.port.iter_mut() {
             port.update()
         }
+        self.sync_irq();
     }
 }
 
@@ -241,7 +260,9 @@ impl Memory for GpioBlock {
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         let port = (offset / 4) % 4;
-        self.port[port as usize].w32(offset - 4 * port, val)
+        let res = self.port[port as usize].w32(offset - 4 * port, val);
+        self.sync_irq();
+        res
     }
 }
 
