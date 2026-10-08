@@ -2,7 +2,7 @@ use crate::devices::prelude::*;
 
 use std::sync::{Arc, RwLock};
 
-use crate::devices::display::LcdPanel;
+use crate::devices::display::{LcdController, LcdPanel};
 use crate::gui::RenderCallback;
 
 const MAX_WIDTH: usize = 176;
@@ -28,6 +28,7 @@ struct InternalRegs {
 
 /// Renesas Hd66789 176x240 color LCD Controller.
 pub struct Hd66789 {
+    panel: LcdPanel,
     gram: Arc<RwLock<[u16; GRAM_LEN]>>,
     ireg: Arc<RwLock<InternalRegs>>,
 }
@@ -42,8 +43,9 @@ impl std::fmt::Debug for Hd66789 {
 }
 
 impl Hd66789 {
-    pub fn new() -> Hd66789 {
+    pub fn new(panel: LcdPanel) -> Hd66789 {
         Hd66789 {
+            panel,
             gram: Arc::new(RwLock::new([0; GRAM_LEN])),
             ireg: Arc::new(RwLock::new(InternalRegs {
                 hea: (MAX_WIDTH - 1),
@@ -86,6 +88,7 @@ impl Hd66789 {
     fn make_render_callback(&self) -> RenderCallback {
         let gram = Arc::clone(&self.gram);
         let ireg = Arc::clone(&self.ireg);
+
         Box::new(move |buf: &mut Vec<u32>| -> (usize, usize) {
             let gram = *gram.read().unwrap();
             let ireg = *ireg.read().unwrap();
@@ -144,7 +147,7 @@ impl Hd66789 {
     }
 }
 
-impl LcdPanel for Hd66789 {
+impl LcdController for Hd66789 {
     fn write_command(&mut self, val: u16) -> MemResult<()> {
         let mut ireg = self.ireg.write().unwrap();
         ireg.cmd = val;
@@ -160,9 +163,17 @@ impl LcdPanel for Hd66789 {
         Ok(())
     }
 
+    fn read_command(&mut self) -> MemResult<u16> {
+        panic!("Unimplemented");
+    }
+
     fn write_data(&mut self, val: u16) -> MemResult<()> {
         self.handle_data_write(val);
         Ok(())
+    }
+
+    fn read_data(&mut self) -> MemResult<u16> {
+        panic!("Unimplemented");
     }
 
     fn render_callback(&self) -> RenderCallback {

@@ -5,6 +5,7 @@ use crate::devices::prelude::*;
 use crate::gui::RenderCallback;
 
 pub mod hd66753;
+pub mod hd66789;
 pub mod lr38825;
 
 /// LCD Controller IC trait (eg. HD66753)
