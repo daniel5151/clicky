@@ -1,6 +1,6 @@
 use crate::devices::prelude::*;
 
-use crate::devices::display::LcdPanel;
+use crate::devices::display::LcdController;
 use crate::gui::RenderCallback;
 
 /// PP5020 color LCD controller.
@@ -11,20 +11,33 @@ use crate::gui::RenderCallback;
 #[derive(Debug)]
 pub struct ColorLcdBridge {
     write_byte_latch: Option<u32>,
-    panel: Box<dyn LcdPanel>,
+    controller: Option<Box<dyn LcdController>>,
 }
 
 impl ColorLcdBridge {
-    pub fn new(panel: Box<dyn LcdPanel>) -> ColorLcdBridge {
+    pub fn new() -> ColorLcdBridge {
         ColorLcdBridge {
             write_byte_latch: None,
-            panel,
+            controller: None,
         }
     }
 
+    pub fn attach(&mut self, controller: Box<dyn LcdController>) {
+        self.controller = Some(controller);
+    }
+
+    fn controller(&mut self) -> MemResult<&mut Box<dyn LcdController>> {
+        self.controller
+            .as_mut()
+            .ok_or_else(|| Fatal("no LCD controller attached to the color LCD bridge".into()))
+    }
+
     /// Returns a callback to update the framebuffer.
-    pub fn render_callback(&self) -> RenderCallback {
-        self.panel.render_callback()
+    pub fn render_callback(&self) -> Option<RenderCallback> {
+        match &self.controller {
+            Some(controller) => Some(controller.render_callback()),
+            None => None,
+        }
     }
 }
 
@@ -67,16 +80,16 @@ impl Memory for ColorLcdBridge {
                     Some(hi) => {
                         let cmd16 = ((hi & 0xff) << 8 | (val & 0xff)) as u16;
                         if (val & 0xff00_0000) == 0x8000_0000 {
-                            return self.panel.write_command(cmd16);
+                            return self.controller()?.write_command(cmd16);
                         } else {
-                            return self.panel.write_data(cmd16);
+                            return self.controller()?.write_data(cmd16);
                         }
                     }
                 };
             }
             0x100 => {
-                let _ = self.panel.write_data(val as u16);
-                let _ = self.panel.write_data((val >> 16) as u16);
+                let _ = self.controller()?.write_data(val as u16);
+                let _ = self.controller()?.write_data((val >> 16) as u16);
                 return Ok(());
             },
             _ => Err(Unexpected),
