@@ -199,7 +199,10 @@ impl Hd66753 {
                 })
                 .map(move |(i, x)| {
                     // Cursor window
-                    let p_x = i % CGRAM_WIDTH;
+                    let p_x = match ireg.sgs {
+                        true => i % CGRAM_WIDTH,
+                        false => CGRAM_WIDTH - 1 - i % CGRAM_WIDTH,
+                    };
                     let p_y = i / CGRAM_WIDTH;
 
                     if Hd66753::is_in_cursor_region(&ireg, p_x, p_y) {
