@@ -12,6 +12,7 @@ pub struct Pp502x {
 
     pub cpuid: CpuIdReg,
     pub cpucon: CpuCon,
+    pub clcd: ColorLcdBridge,
     pub mlcd: MonoLcdBridge,
     pub timer1: CfgTimer,
     pub timer2: CfgTimer,
@@ -101,6 +102,7 @@ impl Pp502x {
             fastram: AsanRam::new(96 * 1024, true), // 96 KB
             cpuid: CpuIdReg::new(),
             cpucon: CpuCon::new(task_spawner.clone()),
+            clcd: ColorLcdBridge::new(),
             mlcd: MonoLcdBridge::new(),
             timer1: CfgTimer::new("1", timer1_irq_tx, task_spawner.clone()),
             timer2: CfgTimer::new("2", timer2_irq_tx, task_spawner),
@@ -227,6 +229,7 @@ soc_mmap! {
 
     0x7000_0000..=0x7000_1fff => ppcon,
     0x7000_3000..=0x7000_301f => mlcd,
+    0x7000_8a00..=0x7000_8b00 => clcd,
     0x7000_6000..=0x7000_603f => serial0,
     0x7000_6040..=0x7000_607f => serial1,
     0x7000_a000..=0x7000_a03f => pwmcon,
