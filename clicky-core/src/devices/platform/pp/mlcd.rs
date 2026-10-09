@@ -39,7 +39,10 @@ impl MonoLcdBridge {
 
     /// Returns a callback to update the framebuffer (if a controller is attached)
     pub fn render_callback(&self) -> Option<RenderCallback> {
-        self.controller.as_ref().map(|c| c.render_callback())
+        match &self.controller {
+            Some(controller) => Some(controller.render_callback()),
+            None => None,
+        }
     }
 }
 
