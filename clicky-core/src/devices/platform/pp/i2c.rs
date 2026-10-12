@@ -33,13 +33,24 @@ struct I2CTransactionCfg {
     // lower byte: 1 = read, 0 = write
     addr_op: Option<I2COp>,
     addr: Option<u8>,
+    // Set by writing to ADDR1, same layout as ADDR. Only used by two slave
+    // transactions.
+    addr1_op: Option<I2COp>,
+    addr1: Option<u8>,
     // Set by writing to CONTROL
     //
-    // bits 1..=2 - len
-    // bit  5     - read = 1, write = 0 (?)
-    // bit  7     - initiate transfer (SEND)
+    // Same fields as I2C_CNFG in the Tegra 2 TRM (21.5.1), with a 2-bit LENGTH:
+    //
+    // bits 1..=2 - LENGTH, bytes per slave minus one
+    // bit  3     - SLV2, two slave transaction
+    // bit  4     - START (ignored)
+    // bit  5     - CMD1, read = 1, write = 0
+    // bit  6     - CMD2, same for the second slave
+    // bit  7     - SEND, initiate transfer
     op: Option<I2COp>,
+    op1: Option<I2COp>,
     len: Option<u8>,
+    slv2: bool,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -47,6 +58,8 @@ struct I2CTransaction {
     op: I2COp,
     addr: u8,
     len: u8,
+    /// Optional second I2C slave. Data bytes follow those for the first transaction.
+    slave2: Option<(I2COp, u8)>,
 }
 
 use crate::memory::{MemAccess, MemAccessKind, ToMemAccess};
@@ -83,6 +96,20 @@ impl I2CTransactionCfg {
             op: (self.op).ok_or_else(|| Fatal("did not specify op".into()))?,
             addr: (self.addr).ok_or_else(|| Fatal("did not specify addr".into()))?,
             len: (self.len).ok_or_else(|| Fatal("did not specify len".into()))?,
+            slave2: match self.slv2 {
+                true => {
+                    if self.addr1_op != self.op1 {
+                        return Err(Fatal(
+                            "mismatch between op type in control (bit 6) and addr1 (bit 0)".into(),
+                        ));
+                    }
+                    Some((
+                        (self.op1).ok_or_else(|| Fatal("did not specify slave 2 op".into()))?,
+                        (self.addr1).ok_or_else(|| Fatal("did not specify addr1".into()))?,
+                    ))
+                }
+                false => None,
+            },
         };
 
         *self = I2CTransactionCfg::default();
@@ -183,13 +210,42 @@ impl I2CCon {
     // TODO?: This could be an async op (setting the busy flag + un-setting
     // when done)
     fn do_txn(&mut self, txn: I2CTransaction) -> MemResult<()> {
-        let I2CTransaction { op, addr, len } = txn;
+        let I2CTransaction {
+            op,
+            addr,
+            len,
+            slave2,
+        } = txn;
 
-        let res = match self.devices[addr as usize] {
+        let len = len as usize + 1;
+        let mut data_len = len;
+        let mut res = self.do_xfer(op, addr, 0, len);
+        if let Some((op, addr)) = slave2 {
+            if len * 2 > self.data.len() {
+                return Err(Fatal(
+                    "two slave transaction doesn't fit the data registers".into(),
+                ));
+            }
+            // run the second half even if the first one was stubbed
+            res = res.and(self.do_xfer(op, addr, len, len));
+            data_len = len * 2;
+        }
+
+        trace!(
+            target: "I2C",
+            "i2c txn: {:02x?} {:02x?}",
+            txn,
+            &self.data[..data_len]
+        );
+        res
+    }
+
+    fn do_xfer(&mut self, op: I2COp, addr: u8, start: usize, len: usize) -> MemResult<()> {
+        match self.devices[addr as usize] {
             Some(ref mut device) => {
                 let mut err = Ok(());
 
-                for b in self.data.iter_mut().take(len as usize + 1) {
+                for b in self.data.iter_mut().skip(start).take(len) {
                     // TODO: replace with try block once stabilized
                     let res = (|| match op {
                         I2COp::Read => match device.read() {
@@ -224,15 +280,7 @@ impl I2CCon {
                 I2COp::Read => StubRead(Debug, 0),
                 I2COp::Write => StubWrite(Debug, ()),
             }),
-        };
-
-        trace!(
-            target: "I2C",
-            "i2c txn: {:02x?} {:02x?}",
-            txn,
-            &self.data[..len as usize + 1]
-        );
-        res
+        }
     }
 }
 
@@ -245,6 +293,7 @@ impl Device for I2CCon {
         let reg = match offset {
             0x00 => "Control",
             0x04 => "Addr",
+            0x08 => "Addr1",
             0x0c => "Data0",
             0x10 => "Data1",
             0x14 => "Data2",
@@ -262,12 +311,18 @@ impl Memory for I2CCon {
         match offset {
             0x00 => Err(StubRead(Trace, {
                 *0u8.set_bits(1..=2, self.txn.len.unwrap_or(0))
+                    .set_bit(3, self.txn.slv2)
                     .set_bit(5, self.txn.op.map(|op| op.into_bit()).unwrap_or(false))
+                    .set_bit(6, self.txn.op1.map(|op| op.into_bit()).unwrap_or(false))
                     as u32
             })),
             0x04 => Ok({
                 *0u8.set_bit(0, self.txn.addr_op.map(|op| op.into_bit()).unwrap_or(false))
                     .set_bits(1..=7, self.txn.addr.unwrap_or(0)) as u32
+            }),
+            0x08 => Ok({
+                *0u8.set_bit(0, self.txn.addr1_op.map(|op| op.into_bit()).unwrap_or(false))
+                    .set_bits(1..=7, self.txn.addr1.unwrap_or(0)) as u32
             }),
             0x0c => Ok(self.data[0] as u32),
             0x10 => Ok(self.data[1] as u32),
@@ -275,7 +330,7 @@ impl Memory for I2CCon {
             0x18 => Ok(self.data[3] as u32),
             0x1c => {
                 Ok((self.busy as u32) << 6)
-            }
+            },
             _ => Err(Unexpected),
         }
     }
@@ -287,6 +342,8 @@ impl Memory for I2CCon {
             0x00 => Err(StubWrite(Trace, {
                 self.txn.len = Some(val.get_bits(1..=2));
                 self.txn.op = Some(I2COp::from_bit(val.get_bit(5)));
+                self.txn.op1 = Some(I2COp::from_bit(val.get_bit(6)));
+                self.txn.slv2 = val.get_bit(3);
                 if val.get_bit(7) {
                     let txn = self.txn.take_txn()?;
                     if let Err(e) = self.do_txn(txn) {
@@ -305,6 +362,10 @@ impl Memory for I2CCon {
             0x04 => Ok({
                 self.txn.addr_op = Some(I2COp::from_bit(val.get_bit(0)));
                 self.txn.addr = Some(val.get_bits(1..=7));
+            }),
+            0x08 => Ok({
+                self.txn.addr1_op = Some(I2COp::from_bit(val.get_bit(0)));
+                self.txn.addr1 = Some(val.get_bits(1..=7));
             }),
             0x0c => Ok(self.data[0] = val),
             0x10 => Ok(self.data[1] = val),
