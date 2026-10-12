@@ -47,6 +47,7 @@ pub struct Pp502x {
     pub mystery_flash_stub: Stub,
     pub total_mystery: Stub,
     pub pp5002_serial_stub: Stub,
+    pub maybe_tv_stub: Stub,
 }
 
 impl Pp502x {
@@ -138,6 +139,7 @@ impl Pp502x {
             mystery_flash_stub: Stub::new("Mystery FlashROM Con?"),
             total_mystery: Stub::new("(?) Arbiter Priority"),
             pp5002_serial_stub: Stub::new("PP5002 serial stub"),
+            maybe_tv_stub: Stub::new("TV ouput?"),
         }
     }
 
@@ -236,6 +238,7 @@ soc_mmap! {
     0x7000_c000..=0x7000_c0ff => i2ccon,
     0x7000_c100..=0x7000_c1ff => opto,
     0x7000_2800..=0x7000_28ff => i2s,
+    0x7000_2c00..=0x7000_2cff => maybe_tv_stub,
     0xc300_0000..=0xc300_0fff => eidecon,
     0xf000_0000..=0xf000_ffff => memcon,
 
