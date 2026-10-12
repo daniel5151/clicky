@@ -24,7 +24,7 @@ struct InternalRegs {
 }
 
 pub struct LR38825 {
-	panel: LcdPanel,
+	panel: Option<LcdPanel>,
     gram: Arc<RwLock<[u16; GRAM_LEN]>>,
     ireg: Arc<RwLock<InternalRegs>>,
 }
@@ -39,9 +39,9 @@ impl std::fmt::Debug for LR38825 {
 }
 
 impl LR38825 {
-    pub fn new(panel: LcdPanel) -> LR38825 {
+    pub fn new() -> LR38825 {
         LR38825 {
-        	panel,
+            panel: None,
             gram: Arc::new(RwLock::new([0; GRAM_LEN])),
             ireg: Arc::new(RwLock::new(InternalRegs {
                 x_end: MAX_WIDTH - 1,
@@ -49,6 +49,10 @@ impl LR38825 {
                 ..InternalRegs::default()
             })),
         }
+    }
+
+    pub fn attach(&mut self, panel: LcdPanel) {
+        self.panel = Some(panel);
     }
 
     fn width(ireg: &InternalRegs) -> usize {
