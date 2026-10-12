@@ -4,7 +4,7 @@
 | -------------------------------- | ----------------- | ------ | --------- | --- | ----- | --- | --- | --------- | ---------- |
 | iPod mini                        | January ‘04       | PP5020 | WIP       | Yes | No    | WIP | WIP | Won’t Do¹ | WIP        |
 | iPod (4th Generation)            | July ‘04          | PP5020 | Yes       | Yes | No    | WIP | WIP | Won’t Do¹ | Yes        |
-| iPod photo                       | February ‘05      | PP5020 | No        | No  | No    | WIP | WIP | Won’t Do¹ | ?          |
+| iPod photo                       | February ‘05      | PP5020 | WIP       | No  | No    | WIP | WIP | Won’t Do¹ | ?          |
 | iPod mini (2nd Generation)       | February ‘05      | PP5022 | No        | Yes | No    | WIP | WIP | Won’t Do¹ | ?          |
 | iPod with Color Display          | June ‘05          | PP5020 | No        | No  | No    | WIP | WIP | Won’t Do¹ | ?          |
 | iPod Nano                        | September ‘05     | PP5021 | No        | No  | No    | ?   | ?   | Won’t Do¹ | ?          |
