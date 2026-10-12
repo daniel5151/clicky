@@ -422,7 +422,9 @@ impl IpodMini1gBoard {
             height: 110,
             reverse_hor: true,
         };
-        soc.mlcd.attach(Box::new(Hd66753::new(lcd_panel)));
+        let mut lcd = Hd66753::new();
+        lcd.attach(lcd_panel);
+        soc.mlcd.attach(Box::new(lcd));
 
         IpodMini1gBoard {
             soc,

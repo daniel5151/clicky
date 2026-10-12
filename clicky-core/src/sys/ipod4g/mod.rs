@@ -421,7 +421,9 @@ impl Ipod4gBoard {
             height: 128,
             reverse_hor: false,
         };
-        soc.mlcd.attach(Box::new(Hd66753::new(lcd_panel)));
+        let mut lcd = Hd66753::new();
+        lcd.attach(lcd_panel);
+        soc.mlcd.attach(Box::new(lcd));
 
         Ipod4gBoard {
             soc,

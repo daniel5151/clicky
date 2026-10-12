@@ -92,7 +92,7 @@ struct InternalRegs {
 
 /// Hitachi HD66753 168x132 monochrome LCD Controller.
 pub struct Hd66753 {
-    panel: LcdPanel,
+    panel: Option<LcdPanel>,
 
     /// Index Register
     ir: u16,
@@ -116,7 +116,7 @@ impl std::fmt::Debug for Hd66753 {
 }
 
 impl Hd66753 {
-    pub fn new(panel: LcdPanel) -> Hd66753 {
+    pub fn new() -> Hd66753 {
         let cgram = Arc::new(RwLock::new([0; EMU_CGRAM_LEN]));
         let ireg = Arc::new(RwLock::new(InternalRegs {
             nl: 0b11111, // 168 x 132
@@ -124,12 +124,16 @@ impl Hd66753 {
         }));
 
         Hd66753 {
-            panel,
+            panel: None,
             ir: 0,
             ac: 0,
             cgram,
             ireg,
         }
+    }
+
+    pub fn attach(&mut self, panel: LcdPanel) {
+        self.panel = Some(panel);
     }
 
     fn is_in_cursor_region(ireg: &InternalRegs, p_x: usize, p_y: usize) -> bool {
@@ -146,6 +150,10 @@ impl Hd66753 {
     /// The callback accepts a minifb framebuffer, and returns the rendered
     /// dimensions.
     fn make_render_callback(&self) -> RenderCallback {
+        if self.panel.is_none() {
+            panic!("make_render_callback called on HD66753 with no LCD panel set");
+        }
+
         let cgram = Arc::clone(&self.cgram);
         let ireg = Arc::clone(&self.ireg);
         let panel = self.panel.clone();
@@ -226,7 +234,7 @@ impl Hd66753 {
             // replace in-place
             buf.splice(.., new_buf);
 
-            if panel.reverse_hor {
+            if panel.unwrap().reverse_hor {
                 for row in buf.chunks_exact_mut(CGRAM_WIDTH) {
                     row.reverse()
                 }
