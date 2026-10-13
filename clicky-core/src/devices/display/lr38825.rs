@@ -104,45 +104,25 @@ impl LR38825 {
         Some((x, y))
     }
 
-    fn advance(ireg: &mut InternalRegs) {
-        let width = Self::width(ireg);
-        let height = Self::height(ireg);
-        match (ireg.mirror_x, ireg.mirror_y, ireg.swap_xy) {
-            (false, true, true) => {
-                // left to right / right to left
-                ireg.cur_x += 1;
-                if ireg.cur_x >= width {
-                    ireg.cur_x = 0;
-                    ireg.cur_y += 1;
-                }
-            }
-
-            (false, false, false) => {
-                // top to bottom
-                ireg.cur_y += 1;
-                if ireg.cur_y >= height {
-                    ireg.cur_y = 0;
-                    ireg.cur_x += 1;
-                }
-            }
-
-            (_, _, _) => {
-                error!(target: "LCD", "LR38825: unsupported configuration mirror_x={} mirror_y={} swap_xy={}",
-                    ireg.mirror_x, ireg.mirror_y, ireg.swap_xy);
-            }
-        }
-    }
-
     fn write_ram(&mut self, val: u16) {
         let mut ireg = self.ireg.write().unwrap();
+        let width = Self::width(&ireg);
+        let height = Self::height(&ireg);
+        
         let Some((x, y)) = Self::cursor_position(&ireg) else {
             return;
         };
+        
         if x < MAX_WIDTH && y < MAX_HEIGHT {
             let idx = y * MAX_WIDTH + x;
             self.gram.write().unwrap()[idx] = val;
         }
-        Self::advance(&mut ireg);
+        
+        ireg.cur_x += 1;
+        if ireg.cur_x >= width {
+            ireg.cur_x = 0;
+            ireg.cur_y += 1;
+        }
     }
 
     fn make_render_callback(&self) -> RenderCallback {
