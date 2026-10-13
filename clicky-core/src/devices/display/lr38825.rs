@@ -27,10 +27,13 @@ struct InternalRegs {
     y_start: usize,
     y_end: usize,
     mirror: bool,
-    vertical_input: usize,
 
     cur_x: usize,
     cur_y: usize,
+
+    mirror_x: bool,
+    mirror_y: bool,
+    swap_xy: bool,
 }
 
 pub struct LR38825 {
@@ -104,8 +107,8 @@ impl LR38825 {
     fn advance(ireg: &mut InternalRegs) {
         let width = Self::width(ireg);
         let height = Self::height(ireg);
-        match ireg.vertical_input {
-            6 => {
+        match (ireg.mirror_x, ireg.mirror_y, ireg.swap_xy) {
+            (false, true, true) => {
                 // left to right / right to left
                 ireg.cur_x += 1;
                 if ireg.cur_x >= width {
@@ -113,7 +116,8 @@ impl LR38825 {
                     ireg.cur_y += 1;
                 }
             }
-            0 => {
+
+            (false, false, false) => {
                 // top to bottom
                 ireg.cur_y += 1;
                 if ireg.cur_y >= height {
@@ -121,8 +125,10 @@ impl LR38825 {
                     ireg.cur_x += 1;
                 }
             }
-            mode => {
-                error!(target: "LCD", "LR38825: unsupported memory access mode {:x}", mode);
+
+            (_, _, _) => {
+                error!(target: "LCD", "LR38825: unsupported configuration mirror_x={} mirror_y={} swap_xy={}",
+                    ireg.mirror_x, ireg.mirror_y, ireg.swap_xy);
             }
         }
     }
@@ -231,7 +237,9 @@ impl LcdController for LR38825 {
             //  1: Mirror Y
             //  2: Swap X/Y
             0x18 => {
-                ireg.vertical_input = val as usize;
+                ireg.mirror_x = val.get_bit(0);
+                ireg.mirror_y = val.get_bit(1);
+                ireg.swap_xy = val.get_bit(2);
             },
 
             // "Display displaying setting register" (sic)
