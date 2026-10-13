@@ -1,3 +1,13 @@
+// LR38825 resources:
+// - https://www.mouser.com/ds/2/365/LQ022B8UD05_LCP-05032F-183713.pdf
+// - https://github.com/Astralix/hardware_drivers/blob/6a6934a054551ac34968365491f1504a9cf3c685/dmw96/u-boot/u-boot/board/dspg/dw/lcd.c
+// - https://github.com/Infineon/middleware-emwin/blob/master/Sample/DisplayDriver/CompactColor_16/GUIDRV_CompactColor_16.c
+//
+// LR38826 resources (similar to LR38825 in some aspects):
+// - https://github.com/ua1arn/hftrx/blob/d2037da0fb57eac499de9e10cf75b8327bf1832b/boards/arm_rockchip_ctlstyle_opi3b.h
+// - https://github.com/zhou88mang/hftrx/blob/1853c0fd11f113b64b8f6f9fe1d11b75191ec312/src/display/ls020.c
+// - https://akost.github.io/siemens-s65-display/
+
 use crate::devices::prelude::*;
 
 use std::sync::{Arc, RwLock};
@@ -157,13 +167,34 @@ impl LcdController for LR38825 {
             trace!(target: "LCD", "write_command cmd:{:x} val:0x{:x}({})", ireg.cmd, val, val);
         }
         match ireg.cmd {
+            // 0: Oscillator stop
+            0x1 => {},
+
+            // VMD
+            0x3 => {}
+
+            0x8 => {},
+
+            // HIF1 Layout:
+            //  0-1: ?
+            //  2: Display RAM memory address incr/decr
+            //  3: PDF0 (?)
+            //  4-5: ?
+            //  6: 0=RGB, 1=BGR
             0x10 => {
                 ireg.mirror = !val.get_bit(2);
             }
+
+            // HIF2
+            0x11 => {},
+
+            // ASX
             0x12 => {
                 ireg.y_start = val as usize;
                 Self::reset_cursor(&mut ireg);
             }
+
+            // ASY
             0x13 => {
                 if ireg.mirror {
                     ireg.x_start = MAX_WIDTH - val as usize - 1;
@@ -172,10 +203,17 @@ impl LcdController for LR38825 {
                 }
                 Self::reset_cursor(&mut ireg);
             }
+
+            // Horizontal RAM address
+            0x14 => {},
+
+            // AEX
             0x15 => {
                 ireg.y_end = val as usize;
                 Self::reset_cursor(&mut ireg);
             }
+
+            // AEY
             0x16 => {
                 if ireg.mirror {
                     ireg.x_end = MAX_WIDTH - val as usize - 1;
@@ -184,10 +222,40 @@ impl LcdController for LR38825 {
                 }
                 Self::reset_cursor(&mut ireg);
             }
+
+            // Vertical RAM address
+            0x17 => {},
+
+            // AGM layout:
+            //  0: Mirror X
+            //  1: Mirror Y
+            //  2: Swap X/Y
             0x18 => {
                 ireg.vertical_input = val as usize;
-            }
-            0x01 | 0x02 | 0x7e | 0x7f | 0x80 | 0xce | 0xef => {}
+            },
+
+            // "Display displaying setting register" (sic)
+            0x7E => {},
+
+            // "V sync parameter transfer flag"
+            //  0: TG parameter refresh
+            0x7F => {},
+
+            // "Display displaying control register" (sic)
+            //  0: Display on
+            //  1-7: ?
+            0x80 => {}
+
+            // Display displaying color setting register
+            0x88 => {}
+
+            // Set Page
+            // Page 0 = CPU bank
+            0xef => {},
+
+            // Unidentified commands used in RetailOS
+            0x02 | 0x08 | 0xce => {},
+
             invalid_cmd => {
                 return Err(Fatal(format!(
                     "attempted to execute invalid LCD command {:#x?}",
