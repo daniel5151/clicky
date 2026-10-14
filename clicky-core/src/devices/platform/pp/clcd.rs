@@ -10,6 +10,7 @@ use crate::gui::RenderCallback;
 /// reads return the high byte first and latch the low byte for the next read.
 #[derive(Debug)]
 pub struct ColorLcdBridge {
+    config: u32,
     write_byte_latch: Option<u32>,
     controller: Option<Box<dyn LcdController>>,
 }
@@ -17,6 +18,7 @@ pub struct ColorLcdBridge {
 impl ColorLcdBridge {
     pub fn new() -> ColorLcdBridge {
         ColorLcdBridge {
+            config: 0,
             write_byte_latch: None,
             controller: None,
         }
@@ -62,15 +64,21 @@ impl Device for ColorLcdBridge {
 impl Memory for ColorLcdBridge {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
-            0x0c => Ok(0x0000_0000),
-            0x20 => Ok(0x0500_0000),
+            0x00 => Err(StubRead(Trace, 0)),
+            0x04 => Err(StubRead(Trace, 0)),
+            0x0c => Err(StubRead(Trace, 0)),
+            0x20 => Err(StubRead(Trace, 0x0500_0000)),
+            0x24 => Err(StubRead(Trace, self.config)),
             _ => return Err(Unexpected),
         }
     }
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         match offset {
-            0x00 | 0x04 | 0x20 | 0x24 => Ok(()),
+            0x00 => Err(StubWrite(Trace, ())),
+            0x04 => Err(StubWrite(Trace, ())),
+            0x20 => Err(StubWrite(Trace, ())),
+            0x24 => Err(StubWrite(Trace, self.config = val)),
             0x0c => {
                 match self.write_byte_latch.take() {
                     None => {
@@ -88,9 +96,18 @@ impl Memory for ColorLcdBridge {
                 };
             }
             0x100 => {
-                let _ = self.controller()?.write_data(val as u16);
-                let _ = self.controller()?.write_data((val >> 16) as u16);
-                return Ok(());
+                if self.config.get_bit(16) {
+                    if self.config.get_bit(1) {
+                        // a bit chosen randomly between 0xcc010001 (w8) vs 0xc0010167/0xc0013547/0xc0013cef/0xc001f937 (2x w16)
+                        let _ = self.controller()?.write_data(val as u16);
+                        let _ = self.controller()?.write_data((val >> 16) as u16);
+                    } else {
+                        let _ = self.controller()?.write_data(val as u16 >> 8 | (val as u16) << 8);
+                    }
+                    return Ok(());
+                } else {
+                    return self.controller()?.write_command(val as u16 >> 8);
+                }
             },
             _ => Err(Unexpected),
         }
