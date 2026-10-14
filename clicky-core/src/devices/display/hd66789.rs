@@ -6,7 +6,7 @@ use crate::devices::display::{LcdController, LcdPanel};
 use crate::gui::RenderCallback;
 
 const MAX_WIDTH: usize = 176;
-const MAX_HEIGHT: usize = 240;
+const MAX_HEIGHT: usize = 220;
 const GRAM_LEN: usize = MAX_WIDTH * MAX_HEIGHT;
 
 #[derive(Debug, Default, Copy, Clone)]
