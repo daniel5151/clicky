@@ -2,6 +2,7 @@ use crate::devices::prelude::*;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use stdrandom;
 
 const DEV_SYSTEM: u32 = 1 << 2;
 
@@ -61,7 +62,7 @@ impl Device for DevCon {
             0x20 => "Clock Source",
             0x2c => "MLCD SCLK DIV",
             0x34 => "PLL Control",
-            0x38 => "(?) PLL related",
+            0x38 => "Free-running PLL counter",
             0x3c => "PLL Status",
             0x44 => "Cache Priority",
             0xa0 => "CLCD Clock Source",
@@ -85,7 +86,7 @@ impl Memory for DevCon {
             0x20 => Ok(self.clock_source),
             0x2c => Err(StubRead(Error, 0)),
             0x34 => Ok(self.pll_control),
-            0x38 => Err(StubRead(Error, 0)),
+            0x38 => Ok((stdrandom::fast_u16() as u32) << 16),
             0x3c => Ok(self.pll_status),
             0x44 => Err(StubRead(Error, self.cache_priority as u32)),
             0xa0 => Err(StubRead(Trace, 0)),
