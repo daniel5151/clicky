@@ -58,7 +58,7 @@ impl Hd66789 {
                 vertical_increment: 1,
                 ..InternalRegs::default()
             })),
-            rotated,
+            rotated: false,
         }
     }
 
