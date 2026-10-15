@@ -2,6 +2,26 @@ use crate::devices::prelude::*;
 
 use crate::devices::display::LcdController;
 use crate::gui::RenderCallback;
+use bitfields::bitfield;
+
+// Observed values:
+//  - 0xcc010001
+//  - 0xc0010167
+//  - 0xc0013547
+//  - 0xc0013cef
+//  - 0xc001f937
+#[bitfield(u32)]
+struct Config {
+    /// Data / Command#
+    data_ncmd: bool,
+
+    /// Unknown configuration bits (0x4001 in Rockbox)
+    #[bits(15)]
+    _reserved: u16,
+    
+    /// Size (bytes) of data transaction
+    transaction_size: u16,
+}
 
 /// PP5020 color LCD controller.
 ///
@@ -10,7 +30,7 @@ use crate::gui::RenderCallback;
 /// reads return the high byte first and latch the low byte for the next read.
 #[derive(Debug)]
 pub struct ColorLcdBridge {
-    config: u32,
+    config: Config,
     write_byte_latch: Option<u32>,
     controller: Option<Box<dyn LcdController>>,
 }
@@ -18,7 +38,7 @@ pub struct ColorLcdBridge {
 impl ColorLcdBridge {
     pub fn new() -> ColorLcdBridge {
         ColorLcdBridge {
-            config: 0,
+            config: Config::new(),
             write_byte_latch: None,
             controller: None,
         }
@@ -68,7 +88,7 @@ impl Memory for ColorLcdBridge {
             0x04 => Err(StubRead(Trace, 0)),
             0x0c => Err(StubRead(Trace, 0)),
             0x20 => Err(StubRead(Trace, 0x0500_0000)),
-            0x24 => Err(StubRead(Trace, self.config)),
+            0x24 => Err(StubRead(Trace, self.config.into_bits())),
             _ => return Err(Unexpected),
         }
     }
@@ -78,7 +98,9 @@ impl Memory for ColorLcdBridge {
             0x00 => Err(StubWrite(Trace, ())),
             0x04 => Err(StubWrite(Trace, ())),
             0x20 => Err(StubWrite(Trace, ())),
-            0x24 => Err(StubWrite(Trace, self.config = val)),
+            0x24 => Err(StubWrite(Trace, {
+                self.config.write_bits(val);
+            })),
             0x0c => {
                 match self.write_byte_latch.take() {
                     None => {
@@ -96,8 +118,8 @@ impl Memory for ColorLcdBridge {
                 };
             }
             0x100 => {
-                if self.config.get_bit(16) {
-                    if self.config.get_bit(1) {
+                if self.config.data_ncmd() {
+                    if self.config.transaction_size().get_bit(1) {
                         // a bit chosen randomly between 0xcc010001 (w8) vs 0xc0010167/0xc0013547/0xc0013cef/0xc001f937 (2x w16)
                         let _ = self.controller()?.write_data(val as u16);
                         let _ = self.controller()?.write_data((val >> 16) as u16);

@@ -33,6 +33,7 @@ blocking = "0.5"
 futures-executor = { version = "0.3", features = ["thread-pool"] } # TEMP
 pin-utils = "0.1"
 stdrandom = "0.3.0"
+bitfields = "3.1.0"
 [dependencies.futures]
 version = "0.3"
 default-features = false
