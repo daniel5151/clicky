@@ -155,11 +155,9 @@ impl Hd66789 {
     /// dimensions.
     fn make_render_callback(&self) -> RenderCallback {
         let gram = Arc::clone(&self.gram);
-        let ireg = Arc::clone(&self.ireg);
         let rotated = self.rotated;
         Box::new(move |buf: &mut Vec<u32>| -> (usize, usize) {
             let gram = *gram.read().unwrap();
-            let ireg = *ireg.read().unwrap();
             if !rotated {
                 let new_buf = gram.iter().map(|&px| {
                     let p = px.rotate_left(8);
