@@ -86,7 +86,7 @@ impl Memory for DevCon {
             0x20 => Ok(self.clock_source),
             0x2c => Err(StubRead(Error, 0)),
             0x34 => Ok(self.pll_control),
-            0x38 => Ok((stdrandom::fast_u16() as u32) << 16),
+            0x38 => Ok(stdrandom::fast_u16() as u32),
             0x3c => Ok(self.pll_status),
             0x44 => Err(StubRead(Error, self.cache_priority as u32)),
             0xa0 => Err(StubRead(Trace, 0)),
