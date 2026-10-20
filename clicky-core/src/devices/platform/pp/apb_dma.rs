@@ -70,10 +70,6 @@ impl ApbDma {
         dma.dma[1].label = Some("1");
         dma.dma[2].label = Some("2");
         dma.dma[3].label = Some("3");
-        dma.dma[4].label = Some("4");
-        dma.dma[5].label = Some("5");
-        dma.dma[6].label = Some("6");
-        dma.dma[7].label = Some("7");
 
         dma
     }
