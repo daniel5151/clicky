@@ -38,7 +38,7 @@ impl Device for DmaChannel {
 
 #[derive(Debug)]
 pub struct ApbDma {
-    dma: [DmaChannel; 8],
+    dma: [DmaChannel; 4],
     master_control: u32,
     master_status: u32,
     req_status: u32,
@@ -72,9 +72,9 @@ impl Device for ApbDma {
             0x0 => "Master Control",
             0x4 => "Master Status",
             0x8 => "Req Status",
-            0x1000..=0x10ff => {
-                let id = (offset - 0x1000) / 0x20;
-                return Probe::from_device(&self.dma[id as usize], offset % 0x20);
+            0x1000..=0x1fff => {
+                let offset = (offset - 0x1000) % 0x80;
+                return Probe::from_device(&self.dma[(offset / 0x20) as usize], offset % 0x20);
             }
             _ => return Probe::Unmapped,
         };
@@ -89,9 +89,9 @@ impl Memory for ApbDma {
             0x0 => Err(StubRead(Error, self.master_control)),
             0x4 => Err(StubRead(Error, self.master_status)),
             0x8 => Err(StubRead(Error, self.req_status)),
-            0x1000..=0x10ff => {
-                let id = (offset - 0x1000) / 0x20;
-                let dma = &mut self.dma[id as usize];
+            0x1000..=0x1fff => {
+                let offset = (offset - 0x1000) % 0x80;
+                let dma = &mut self.dma[(offset / 0x20) as usize];
                 match offset % 0x20 {
                     0x00 => Err(StubRead(Error, dma.cmd)),
                     0x04 => Err(StubRead(Error, dma.status)),
@@ -111,9 +111,9 @@ impl Memory for ApbDma {
             0x0 => Err(StubWrite(Error, self.master_control = val)),
             0x4 => Err(StubWrite(Error, self.master_status = val)),
             0x8 => Err(StubWrite(Error, self.req_status = val)),
-            0x1000..=0x10ff => {
-                let id = (offset - 0x1000) / 0x20;
-                let dma = &mut self.dma[id as usize];
+            0x1000..=0x1fff => {
+                let offset = (offset - 0x1000) % 0x80;
+                let dma = &mut self.dma[(offset / 0x20) as usize];
                 match offset % 0x20 {
                     0x00 => Err(StubWrite(Error, dma.cmd = val)),
                     0x04 => Err(StubWrite(Error, dma.status = val)),
