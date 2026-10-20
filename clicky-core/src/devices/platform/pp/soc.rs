@@ -96,7 +96,7 @@ impl Pp502x {
             .register(40, i2c_irq_rx);
 
         let ahb_dma = AhbDma::new();
-        let apb_dma = ApbDma::new(Some(ide_dmarq_rx));
+        let apb_dma = ApbDma::new();
 
         Pp502x {
             fastram: AsanRam::new(96 * 1024, true), // 96 KB
@@ -122,7 +122,7 @@ impl Pp502x {
             ppcon: PPCon::new(),
             devcon: DevCon::new(),
             intcon,
-            eidecon: EIDECon::new(ide_irq_tx, ide_dmarq_tx),
+            eidecon: EIDECon::new(ide_irq_tx, ide_dmarq_tx, ide_dmarq_rx),
             memcon: MemCon::new(),
             cachecon: CacheCon::new(),
             i2s: I2SCon::new(),
