@@ -38,8 +38,6 @@ impl Device for DmaChannel {
 
 #[derive(Debug)]
 pub struct AhbDma {
-    label: &'static str,
-
     dma: [DmaChannel; 8],
     master_control: u32,
     master_status: u32,
@@ -47,10 +45,8 @@ pub struct AhbDma {
 }
 
 impl AhbDma {
-    pub fn new(label: &'static str) -> AhbDma {
+    pub fn new() -> AhbDma {
         let mut dma = AhbDma {
-            label,
-
             dma: Default::default(),
             master_control: 0,
             master_status: 0,
@@ -73,10 +69,6 @@ impl AhbDma {
 impl Device for AhbDma {
     fn kind(&self) -> &'static str {
         "DMA Engine"
-    }
-
-    fn label(&self) -> Option<&'static str> {
-        Some(self.label)
     }
 
     fn probe(&self, offset: u32) -> Probe {
