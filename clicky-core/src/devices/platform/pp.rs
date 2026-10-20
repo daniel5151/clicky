@@ -2,13 +2,13 @@
 
 mod mmap;
 
+mod apb_dma;
 mod cachecon;
 mod cfg_timer;
 mod clcd;
 mod cpucon;
 mod cpuid;
 mod devcon;
-mod dma;
 mod eide;
 mod evp;
 mod firewire;
@@ -35,7 +35,7 @@ pub use clcd::*;
 pub use cpucon::*;
 pub use cpuid::*;
 pub use devcon::*;
-pub use dma::*;
+pub use apb_dma::*;
 pub use eide::*;
 pub use evp::*;
 pub use firewire::*;

@@ -267,7 +267,7 @@ impl Ipod4g {
         // reorganized, and moved somewhere more appropriate.
         if self.dma_pending.check() {
             self.dma_pending.clear();
-            if devices.soc.dmacon0.do_ide_dma() {
+            if devices.soc.apb_dma.do_ide_dma() {
                 let (kind, addr) = match (devices.soc.eidecon).do_dma() {
                     Ok(tup) => tup,
                     Err(_) => panic!("asd"),

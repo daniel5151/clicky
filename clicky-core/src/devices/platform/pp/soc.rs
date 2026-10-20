@@ -36,8 +36,8 @@ pub struct Pp502x {
     pub cachecon: CacheCon,
     pub i2s: I2SCon,
     pub mailbox: Mailbox,
-    pub dmacon0: DmaCon,
-    pub dmacon1: DmaCon,
+    pub apb_dma: ApbDma,
+    pub dmacon1: ApbDma,
     pub serial0: Serial,
     pub serial1: Serial,
     pub evp: Evp,
@@ -95,9 +95,9 @@ impl Pp502x {
             // .register(37, ser1_irq_rx)
             .register(40, i2c_irq_rx);
 
-        let dmacon0 = DmaCon::new("0", Some(ide_dmarq_rx));
+        let apb_dma = ApbDma::new("0", Some(ide_dmarq_rx));
         // the undocumented second engine -- nothing routes DMA requests to it yet
-        let dmacon1 = DmaCon::new("1", None);
+        let dmacon1 = ApbDma::new("1", None);
 
         Pp502x {
             fastram: AsanRam::new(96 * 1024, true), // 96 KB
@@ -128,7 +128,7 @@ impl Pp502x {
             cachecon: CacheCon::new(),
             i2s: I2SCon::new(),
             mailbox: Mailbox::new(mbx_cpu_irq_tx, mbx_cop_irq_tx),
-            dmacon0,
+            apb_dma,
             dmacon1,
             serial0: Serial::new("0"),
             serial1: Serial::new("1"),
@@ -216,9 +216,9 @@ soc_mmap! {
     0x6000_5014..=0x6000_5017 => rtc,
     0x6000_6000..=0x6000_6fff => devcon,
     0x6000_7000..=0x6000_7fff => cpucon,
-    // Memory accesses to dmacon1 are suspiciously similar to dmacon0
+    // Memory accesses to dmacon1 are suspiciously similar to apb_dma
     0x6000_8000..=0x6000_9fff => dmacon1,
-    0x6000_a000..=0x6000_bfff => dmacon0,
+    0x6000_a000..=0x6000_bfff => apb_dma,
     0x6000_c000..=0x6000_cfff => cachecon,
     0x6000_d000..=0x6000_d07f => gpio_abcd,
     0x6000_d080..=0x6000_d0ff => gpio_efgh,
