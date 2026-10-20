@@ -2,6 +2,7 @@
 
 mod mmap;
 
+mod ahb_dma;
 mod apb_dma;
 mod cachecon;
 mod cfg_timer;
@@ -29,13 +30,14 @@ mod usb;
 mod usec_timer;
 mod pwm;
 
+pub use ahb_dma::*;
+pub use apb_dma::*;
 pub use cachecon::*;
 pub use cfg_timer::*;
 pub use clcd::*;
 pub use cpucon::*;
 pub use cpuid::*;
 pub use devcon::*;
-pub use apb_dma::*;
 pub use eide::*;
 pub use evp::*;
 pub use firewire::*;
