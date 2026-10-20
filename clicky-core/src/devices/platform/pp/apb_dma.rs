@@ -1,7 +1,7 @@
 use crate::devices::prelude::*;
 
 #[derive(Debug, Default)]
-struct Dma {
+struct DmaChannel {
     label: Option<&'static str>,
 
     cmd: u32,
@@ -12,9 +12,9 @@ struct Dma {
     incr: u32,
 }
 
-impl Device for Dma {
+impl Device for DmaChannel {
     fn kind(&self) -> &'static str {
-        "<dma>"
+        "APB-DMA channel"
     }
 
     fn label(&self) -> Option<&'static str> {
@@ -37,10 +37,10 @@ impl Device for Dma {
 }
 
 #[derive(Debug)]
-pub struct DmaCon {
+pub struct ApbDma {
     label: &'static str,
 
-    dma: [Dma; 8],
+    dma: [DmaChannel; 8],
     master_control: u32,
     master_status: u32,
     req_status: u32,
@@ -57,9 +57,9 @@ pub struct DmaCon {
     ide_dmarq: Option<irq::Receiver>,
 }
 
-impl DmaCon {
-    pub fn new(label: &'static str, ide_dmarq: Option<irq::Receiver>) -> DmaCon {
-        let mut dma = DmaCon {
+impl ApbDma {
+    pub fn new(label: &'static str, ide_dmarq: Option<irq::Receiver>) -> ApbDma {
+        let mut dma = ApbDma {
             label,
 
             dma: Default::default(),
@@ -92,7 +92,7 @@ impl DmaCon {
     }
 }
 
-impl Device for DmaCon {
+impl Device for ApbDma {
     fn kind(&self) -> &'static str {
         "DMA Engine"
     }
@@ -117,7 +117,7 @@ impl Device for DmaCon {
     }
 }
 
-impl Memory for DmaCon {
+impl Memory for ApbDma {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
             0x0 => Err(StubRead(Error, self.master_control)),
