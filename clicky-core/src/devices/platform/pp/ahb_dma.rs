@@ -76,10 +76,12 @@ impl Device for AhbDma {
             0x0 => "Master Control",
             0x4 => "Master Status",
             0x8 => "Req Status",
-            0x1000..=0x10ff => {
-                let id = (offset - 0x1000) / 0x20;
-                return Probe::from_device(&self.dma[id as usize], offset % 0x20);
-            }
+            0x1000..=0x1fff => match (offset - 0x1000) % 0x80 {
+                offset @ 0x00..=0x3f => {
+                    return Probe::from_device(&self.dma[(offset / 0x20) as usize], offset % 0x20);
+                }
+                _ => "Reserved (reads zero)",
+            },
             _ => return Probe::Unmapped,
         };
 
@@ -93,19 +95,21 @@ impl Memory for AhbDma {
             0x0 => Err(StubRead(Error, self.master_control)),
             0x4 => Err(StubRead(Error, self.master_status)),
             0x8 => Err(StubRead(Error, self.req_status)),
-            0x1000..=0x10ff => {
-                let id = (offset - 0x1000) / 0x20;
-                let dma = &mut self.dma[id as usize];
-                match offset % 0x20 {
-                    0x00 => Err(StubRead(Error, dma.cmd)),
-                    0x04 => Err(StubRead(Error, dma.status)),
-                    0x10 => Err(StubRead(Error, dma.ram_addr)),
-                    0x14 => Err(StubRead(Error, dma.flags)),
-                    0x18 => Err(StubRead(Error, dma.per_addr)),
-                    0x1c => Err(StubRead(Error, dma.incr)),
-                    _ => Err(Unexpected),
+            0x1000..=0x1fff => match (offset - 0x1000) % 0x80 {
+                offset @ 0x00..=0x3f => {
+                    let dma = &mut self.dma[(offset / 0x20) as usize];
+                    match offset % 0x20 {
+                        0x00 => Err(StubRead(Error, dma.cmd)),
+                        0x04 => Err(StubRead(Error, dma.status)),
+                        0x10 => Err(StubRead(Error, dma.ram_addr)),
+                        0x14 => Err(StubRead(Error, dma.flags)),
+                        0x18 => Err(StubRead(Error, dma.per_addr)),
+                        0x1c => Err(StubRead(Error, dma.incr)),
+                        _ => Err(Unexpected),
+                    }
                 }
-            }
+                _ => Ok(0),
+            },
             _ => Err(Unexpected),
         }
     }
@@ -115,19 +119,21 @@ impl Memory for AhbDma {
             0x0 => Err(StubWrite(Error, self.master_control = val)),
             0x4 => Err(StubWrite(Error, self.master_status = val)),
             0x8 => Err(StubWrite(Error, self.req_status = val)),
-            0x1000..=0x10ff => {
-                let id = (offset - 0x1000) / 0x20;
-                let dma = &mut self.dma[id as usize];
-                match offset % 0x20 {
-                    0x00 => Err(StubWrite(Error, dma.cmd = val)),
-                    0x04 => Err(StubWrite(Error, dma.status = val)),
-                    0x10 => Err(StubWrite(Error, dma.ram_addr = val)),
-                    0x14 => Err(StubWrite(Error, dma.flags = val)),
-                    0x18 => Err(StubWrite(Error, dma.per_addr = val)),
-                    0x1c => Err(StubWrite(Error, dma.incr = val)),
-                    _ => Err(Unexpected),
+            0x1000..=0x1fff => match (offset - 0x1000) % 0x80 {
+                offset @ 0x00..=0x3f => {
+                    let dma = &mut self.dma[(offset / 0x20) as usize];
+                    match offset % 0x20 {
+                        0x00 => Err(StubWrite(Error, dma.cmd = val)),
+                        0x04 => Err(StubWrite(Error, dma.status = val)),
+                        0x10 => Err(StubWrite(Error, dma.ram_addr = val)),
+                        0x14 => Err(StubWrite(Error, dma.flags = val)),
+                        0x18 => Err(StubWrite(Error, dma.per_addr = val)),
+                        0x1c => Err(StubWrite(Error, dma.incr = val)),
+                        _ => Err(Unexpected),
+                    }
                 }
-            }
+                _ => Ok(()),
+            },
             _ => Err(Unexpected),
         }
     }
