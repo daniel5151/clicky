@@ -95,7 +95,7 @@ impl Pp502x {
             // .register(37, ser1_irq_rx)
             .register(40, i2c_irq_rx);
 
-        let ahb_dma = AhbDma::new("1", None);
+        let ahb_dma = AhbDma::new("1");
         let apb_dma = ApbDma::new("0", Some(ide_dmarq_rx));
 
         Pp502x {

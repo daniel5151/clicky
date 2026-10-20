@@ -44,21 +44,10 @@ pub struct AhbDma {
     master_control: u32,
     master_status: u32,
     req_status: u32,
-
-    // HACK: IDE DMA doesn't actually go through the DMA controller
-    // that said, to keep things simple in the emulator, we route IDE DMA through the main DMA
-    // engine...
-    //
-    // As per the pp5020 spec sheet: "A dedicated, high-performance ATA-66IDE controller with its
-    // own DMA engine frees the processors from mundane management tasks."
-    //
-    // Only the engine the IDE controller was wired to carries this; the other
-    // one gets `None`.
-    ide_dmarq: Option<irq::Receiver>,
 }
 
 impl AhbDma {
-    pub fn new(label: &'static str, ide_dmarq: Option<irq::Receiver>) -> AhbDma {
+    pub fn new(label: &'static str) -> AhbDma {
         let mut dma = AhbDma {
             label,
 
@@ -66,8 +55,6 @@ impl AhbDma {
             master_control: 0,
             master_status: 0,
             req_status: 0,
-
-            ide_dmarq,
         };
 
         dma.dma[0].label = Some("0");
@@ -80,15 +67,6 @@ impl AhbDma {
         dma.dma[7].label = Some("7");
 
         dma
-    }
-
-    /// XXX: remove this once DMA is properly sorted out
-    pub fn do_ide_dma(&self) -> bool {
-        if let Some(ref dmarq) = self.ide_dmarq {
-            dmarq.asserted()
-        } else {
-            false
-        }
     }
 }
 
