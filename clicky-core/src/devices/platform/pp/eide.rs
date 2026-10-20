@@ -21,6 +21,7 @@ pub struct EIDECon {
     ide0_cfg: IdeDriveCfg,
     ide1_cfg: IdeDriveCfg,
     ide: IdeController,
+    dmarq: irq::Receiver,
 
     // NOTE: since no pp devices ever used two IDE devices at once, I have no idea if the DMA is
     // per disk or per controller...
@@ -38,11 +39,12 @@ pub struct EIDECon {
 pub struct DmaErr;
 
 impl EIDECon {
-    pub fn new(irq: irq::Sender, dmarq: irq::Sender) -> EIDECon {
+    pub fn new(irq: irq::Sender, dmarq_tx: irq::Sender, dmarq_rx: irq::Receiver) -> EIDECon {
         EIDECon {
             ide0_cfg: Default::default(),
             ide1_cfg: Default::default(),
-            ide: IdeController::new(irq, dmarq),
+            ide: IdeController::new(irq, dmarq_tx),
+            dmarq: dmarq_rx,
 
             dma_control: 0,
             dma_length: 0,
@@ -53,6 +55,10 @@ impl EIDECon {
 
     pub fn as_ide(&mut self) -> &mut IdeController {
         &mut self.ide
+    }
+
+    pub fn do_ide_dma(&self) -> bool {
+        self.dmarq.asserted()
     }
 
     pub fn do_dma(&mut self) -> Result<(crate::memory::MemAccessKind, u32), DmaErr> {
