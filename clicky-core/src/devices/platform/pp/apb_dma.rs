@@ -1,15 +1,217 @@
+#![allow(non_camel_case_types)]
+
 use crate::devices::prelude::*;
+
+use bitfields::{bitfield, bitflag};
+
+#[bitflag(u8)]
+#[derive(Debug, PartialEq)]
+enum RequestSelection {
+    #[base]
+    REQ_0 = 0,
+    REQ_1 = 1,
+    IIS = 2,
+    REQ_3 = 3,
+    REQ_4 = 4,
+    REQ_5 = 5,
+    REQ_6 = 6,
+    REQ_7 = 7,
+    REQ_8 = 8,
+    REQ_9 = 9,
+    REQ_10 = 10,
+    LCD2 = 11,
+    REQ_12 = 12,
+    SDHC = 13,
+    REQ_14 = 14,
+    REQ_15 = 15,
+}
+
+// Tegra 2 TRM 10.5.4.1 "AHBDMACHAN_CHANNEL_0_CSR_0"
+#[bitfield(u32, order = msb)]
+struct ChannelControl {
+    enb: bool,
+
+    /// Interrupt Enable on transfer complete
+    ie_eoc: bool,
+
+    /// Flush, doesn't stick
+    #[bits(access = ro)]
+    fl_btwn: bool,
+
+    /// Doesn't stick
+    #[bits(access = ro)]
+    hold: bool,
+
+    /// 0 = APB -> AHB
+    dir: bool,
+
+    /// 0 = Multiple Block Transfer
+    once: bool,
+
+    trig: bool,
+
+    /// Only move data while the request line is asserted
+    flow: bool,
+
+    /// Trigger sources are unknown on PP5020
+    #[bits(4)]
+    trig_sel: u8,
+
+    #[bits(4)]
+    req_sel: RequestSelection,
+
+    /// Number of words to transfer, minus one
+    #[bits(14)]
+    wcount: u16,
+
+    #[bits(2)]
+    _reserved: u8,
+}
+
+// Tegra 2 TRM 10.5.4.2 "AHBDMACHAN_CHANNEL_0_STA_0"
+#[bitfield(u32, order = msb)]
+struct ChannelStatus {
+    bsy: bool,
+
+    /// End of transfer interrupt, cleared by reading the register
+    is_eoc: bool,
+
+    _reserved_29: bool,
+
+    halt: bool,
+
+    #[bits(12)]
+    _reserved_16: u16,
+
+    /// Remaining words
+    #[bits(14)]
+    count: u16,
+
+    #[bits(2)]
+    _reserved_0: u8,
+}
+
+/// Reserved encodings transfer 8 words
+#[bitflag(u8)]
+#[derive(Debug, PartialEq)]
+enum AhbBurst {
+    #[base]
+    RSVD_0 = 0,
+    RSVD_1 = 1,
+    RSVD_2 = 2,
+    RSVD_3 = 3,
+    DMA_BURST_1WORDS = 4,
+    DMA_BURST_4WORDS = 5,
+    DMA_BURST_8WORDS = 6,
+    RSVD_7 = 7,
+}
+
+#[bitflag(u8)]
+#[derive(Debug, PartialEq)]
+enum AhbWrap {
+    #[base]
+    NO_WRAP = 0,
+    WRAP_ON_32WORDS = 1,
+    WRAP_ON_64WORDS = 2,
+    WRAP_ON_128WORDS = 3,
+    WRAP_ON_256WORDS = 4,
+    WRAP_ON_512WORDS = 5,
+    WRAP_ON_1024WORDS = 6,
+    WRAP_ON_2048WORDS = 7,
+}
+
+// Tegra 2 TRM 11.2.4.4 "APBDMACHAN_CHANNEL_0_AHB_SEQ_0"
+#[bitfield(u32, order = msb)]
+struct AhbSequencer {
+    /// INTR_ENB, AHB_BUS_WIDTH and AHB_DATA_SWAP on Tegra, none of them stick
+    #[bits(5)]
+    _reserved_27: u8,
+
+    #[bits(3)]
+    ahb_burst: AhbBurst,
+
+    #[bits(4)]
+    _reserved_20: u8,
+
+    /// Reload base address every other block
+    dbl_buf: bool,
+
+    #[bits(3)]
+    ahb_addr_wrap: AhbWrap,
+
+    _reserved_0: u16,
+}
+
+#[bitflag(u8)]
+#[derive(Debug, PartialEq)]
+enum BusWidth {
+    #[base]
+    BUS_WIDTH_8 = 0,
+    BUS_WIDTH_16 = 1,
+    BUS_WIDTH_32 = 2,
+    BUS_WIDTH_64 = 3,
+    BUS_WIDTH_128 = 4,
+    RSVD_5 = 5,
+    RSVD_6 = 6,
+    RSVD_7 = 7,
+}
+
+#[bitflag(u8)]
+#[derive(Debug, PartialEq)]
+enum ApbWrap {
+    #[base]
+    NO_WRAP = 0,
+    WRAP_ON_1WORDS = 1,
+    WRAP_ON_2WORDS = 2,
+    WRAP_ON_4WORDS = 3,
+    WRAP_ON_8WORDS = 4,
+    WRAP_ON_16WORDS = 5,
+    WRAP_ON_32WORDS = 6,
+    WRAP_ON_64WORDS = 7,
+}
+
+// Tegra 2 TRM 11.2.4.6 "APBDMACHAN_CHANNEL_0_APB_SEQ_0"
+#[bitfield(u32, order = msb)]
+struct ApbSequencer {
+    _reserved_31: bool,
+
+    #[bits(3, default = BusWidth::BUS_WIDTH_32)]
+    apb_bus_width: BusWidth,
+
+    #[bits(9)]
+    _reserved_19: u16,
+
+    #[bits(3, default = ApbWrap::WRAP_ON_1WORDS)]
+    apb_addr_wrap: ApbWrap,
+
+    _reserved_0: u16,
+}
 
 #[derive(Debug, Default)]
 struct DmaChannel {
     label: Option<&'static str>,
 
-    cmd: u32,
-    status: u32,
-    ram_addr: u32,
-    flags: u32,
-    per_addr: u32,
-    incr: u32,
+    control: ChannelControl,
+    status: ChannelStatus,
+    ahb_ptr: u32,
+    ahb_seq: AhbSequencer,
+    apb_ptr: u32,
+    apb_seq: ApbSequencer,
+}
+
+impl DmaChannel {
+    fn new(label: Option<&'static str>) -> DmaChannel {
+        DmaChannel {
+            label,
+
+            control: ChannelControl::new(),
+            status: ChannelStatus::new(),
+            ahb_ptr: 0,
+            ahb_seq: AhbSequencer::new(),
+            apb_ptr: 0x7000_0000,
+            apb_seq: ApbSequencer::new(),
+        }
+    }
 }
 
 impl Device for DmaChannel {
@@ -23,12 +225,13 @@ impl Device for DmaChannel {
 
     fn probe(&self, offset: u32) -> Probe {
         let reg = match offset {
-            0x00 => "Cmd",
-            0x04 => "Status",
-            0x10 => "Ram Addr",
-            0x14 => "Flags",
-            0x18 => "Per Addr",
-            0x1c => "Incr",
+            0x00 => "CSR",
+            0x04 => "STA",
+            0x08 | 0x0c => "APB_SEQ",
+            0x10 => "AHB_PTR",
+            0x14 => "AHB_SEQ",
+            0x18 => "APB_PTR",
+            0x1c => "APB_SEQ",
             _ => return Probe::Unmapped,
         };
 
@@ -36,42 +239,130 @@ impl Device for DmaChannel {
     }
 }
 
+impl Memory for DmaChannel {
+    fn r32(&mut self, offset: u32) -> MemResult<u32> {
+        match offset {
+            0x00 => Ok(self.control.into_bits()),
+            0x04 => {
+                let val = self.status.into_bits();
+                self.status.set_is_eoc(false);
+                Ok(val)
+            }
+            0x08 | 0x0c | 0x1c => Ok(self.apb_seq.into_bits()),
+            0x10 => Ok(self.ahb_ptr),
+            0x14 => Ok(self.ahb_seq.into_bits()),
+            0x18 => Ok(self.apb_ptr),
+            _ => Err(Unexpected),
+        }
+    }
+
+    fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
+        match offset {
+            0x00 => {
+                self.control.write_bits(val);
+                if self.control.enb() {
+                    return Err(StubWrite(Warn, ()));
+                }
+                Ok(())
+            }
+            0x04 => Ok(()),
+            0x08 | 0x0c | 0x1c => Ok(self.apb_seq.write_bits(val)),
+            0x10 => Ok(self.ahb_ptr = val & !0b11),
+            0x14 => Ok(self.ahb_seq.write_bits(val)),
+            0x18 => Ok(self.apb_ptr = (val & 0xfffc) | 0x7000_0000),
+            _ => Err(Unexpected),
+        }
+    }
+}
+
+// Tegra 2 TRM 10.5.3.1 "AHBDMA_CMD_0"
+#[bitfield(u32, order = msb)]
+struct CommandRegister {
+    /// Global enable
+    gen: bool,
+
+    #[bits(31)]
+    _reserved: u32,
+}
+
+// Tegra 2 TRM 10.5.3.2 "AHBDMA_STA_0"
+#[bitfield(u32, order = msb)]
+struct StatusRegister {
+    #[bits(4)]
+    _reserved_28: u8,
+
+    ch3_busy: bool,
+    ch2_busy: bool,
+    ch1_busy: bool,
+    ch0_busy: bool,
+
+    #[bits(24)]
+    _reserved_0: u32,
+}
+
+#[bitfield(u32, order = msb)]
+struct RequestStatus {
+    _reserved: u16,
+
+    req_15: bool,
+    req_14: bool,
+    sdhc: bool,
+    req_12: bool,
+    #[bits(default = true)]
+    lcd2: bool,
+    req_10: bool,
+    req_9: bool,
+    req_8: bool,
+    req_7: bool,
+    req_6: bool,
+    req_5: bool,
+    #[bits(default = true)]
+    req_4: bool,
+    #[bits(default = true)]
+    req_3: bool,
+    #[bits(default = true)]
+    iis: bool,
+    req_1: bool,
+    req_0: bool,
+}
+
 #[derive(Debug)]
 pub struct ApbDma {
     dma: [DmaChannel; 4],
-    master_control: u32,
-    master_status: u32,
-    req_status: u32,
+    command: CommandRegister,
+    status: StatusRegister,
+    req_status: RequestStatus,
 }
 
 impl ApbDma {
     pub fn new() -> ApbDma {
-        let mut dma = ApbDma {
-            dma: Default::default(),
-            master_control: 0,
-            master_status: 0,
-            req_status: 0,
-        };
-
-        dma.dma[0].label = Some("0");
-        dma.dma[1].label = Some("1");
-        dma.dma[2].label = Some("2");
-        dma.dma[3].label = Some("3");
-
-        dma
+        ApbDma {
+            dma: [
+                DmaChannel::new(Some("0")),
+                DmaChannel::new(Some("1")),
+                DmaChannel::new(Some("2")),
+                DmaChannel::new(Some("3")),
+            ],
+            command: CommandRegister::new(),
+            status: StatusRegister::new(),
+            req_status: RequestStatus::new(),
+        }
     }
 }
 
 impl Device for ApbDma {
     fn kind(&self) -> &'static str {
-        "DMA Engine"
+        "APB-DMA"
     }
 
     fn probe(&self, offset: u32) -> Probe {
         let reg = match offset {
-            0x0 => "Master Control",
-            0x4 => "Master Status",
-            0x8 => "Req Status",
+            0x0000..=0x0fff => match offset % 0x10 {
+                0x0 => "CMD",
+                0x4 => "STA",
+                0x8 => "REQ_STATUS",
+                _ => return Probe::Unmapped,
+            },
             0x1000..=0x1fff => {
                 let offset = (offset - 0x1000) % 0x80;
                 return Probe::from_device(&self.dma[(offset / 0x20) as usize], offset % 0x20);
@@ -86,21 +377,15 @@ impl Device for ApbDma {
 impl Memory for ApbDma {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
-            0x0 => Err(StubRead(Error, self.master_control)),
-            0x4 => Err(StubRead(Error, self.master_status)),
-            0x8 => Err(StubRead(Error, self.req_status)),
+            0x0000..=0x0fff => match offset % 0x10 {
+                0x0 => Ok(self.command.into_bits()),
+                0x4 => Ok(self.status.into_bits()),
+                0x8 => Ok(self.req_status.into_bits()),
+                _ => Err(Unexpected),
+            },
             0x1000..=0x1fff => {
                 let offset = (offset - 0x1000) % 0x80;
-                let dma = &mut self.dma[(offset / 0x20) as usize];
-                match offset % 0x20 {
-                    0x00 => Err(StubRead(Error, dma.cmd)),
-                    0x04 => Err(StubRead(Error, dma.status)),
-                    0x10 => Err(StubRead(Error, dma.ram_addr)),
-                    0x14 => Err(StubRead(Error, dma.flags)),
-                    0x18 => Err(StubRead(Error, dma.per_addr)),
-                    0x1c => Err(StubRead(Error, dma.incr)),
-                    _ => Err(Unexpected),
-                }
+                self.dma[(offset / 0x20) as usize].r32(offset % 0x20)
             }
             _ => Err(Unexpected),
         }
@@ -108,21 +393,14 @@ impl Memory for ApbDma {
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         match offset {
-            0x0 => Err(StubWrite(Error, self.master_control = val)),
-            0x4 => Err(StubWrite(Error, self.master_status = val)),
-            0x8 => Err(StubWrite(Error, self.req_status = val)),
+            0x0000..=0x0fff => match offset % 0x10 {
+                0x0 => Ok(self.command.write_bits(val)),
+                0x4 | 0x8 => Err(InvalidAccess),
+                _ => Err(Unexpected),
+            },
             0x1000..=0x1fff => {
                 let offset = (offset - 0x1000) % 0x80;
-                let dma = &mut self.dma[(offset / 0x20) as usize];
-                match offset % 0x20 {
-                    0x00 => Err(StubWrite(Error, dma.cmd = val)),
-                    0x04 => Err(StubWrite(Error, dma.status = val)),
-                    0x10 => Err(StubWrite(Error, dma.ram_addr = val)),
-                    0x14 => Err(StubWrite(Error, dma.flags = val)),
-                    0x18 => Err(StubWrite(Error, dma.per_addr = val)),
-                    0x1c => Err(StubWrite(Error, dma.incr = val)),
-                    _ => Err(Unexpected),
-                }
+                self.dma[(offset / 0x20) as usize].w32(offset % 0x20, val)
             }
             _ => Err(Unexpected),
         }
