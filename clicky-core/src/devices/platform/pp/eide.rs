@@ -1,4 +1,8 @@
+#![allow(non_camel_case_types)]
+
 use crate::devices::prelude::*;
+
+use bitfields::bitfield;
 
 use crate::devices::generic::ide::{IdeController, IdeIdx, IdeReg};
 
@@ -15,6 +19,41 @@ struct IdeDriveCfg {
     config: u32,
 }
 
+#[bitfield(u32, order = msb)]
+struct DmaControl {
+    /// Set once LENGTH + 4 bytes moved, cleared by reading the register
+    #[bits(access = ro)]
+    done: bool,
+
+    #[bits(access = ro)]
+    dmarq: bool,
+
+    #[bits(11)]
+    _reserved_19: u16,
+
+    #[bits(3)]
+    unk_16: u8,
+
+    _reserved_8: u8,
+
+    #[bits(2)]
+    unk_6: u8,
+
+    #[bits(2)]
+    _reserved_4: u8,
+
+    /// Read/Write#, must match the ATA command
+    read: bool,
+
+    _reserved_2: bool,
+
+    /// Rockbox sets it before every transfer, doesn't stick
+    _reserved_1: bool,
+
+    /// Unset at the end of the transfer
+    start: bool,
+}
+
 /// PP5020 EIDE Controller
 #[derive(Debug)]
 pub struct EIDECon {
@@ -23,17 +62,11 @@ pub struct EIDECon {
     ide: IdeController,
     dmarq: irq::Receiver,
 
-    // NOTE: since no pp devices ever used two IDE devices at once, I have no idea if the DMA is
-    // per disk or per controller...
-
-    // bit 0: active (1 = disabled)
-    // bit 1: ?? (specify which IDE drive maybe? total wild guess tho)
-    // bit 3: read/write (1 = read)
-    // bit 31: unset at the end of the transfer
-    dma_control: u32,
+    dma_control: DmaControl,
     dma_length: u32,
     dma_addr: u32,
-    unknown: u32,
+    /// Second channel? Seems to share the DMA_CONTROL layout
+    unknown: DmaControl,
 }
 
 pub struct DmaErr;
@@ -46,10 +79,10 @@ impl EIDECon {
             ide: IdeController::new(irq, dmarq_tx),
             dmarq: dmarq_rx,
 
-            dma_control: 0,
+            dma_control: DmaControl::new(),
             dma_length: 0,
             dma_addr: 0,
-            unknown: 0,
+            unknown: DmaControl::new(),
         }
     }
 
@@ -66,7 +99,7 @@ impl EIDECon {
             return Err(DmaErr);
         }
 
-        let op = match self.dma_control.get_bit(3) {
+        let op = match self.dma_control.read() {
             true => (crate::memory::MemAccessKind::Read, self.dma_addr),
             false => (crate::memory::MemAccessKind::Write, self.dma_addr),
         };
@@ -157,11 +190,11 @@ impl Memory for EIDECon {
             0x3f8 => self.ide.read8(IdeReg::AltStatus).map(|v| v as u32),
             0x3fc => self.ide.read8(IdeReg::DataLatch).map(|v| v as u32),
 
-            0x400 => Err(StubRead(Debug, self.dma_control)),
+            0x400 => Err(StubRead(Debug, self.dma_control.into_bits())),
             0x404 => Err(StubRead(Error, 0)),
             0x408 => Err(StubRead(Info, self.dma_length)),
             0x40c => Err(StubRead(Info, self.dma_addr)),
-            0x410 => Err(StubRead(Error, self.unknown)),
+            0x410 => Err(StubRead(Error, self.unknown.into_bits())),
             _ => Err(Unexpected),
         }
     }
@@ -191,11 +224,11 @@ impl Memory for EIDECon {
             0x3f8 => self.ide.write8(IdeReg::DevControl, val as u8),
             0x3fc => self.ide.write8(IdeReg::DataLatch, val as u8),
 
-            0x400 => Err(StubWrite(Debug, self.dma_control = val)),
+            0x400 => Err(StubWrite(Debug, self.dma_control.write_bits(val))),
             // HACK: why the hecc does Rockbox's pp5020 driver write `len - 4`??
             0x408 => Ok(self.dma_length = val + 4),
             0x40c => Ok(self.dma_addr = val),
-            0x410 => Err(StubWrite(Error, self.unknown = val)),
+            0x410 => Err(StubWrite(Error, self.unknown.write_bits(val))),
 
             _ => Err(Unexpected),
         }
