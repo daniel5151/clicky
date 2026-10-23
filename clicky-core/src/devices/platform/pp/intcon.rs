@@ -1,3 +1,7 @@
+// Interrupt controller mapping and behavior is described in:
+//  - Nvidia Tegra 2 TRM 3.2 "Interrupt Registers"
+//  - US6952749B2 patent
+
 use crate::devices::prelude::*;
 
 pub struct IntStatus {
@@ -60,10 +64,10 @@ struct IntCon32 {
 
     cpu: IntConCpuRegs,
     cop: IntConCpuRegs,
-    _int_stat: u32,
-    _int_forced_stat: u32,
-    _int_forced_set: u32,
-    _int_forced_clr: u32,
+    /// Raw, unmasked state
+    int_stat: u32,
+    /// FIR (forced interrupts)
+    forced: u32,
 }
 
 impl IntCon32 {
@@ -74,10 +78,8 @@ impl IntCon32 {
 
             cpu: IntConCpuRegs::default(),
             cop: IntConCpuRegs::default(),
-            _int_stat: 0,
-            _int_forced_stat: 0,
-            _int_forced_set: 0,
-            _int_forced_clr: 0,
+            int_stat: 0,
+            forced: 0,
         }
     }
 
@@ -114,23 +116,23 @@ impl IntCon32 {
 
     /// Iterate through `self.irqs`, updating registers accordingly
     fn update_regs(&mut self) {
+        let (mut cpu_lines, mut cop_lines) = (0u32, 0u32);
         for (i, irq) in self.irqs.iter().enumerate() {
             let (cpu_irq, cop_irq) = match irq {
                 IrqKind::Unregistered => continue,
                 IrqKind::Shared(irq) => (irq, irq),
                 IrqKind::CoreSpecific { cpu_irq, cop_irq } => (cpu_irq, cop_irq),
             };
-
-            for (cpu, irq) in [(&mut self.cpu, cpu_irq), (&mut self.cop, cop_irq)].iter_mut() {
-                let status = irq.asserted();
-                let enabled = cpu.enabled.get_bit(i);
-                let is_fiq = cpu.priority.get_bit(i);
-                cpu.fiq_stat.set_bit(i, enabled && is_fiq && status);
-                cpu.irq_stat.set_bit(i, enabled && !is_fiq && status);
-            }
+            cpu_lines.set_bit(i, cpu_irq.asserted());
+            cop_lines.set_bit(i, cop_irq.asserted());
         }
+        self.int_stat = cpu_lines | cop_lines;
 
-        // TODO: look into the "forced interrupt" functionality
+        for (cpu, lines) in [(&mut self.cpu, cpu_lines), (&mut self.cop, cop_lines)] {
+            let pending = (lines | self.forced) & cpu.enabled;
+            cpu.fiq_stat = pending & cpu.priority;
+            cpu.irq_stat = pending & !cpu.priority;
+        }
     }
 
     pub fn interrupt_status(&mut self) -> (IntStatus, IntStatus) {
@@ -198,8 +200,11 @@ impl Memory for IntCon32 {
             0x08 => Ok(self.cpu.fiq_stat),
             0x0c => Ok(self.cop.fiq_stat),
 
-            0x10 => Err(Unimplemented),
-            0x14 => Err(Unimplemented),
+            0x10 => {
+                self.update_regs();
+                Ok(self.int_stat)
+            }
+            0x14 => Ok(self.forced),
             0x18 => Err(Unimplemented),
             0x1c => Err(Unimplemented),
 
@@ -227,9 +232,9 @@ impl Memory for IntCon32 {
             0x0c => Err(InvalidAccess),
 
             0x10 => Err(Unimplemented),
-            0x14 => Err(Unimplemented),
-            0x18 => Err(Unimplemented),
-            0x1c => Err(StubWrite(Error, ())), // TODO: figure out what this does
+            0x14 => Err(InvalidAccess),
+            0x18 => Ok(self.forced |= val),
+            0x1c => Ok(self.forced &= !val),
 
             0x20 => Err(InvalidAccess),
             0x24 => Ok(self.cpu.enabled |= val),
@@ -326,8 +331,8 @@ impl IntCon {
             let pending = hi_enabled && (hi.irq_stat != 0 || hi.fiq_stat != 0);
             // ...and the aggregate itself can be routed to fiq like any other
             let as_fiq = lo.priority.get_bit(30);
-            lo.irq_stat.set_bit(30, pending && !as_fiq);
-            lo.fiq_stat.set_bit(30, pending && as_fiq);
+            lo.irq_stat |= ((pending && !as_fiq) as u32) << 30;
+            lo.fiq_stat |= ((pending && as_fiq) as u32) << 30;
         }
     }
 
@@ -336,6 +341,7 @@ impl IntCon {
             // Mask every interrupt again, leaving the registered irq lines wired up.
             half.cpu = IntConCpuRegs::default();
             half.cop = IntConCpuRegs::default();
+            half.forced = 0;
         }
     }
 
