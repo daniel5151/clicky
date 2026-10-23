@@ -1,15 +1,15 @@
 # Status
 
-| Model                            | Introduction Date | SoC    | Supported | LCD | Audio | RTC | USB | FireWire  | Clickwheel |
-| -------------------------------- | ----------------- | ------ | --------- | --- | ----- | --- | --- | --------- | ---------- |
-| iPod mini                        | January ‘04       | PP5020 | WIP       | Yes | No    | WIP | WIP | Won’t Do¹ | Yes        |
-| iPod (4th Generation)            | July ‘04          | PP5020 | Yes       | Yes | No    | WIP | WIP | Won’t Do¹ | Yes        |
-| iPod photo                       | February ‘05      | PP5020 | WIP       | Yes | No    | WIP | WIP | Won’t Do¹ | Yes        |
-| iPod mini (2nd Generation)       | February ‘05      | PP5022 | No        | Yes | No    | WIP | WIP | Won’t Do¹ | ?          |
-| iPod with Color Display          | June ‘05          | PP5020 | No        | No  | No    | WIP | WIP | Won’t Do¹ | ?          |
-| iPod Nano                        | September ‘05     | PP5021 | No        | No  | No    | ?   | ?   | Won’t Do¹ | ?          |
-| iPod (5th Generation)            | October ‘05       | PP5021 | No        | No  | No    | ?   | ?   | Won’t Do¹ | ?          |
-| iPod (5th Generation – Enhanced) | September ‘06     | PP5021 | No        | No  | No    | ?   | ?   | Won’t Do¹ | ?          |
+| Model                            | Introduction Date | SoC    | Supported | LCD  | Audio | RTC | USB | FireWire  | DMA | Clickwheel |
+| -------------------------------- | ----------------- | ------ | --------- | ---- | ----- | --- | --- | --------- | --- | ---------- |
+| iPod mini                        | January ‘04       | PP5020 | WIP       | Yes  | TODO  | WIP | WIP | Won’t Do¹ | WIP | Yes        |
+| iPod (4th Generation)            | July ‘04          | PP5020 | Yes       | Yes  | TODO  | WIP | WIP | Won’t Do¹ | WIP | Yes        |
+| iPod photo                       | February ‘05      | PP5020 | WIP       | Yes  | TODO  | WIP | WIP | Won’t Do¹ | WIP | Yes        |
+| iPod mini (2nd Generation)       | February ‘05      | PP5022 | TODO      | Yes  | TODO  | WIP | WIP | Won’t Do¹ | ?   | ?          |
+| iPod with Color Display          | June ‘05          | PP5020 | WIP       | TODO | TODO  | WIP | WIP | Won’t Do¹ | WIP | ?          |
+| iPod Nano                        | September ‘05     | PP5021 | TODO      | TODO | TODO  | ?   | ?   | Won’t Do¹ | ?   | ?          |
+| iPod (5th Generation)            | October ‘05       | PP5021 | TODO      | TODO | TODO  | ?   | ?   | Won’t Do¹ | ?   | ?          |
+| iPod (5th Generation – Enhanced) | September ‘06     | PP5021 | TODO      | TODO | TODO  | ?   | ?   | Won’t Do¹ | ?   | ?          |
 
 _¹FireWire is slowly being deprecated on modern OS and lacks a cross-platform mechanism for device emulation (like USBIP for USB)._
 
