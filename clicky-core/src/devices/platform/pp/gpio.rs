@@ -42,7 +42,7 @@ impl GpioPort {
             input_val: 0,
             interrupt_status: 0,
             interrupt_enable: 0,
-            interrupt_level: 0, // 0 = irq on falling edge, 1 = irq on rising edge
+            interrupt_level: 0, // 0 = IRQ on low, 1 = IRQ on high
         }
     }
 
@@ -95,21 +95,10 @@ impl GpioPort {
             };
 
             // set the input level
-            let prev_level = self.input_val.get_bit(i);
             self.input_val.set_bit(i, level);
-
-            // update the IRQ status register
-            let trigger_irq = match self.interrupt_level.get_bit(i) {
-                // falling edge trigger
-                false => prev_level && !level,
-                // rising edge trigger
-                true => !prev_level && level,
-            };
-            // status bits are latched until acknowledged through IntClear
-            if trigger_irq {
-                self.interrupt_status.set_bit(i, true);
-            }
         }
+
+        self.interrupt_status |= self.interrupt_enable & !(self.input_val ^ self.interrupt_level);
 
         (self.irq_mask).store(
             self.interrupt_status & self.interrupt_enable,
