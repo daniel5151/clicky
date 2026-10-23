@@ -228,7 +228,14 @@ impl Memory for EIDECon {
             0x3f8 => self.ide.write8(IdeReg::DevControl, val as u8),
             0x3fc => self.ide.write8(IdeReg::DataLatch, val as u8),
 
-            0x400 => Err(StubWrite(Debug, self.dma_control.write_bits(val))),
+            0x400 => {
+                self.dma_control.write_bits(val);
+                if self.dma_control.start() {
+                    Err(Unimplemented)
+                } else {
+                    Err(StubWrite(Debug, ()))
+                }
+            }
             // HACK: why the hecc does Rockbox's pp5020 driver write `len - 4`??
             0x408 => Ok(self.dma_length = val + 4),
             0x40c => Ok(self.dma_addr = val),

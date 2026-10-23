@@ -261,9 +261,10 @@ impl Memory for DmaChannel {
             0x00 => {
                 self.control.write_bits(val);
                 if self.control.enb() {
-                    return Err(StubWrite(Warn, ()));
+                    Err(Unimplemented)
+                } else {
+                    Ok(())
                 }
-                Ok(())
             }
             0x04 => {
                 if ChannelStatus::from_bits(val).is_eoc() {
