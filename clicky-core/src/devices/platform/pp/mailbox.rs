@@ -77,14 +77,14 @@ impl Memory for Mailbox {
                     self.cpu_irq.clear();
                 }
                 Ok(self.cpu_queue[idx])
-            },
+            }
             0x20..=0x2f => {
                 let idx = (offset as usize & 0xf) / 4;
                 if idx == 0 {
                     self.cop_irq.clear();
                 }
                 Ok(self.cop_queue[idx])
-            },
+            }
             _ => Err(Unexpected),
         }
     }
@@ -118,7 +118,7 @@ impl Memory for Mailbox {
                     self.cpu_irq.assert();
                 }
                 Ok(())
-            },
+            }
             0x20..=0x2f => {
                 let idx = (offset as usize & 0xf) / 4;
                 self.cop_queue[idx] = val;
@@ -126,7 +126,7 @@ impl Memory for Mailbox {
                     self.cop_irq.assert();
                 }
                 Ok(())
-            },
+            }
             _ => Err(Unexpected),
         }
     }

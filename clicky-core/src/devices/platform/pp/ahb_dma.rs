@@ -450,8 +450,9 @@ impl AhbDma {
 
     /// Masked end-of-transfer interrupts routed to the CPU (or the COP).
     fn irq_status(&self, cpu: bool) -> IrqStatus {
-        let pending =
-            |ch: &DmaChannel, unmasked| unmasked && ch.status.is_eoc() && ch.ahb_seq.intr_enb() == cpu;
+        let pending = |ch: &DmaChannel, unmasked| {
+            unmasked && ch.status.is_eoc() && ch.ahb_seq.intr_enb() == cpu
+        };
 
         let mut status = IrqStatus::new();
         status.set_ch0(pending(&self.dma[0], self.irq_mask.ch0()));

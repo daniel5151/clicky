@@ -44,7 +44,7 @@ impl Memory for Rtc {
                 let h = (secs / 3600 % 24) as u32;
                 let d = (secs / 86400 % 64) as u32;
                 Ok(d << 24 | h << 16 | m << 8 | s)
-            },
+            }
             _ => Err(Unexpected),
         }
     }
@@ -61,8 +61,8 @@ impl Memory for Rtc {
                 self.reset_time = Instant::now();
                 self.reset_val = Duration::from_secs(((d * 24 + h) * 60 + m) * 60 + s);
                 Ok(())
-            },
-            _ => Err(Unexpected)
+            }
+            _ => Err(Unexpected),
         }
     }
 }

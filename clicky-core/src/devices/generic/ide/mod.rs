@@ -112,10 +112,10 @@ enum IdeSetFeaturesReg {
 
     EnableReadLookAhead = 0xAA,
     DisableReadLookAhead = 0x55,
-    
+
     EnableRevertingToPowerOnDefaults = 0xcc,
     DisableRevertingToPowerOnDefaults = 0x66,
-    
+
     EnableAdvancedPowerManagement = 0x05,
     DisableAdvancedPowerManagement = 0x85,
 
@@ -690,25 +690,26 @@ impl IdeDrive {
 
             Ok(SetFeatures) => {
                 use IdeSetFeaturesReg::*;
-                match IdeSetFeaturesReg::try_from(self.reg.feature)   {
+                match IdeSetFeaturesReg::try_from(self.reg.feature) {
                     Ok(Enable8BitPIOTransferMode) => self.cfg.eightbit = true,
-                    Ok(SetTransferModeBasedOnValueInSectorCountRegister) => self.cfg.transfer_mode = IdeTransferMode::from(self.reg.sector_count),
+                    Ok(SetTransferModeBasedOnValueInSectorCountRegister) => {
+                        self.cfg.transfer_mode = IdeTransferMode::from(self.reg.sector_count)
+                    }
                     Ok(Disable8BitPIOTransferMode) => self.cfg.eightbit = false,
 
                     // Irrelevant on an emulated drive
-                    Ok(EnableWriteCache) |
-                    Ok(DisableWriteCache) |
-                    Ok(EnableReadLookAhead) |
-                    Ok(DisableReadLookAhead) |
-                    Ok(EnableRevertingToPowerOnDefaults) |
-                    Ok(DisableRevertingToPowerOnDefaults) |
-                    Ok(EnableAdvancedPowerManagement) |
-                    Ok(DisableAdvancedPowerManagement) |
-                    Ok(EnableCFAPowerMode1) |
-                    Ok(DisableCFAPowerMode1) |
-                    Ok(EnableAutomaticAcousticManagement) |
-                    Ok(DisableAutomaticAcousticManagement)
-                        => {}
+                    Ok(EnableWriteCache)
+                    | Ok(DisableWriteCache)
+                    | Ok(EnableReadLookAhead)
+                    | Ok(DisableReadLookAhead)
+                    | Ok(EnableRevertingToPowerOnDefaults)
+                    | Ok(DisableRevertingToPowerOnDefaults)
+                    | Ok(EnableAdvancedPowerManagement)
+                    | Ok(DisableAdvancedPowerManagement)
+                    | Ok(EnableCFAPowerMode1)
+                    | Ok(DisableCFAPowerMode1)
+                    | Ok(EnableAutomaticAcousticManagement)
+                    | Ok(DisableAutomaticAcousticManagement) => {}
 
                     other => {
                         return Err(Fatal(format!(
@@ -809,7 +810,14 @@ impl IdeDrive {
                             (AttributeId::PowerOnHours, 0x0032, 100, 100, 42, 0),
                             (AttributeId::SpinRetryCount, 0x0013, 100, 100, 0, 51),
                             (AttributeId::PowerCycleCount, 0x0032, 100, 100, 64, 0),
-                            (AttributeId::UnexpectedPowerOffCount, 0x0032, 100, 100, 12, 0),
+                            (
+                                AttributeId::UnexpectedPowerOffCount,
+                                0x0032,
+                                100,
+                                100,
+                                12,
+                                0,
+                            ),
                             (AttributeId::Temperature, 0x0022, 100, 100, 30, 0),
                         ];
                         for (id, flags, current, worst, raw, threshold) in ATTRIBUTES {
@@ -828,10 +836,12 @@ impl IdeDrive {
                         match self.reg.feature {
                             0xd0 => {
                                 self.iobuf.as_raw().copy_from_slice(&smart.serialize_data());
-                            },
+                            }
                             0xd1 => {
-                                self.iobuf.as_raw().copy_from_slice(&smart.serialize_threshold());
-                            },
+                                self.iobuf
+                                    .as_raw()
+                                    .copy_from_slice(&smart.serialize_threshold());
+                            }
                             _ => unreachable!("unknown feature"),
                         }
                         self.iobuf.new_transfer();

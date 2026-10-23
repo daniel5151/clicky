@@ -164,7 +164,7 @@ fn main() -> DynResult<()> {
                 PMPModel::Unknown => None,
                 model => Some(model),
             }
-        },
+        }
         None => None,
     };
 

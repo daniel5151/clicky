@@ -88,10 +88,7 @@ impl SysCfg {
             });
         }
 
-        Some(SysCfg {
-            version,
-            records,
-        })
+        Some(SysCfg { version, records })
     }
 
     /// Look up a record by tag (e.g. `b"HwVr"`)

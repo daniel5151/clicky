@@ -6,8 +6,8 @@ use relativity::Timeout;
 use thiserror::Error;
 
 use crate::block::BlockDev;
-use crate::devices::Device;
 use crate::devices::display::LcdPanel;
+use crate::devices::Device;
 use crate::error::*;
 use crate::executor::*;
 use crate::gui::{IpodBinds, IpodControls, IpodKey, RenderCallback, TakeControls};
@@ -16,8 +16,8 @@ use crate::signal::{self, gpio, irq};
 
 use crate::sys::{BootKind, System};
 
-use crate::devices::platform::pp::common::*;
 use crate::board_mmap;
+use crate::devices::platform::pp::common::*;
 mod devices {
     pub mod i2c {
         pub use crate::devices::i2c::devices::Pcf5060x;
@@ -104,7 +104,11 @@ impl IpodPhoto {
 
             cpu: Cpu::new(),
             cop: Cpu::new(),
-            devices: IpodPhotoBoard::new(executor.spawner(), irq_pending.clone(), dma_pending.clone()),
+            devices: IpodPhotoBoard::new(
+                executor.spawner(),
+                irq_pending.clone(),
+                dma_pending.clone(),
+            ),
             controls: None,
             synthetic_controls: controls_tx.clone(),
             boot_hold: None,
@@ -352,7 +356,11 @@ impl System for IpodPhoto {
     }
 
     fn render_callback(&self) -> RenderCallback {
-        self.devices.soc.clcd.render_callback().expect("no LCD controller attached to the color LCD bridge")
+        self.devices
+            .soc
+            .clcd
+            .render_callback()
+            .expect("no LCD controller attached to the color LCD bridge")
     }
 }
 

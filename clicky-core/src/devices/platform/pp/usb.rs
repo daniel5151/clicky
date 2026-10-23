@@ -89,7 +89,7 @@ impl Memory for Usb {
             reg::OTGSC => Err(StubRead(Debug, {
                 let mut val = self.reg[(offset / 4) as usize];
                 val.set_bit(reg::OTGSC_ID, true) // Is a peripheral
-                   .set_bit(reg::OTGSC_BSV, true); // Receiving VBUS
+                    .set_bit(reg::OTGSC_BSV, true); // Receiving VBUS
                 val
             })),
             0x000..=0x1ff => Err(StubRead(Debug, self.reg[(offset / 4) as usize])),
@@ -103,7 +103,7 @@ impl Memory for Usb {
                 let mut val = val;
                 val.set_bit(reg::USBCMD_CTRL_RESET, false); // USBCMD_CTRL_RESET bit is self-cleared
                 val
-            },
+            }
             reg::ENDPTPRIME | reg::ENDPTFLUSH => 0, // Self-clearing
             _ => val,
         };

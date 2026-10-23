@@ -23,12 +23,12 @@ mod memcon;
 mod mlcd;
 mod opto;
 mod ppcon;
+mod pwm;
 mod rtc;
 mod serial;
 mod soc;
 mod usb;
 mod usec_timer;
-mod pwm;
 
 pub use ahb_dma::*;
 pub use apb_dma::*;
@@ -51,12 +51,12 @@ pub use memcon::*;
 pub use mlcd::*;
 pub use opto::*;
 pub use ppcon::*;
+pub use pwm::*;
 pub use rtc::*;
 pub use serial::*;
 pub use soc::*;
 pub use usb::*;
 pub use usec_timer::*;
-pub use pwm::*;
 
 pub mod common {
     #[derive(Debug, Copy, Clone, PartialEq, Eq)]

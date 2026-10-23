@@ -26,7 +26,7 @@ pub struct hd_driveid {
     pub max_multsect: u8, /* 0=not_implemented */
     pub vendor3: u8,      /* vendor unique */
     pub dword_io: u16,    /* 0=not_implemented, 1=implemented */
-    pub capabilities: u16,/* Word 49, capabilities
+    pub capabilities: u16, /* Word 49, capabilities
                            * 14-15: Reserved for the IDENTIFY PACKET DEVICE command
                            *    13: Standby timer values as specified in this standard are supported
                            *    12: Reserved for the IDENTIFY PACKET DEVICE command.
@@ -37,15 +37,15 @@ pub struct hd_driveid {
                            *  7-0:  Retired
                            */
     pub capabilities2: u16, /* Word 50, capabilities (continued) */
-    pub vendor5: u8,     /* Obsolete, vendor unique */
-    pub tPIO: u8,        /* Obsolete, 0=slow, 1=medium, 2=fast */
-    pub vendor6: u8,     /* Obsolete, vendor unique */
-    pub tDMA: u8,        /* Obsolete, 0=slow, 1=medium, 2=fast */
-    pub field_valid: u16, /* (word 53)
-                          *  2:        ultra_ok        word  88
-                          *  1:        eide_ok                words 64-70
-                          *  0:        cur_ok                words 54-58
-                          */
+    pub vendor5: u8,        /* Obsolete, vendor unique */
+    pub tPIO: u8,           /* Obsolete, 0=slow, 1=medium, 2=fast */
+    pub vendor6: u8,        /* Obsolete, vendor unique */
+    pub tDMA: u8,           /* Obsolete, 0=slow, 1=medium, 2=fast */
+    pub field_valid: u16,   /* (word 53)
+                             *  2:        ultra_ok        word  88
+                             *  1:        eide_ok                words 64-70
+                             *  0:        cur_ok                words 54-58
+                             */
     pub cur_cyls: u16,       /* Obsolete, logical cylinders */
     pub cur_heads: u16,      /* Obsolete, l heads */
     pub cur_sectors: u16,    /* Obsolete, l sectors per track */
@@ -340,11 +340,11 @@ impl IdeDriveMeta<'_> {
             // ATA-5 8.12.45
             command_set_1: (1 << 0) | (1 << 3) | (1 << 5), // SMART (0), power management (3), write cache (5)
             command_set_2: (1 << 14) | (1 << 12), // Bit 14 means 82h-83h contain valid info, FLUSH CACHE (12)
-            
+
             // ATA-5 8.12.46
             cfs_enable_1: (1 << 0) | (1 << 3) | (1 << 5), // SMART (0), power management (3), write cache en (5)
-            cfs_enable_2: (1 << 14) | (1 << 12), // // NOP command (14), write buffer (12)
-            csf_default: 1 << 14, // Bit 14 means 85h-87h contain valid info
+            cfs_enable_2: (1 << 14) | (1 << 12),          // // NOP command (14), write buffer (12)
+            csf_default: 1 << 14,                         // Bit 14 means 85h-87h contain valid info
 
             ..hd_driveid::default()
         };

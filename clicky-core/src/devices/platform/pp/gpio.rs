@@ -111,7 +111,10 @@ impl GpioPort {
             }
         }
 
-        (self.irq_mask).store(self.interrupt_status & self.interrupt_enable, Ordering::SeqCst);
+        (self.irq_mask).store(
+            self.interrupt_status & self.interrupt_enable,
+            Ordering::SeqCst,
+        );
     }
 }
 
