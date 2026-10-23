@@ -21,9 +21,9 @@ struct InternalRegs {
     hea: usize,
     vsa: usize,
     vea: usize,
-    vertical_input: bool, // R03h.4
+    vertical_input: bool,     // R03h.4
     horizontal_increment: i8, // R03h.5
-    vertical_increment: i8, // R03h.6
+    vertical_increment: i8,   // R03h.6
 
     cur_x: usize,
     cur_y: usize,
@@ -102,14 +102,16 @@ impl Hd66789 {
         let width = Self::width(ireg);
         let height = Self::height(ireg);
         match ireg.vertical_input {
-            false => { // left to right
+            false => {
+                // left to right
                 if ireg.horizontal_increment == 1 {
                     ireg.cur_x += 1;
                     if ireg.cur_x >= width {
                         ireg.cur_x = 0;
                         ireg.cur_y += ireg.vertical_increment as usize;
                     }
-                } else { // right to left
+                } else {
+                    // right to left
                     if ireg.cur_x == 0 {
                         ireg.cur_x = width - 1;
                         ireg.cur_y += ireg.vertical_increment as usize;
@@ -118,7 +120,8 @@ impl Hd66789 {
                     }
                 }
             }
-            true => { // top to bottom
+            true => {
+                // top to bottom
                 // if ireg.vertical_increment == 1 {
                 //     ireg.cur_y += 1;
                 //     if ireg.cur_y >= height {
@@ -126,12 +129,12 @@ impl Hd66789 {
                 //         ireg.cur_x += ireg.horizontal_increment as usize;
                 //     }
                 // } else { // bottom to top
-                    if ireg.cur_y == 0 {
-                        ireg.cur_y = height - 1;
-                        ireg.cur_x += ireg.horizontal_increment as usize;
-                    } else {
-                        ireg.cur_y -= 1;
-                    }
+                if ireg.cur_y == 0 {
+                    ireg.cur_y = height - 1;
+                    ireg.cur_x += ireg.horizontal_increment as usize;
+                } else {
+                    ireg.cur_y -= 1;
+                }
                 // }
             }
         }
@@ -175,8 +178,7 @@ impl Hd66789 {
                     for old_x in 0..MAX_WIDTH {
                         let px = gram[old_y * MAX_WIDTH + old_x];
                         let p = px.rotate_left(8);
-                        let color =
-                            0xff000000
+                        let color = 0xff000000
                             | (((p & 0xf800) as u32) << 8)
                             | (((p & 0x07e0) as u32) << 5)
                             | (((p & 0x001f) as u32) << 3);
@@ -198,7 +200,9 @@ impl Hd66789 {
         match ireg.cmd {
             0x21 => {}
             0x22 => {}
-            _ => {debug!(target: "LCD", "write_data cmd:{:x} val:0x{:x}({})", ireg.cmd, val, val);}
+            _ => {
+                debug!(target: "LCD", "write_data cmd:{:x} val:0x{:x}({})", ireg.cmd, val, val);
+            }
         }
         match ireg.cmd {
             0x03 => {

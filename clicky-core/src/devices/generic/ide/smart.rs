@@ -125,7 +125,7 @@ impl Smart {
 
         for (i, &attribute) in self.attributes.iter().enumerate() {
             let offset = 2 + i * 12;
-            buf[offset..offset+12].copy_from_slice(&attribute.serialize_threshold());
+            buf[offset..offset + 12].copy_from_slice(&attribute.serialize_threshold());
         }
 
         buf[511] = Smart::checksum(&buf);

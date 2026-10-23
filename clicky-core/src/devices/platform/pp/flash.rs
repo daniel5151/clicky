@@ -106,12 +106,11 @@ impl Memory for Flash {
                 } else {
                     Err(Unimplemented)
                 }
-                
             }
             (CFIState::ReadSoftwareID, 0x0) => Ok(0x00BF), // Manufacturer ID (SST)
             (CFIState::ReadSoftwareID, 0x1) => Ok(0x273F), // Device ID (SST39WF800A)
             _ => Err(Unimplemented),
-        }        
+        }
     }
 
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
@@ -138,7 +137,7 @@ impl Memory for Flash {
             (0xAAAA, 0xAA, CFIState::ReadArrayMode) => {
                 self.state = CFIState::CommandPreambleAA;
                 Ok(())
-            },
+            }
             (0x0000, 0xFF, _) => {
                 // See 'A1.2 CFI Query Flowchart' from Intel AP-646
                 self.state = CFIState::ReadArrayMode;

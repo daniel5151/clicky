@@ -321,16 +321,17 @@ impl Memory for I2CCon {
                     .set_bits(1..=7, self.txn.addr.unwrap_or(0)) as u32
             }),
             0x08 => Ok({
-                *0u8.set_bit(0, self.txn.addr1_op.map(|op| op.into_bit()).unwrap_or(false))
-                    .set_bits(1..=7, self.txn.addr1.unwrap_or(0)) as u32
+                *0u8.set_bit(
+                    0,
+                    self.txn.addr1_op.map(|op| op.into_bit()).unwrap_or(false),
+                )
+                .set_bits(1..=7, self.txn.addr1.unwrap_or(0)) as u32
             }),
             0x0c => Ok(self.data[0] as u32),
             0x10 => Ok(self.data[1] as u32),
             0x14 => Ok(self.data[2] as u32),
             0x18 => Ok(self.data[3] as u32),
-            0x1c => {
-                Ok((self.busy as u32) << 6)
-            },
+            0x1c => Ok((self.busy as u32) << 6),
             _ => Err(Unexpected),
         }
     }

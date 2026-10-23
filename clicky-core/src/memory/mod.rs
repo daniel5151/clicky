@@ -64,7 +64,6 @@ pub trait Memory {
 macro_rules! impl_memfwd {
     ($type:ty) => {
         impl Memory for $type {
-
             fn r32(&mut self, offset: u32) -> MemResult<u32> {
                 (**self).r32(offset)
             }

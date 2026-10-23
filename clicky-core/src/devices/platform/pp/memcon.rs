@@ -167,7 +167,7 @@ impl MemConImpl {
                     w: true,
                     d: true,
                     x: true,
-                }
+                },
             );
         }
 
@@ -285,7 +285,7 @@ impl Memory for MemConImpl {
                     self.mmap[no as usize].physical.get_bits(8..=11),
                 );
                 Err(StubWrite(Warn, ()))
-            },
+            }
             _ => Err(Unexpected),
         }
     }

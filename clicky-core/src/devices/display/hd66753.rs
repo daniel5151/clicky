@@ -1,7 +1,7 @@
 use crate::devices::prelude::*;
 
-use std::sync::{Arc, RwLock};
 use relativity::Instant;
+use std::sync::{Arc, RwLock};
 
 use crate::devices::display::{LcdController, LcdPanel};
 use crate::gui::RenderCallback;
@@ -177,15 +177,12 @@ impl Hd66753 {
             };
 
             let cgram_window = cgram
-                    .chunks_exact(EMU_CGRAM_WIDTH * 2 / 8 / 2)
-                    .take(height)
-                    .flat_map(|row| {
-                        match ireg.sgs {
-                            true => Either::Left(row.iter().take(CGRAM_WIDTH * 2 / 8 / 2)),
-                            false => Either::Right(row.iter().take(CGRAM_WIDTH * 2 / 8 / 2).rev()),
-                        }
-                        
-                     });
+                .chunks_exact(EMU_CGRAM_WIDTH * 2 / 8 / 2)
+                .take(height)
+                .flat_map(|row| match ireg.sgs {
+                    true => Either::Left(row.iter().take(CGRAM_WIDTH * 2 / 8 / 2)),
+                    false => Either::Right(row.iter().take(CGRAM_WIDTH * 2 / 8 / 2).rev()),
+                });
 
             let new_buf = cgram_window
                 .flat_map(|w| {
@@ -220,7 +217,7 @@ impl Hd66753 {
                             0b01 if blink_on => 0,
                             0b10 => 3 - x,
                             0b11 if blink_on => 3 - x,
-                            _ => x
+                            _ => x,
                         }
                     } else {
                         x
@@ -387,7 +384,7 @@ impl Hd66753 {
                         }
 
                         self.ac %= EMU_CGRAM_OVF;
-                    },
+                    }
 
                     // Write Mode 2, vertical (page 50)
                     0b01 => {
@@ -413,9 +410,11 @@ impl Hd66753 {
                                 }
                             }
                         };
-                    },
+                    }
 
-                    0b10 => return Err(Fatal("unimplemented: two-word vertical CGRAM write".into())),
+                    0b10 => {
+                        return Err(Fatal("unimplemented: two-word vertical CGRAM write".into()))
+                    }
                     0b11 => return Err(Fatal("EntryMode:AM cannot be set to 0b11".into())),
                     _ => unreachable!(),
                 }

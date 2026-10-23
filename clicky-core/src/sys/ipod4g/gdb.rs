@@ -313,7 +313,11 @@ impl MultiThreadOps for Ipod4gGdb {
     }
 
     fn read_addrs(&mut self, start_addr: u32, data: &mut [u8], tid: Tid) -> TargetResult<(), Self> {
-        self.sys.devices.soc.cpuid.set_cpuid(tid_to_cpuid(tid).unwrap());
+        self.sys
+            .devices
+            .soc
+            .cpuid
+            .set_cpuid(tid_to_cpuid(tid).unwrap());
         self.sys
             .devices
             .soc
@@ -328,7 +332,11 @@ impl MultiThreadOps for Ipod4gGdb {
     }
 
     fn write_addrs(&mut self, start_addr: u32, data: &[u8], tid: Tid) -> TargetResult<(), Self> {
-        self.sys.devices.soc.cpuid.set_cpuid(tid_to_cpuid(tid).unwrap());
+        self.sys
+            .devices
+            .soc
+            .cpuid
+            .set_cpuid(tid_to_cpuid(tid).unwrap());
         self.sys
             .devices
             .soc

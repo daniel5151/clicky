@@ -24,7 +24,7 @@ struct InternalRegs {
 }
 
 pub struct LR38825 {
-	panel: Option<LcdPanel>,
+    panel: Option<LcdPanel>,
     gram: Arc<RwLock<[u16; GRAM_LEN]>>,
     ireg: Arc<RwLock<InternalRegs>>,
 }
@@ -95,14 +95,16 @@ impl LR38825 {
         let width = Self::width(ireg);
         let height = Self::height(ireg);
         match ireg.vertical_input {
-            6 => { // left to right / right to left
+            6 => {
+                // left to right / right to left
                 ireg.cur_x += 1;
                 if ireg.cur_x >= width {
                     ireg.cur_x = 0;
                     ireg.cur_y += 1;
                 }
             }
-            0 => { // top to bottom
+            0 => {
+                // top to bottom
                 ireg.cur_y += 1;
                 if ireg.cur_y >= height {
                     ireg.cur_y = 0;
@@ -152,7 +154,9 @@ impl LcdController for LR38825 {
         let val = val as u8;
 
         match ireg.cmd {
-            0..=254 => {trace!(target: "LCD", "write_command cmd:{:x} val:0x{:x}({})", ireg.cmd, val, val);}
+            0..=254 => {
+                trace!(target: "LCD", "write_command cmd:{:x} val:0x{:x}({})", ireg.cmd, val, val);
+            }
             _ => {}
         }
         match ireg.cmd {
@@ -186,8 +190,7 @@ impl LcdController for LR38825 {
             0x18 => {
                 ireg.vertical_input = val as usize;
             }
-            0x01 | 0x02 | 0x7e | 0x7f | 0x80 | 0xce | 0xef => {
-            }
+            0x01 | 0x02 | 0x7e | 0x7f | 0x80 | 0xce | 0xef => {}
             invalid_cmd => {
                 return Err(Fatal(format!(
                     "attempted to execute invalid LCD command {:#x?}",

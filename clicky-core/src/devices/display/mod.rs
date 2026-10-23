@@ -37,7 +37,7 @@ pub struct LcdPanel {
     pub height: usize,
 
     /// Reversed horizontal axis
-    /// 
+    ///
     /// Panel segments are connected in the reverse order
     pub reverse_hor: bool,
 }

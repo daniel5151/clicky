@@ -157,7 +157,8 @@ impl Memory for ColorLcdBridge {
                 // `done` is owned by the engine: keep its current value.
                 // The emulated FIFO drains instantly, so a flush has nothing to do.
                 let done_mask = 1 << Control::DONE_OFFSET;
-                self.control.write_bits((val & !done_mask) | (self.control.into_bits() & done_mask));
+                self.control
+                    .write_bits((val & !done_mask) | (self.control.into_bits() & done_mask));
                 self.control.set_flush(false);
                 Err(StubWrite(Trace, ()))
             }
@@ -203,7 +204,9 @@ impl Memory for ColorLcdBridge {
                     let _ = self.controller()?.write_data((val >> 16) as u16);
                     self.remaining = self.remaining.saturating_sub(4);
                 } else {
-                    let _ = self.controller()?.write_data(val as u16 >> 8 | (val as u16) << 8);
+                    let _ = self
+                        .controller()?
+                        .write_data(val as u16 >> 8 | (val as u16) << 8);
                     self.remaining = 0;
                 }
 

@@ -6,8 +6,8 @@ use relativity::Timeout;
 use thiserror::Error;
 
 use crate::block::BlockDev;
-use crate::devices::Device;
 use crate::devices::display::LcdPanel;
+use crate::devices::Device;
 use crate::error::*;
 use crate::executor::*;
 use crate::gui::{IpodBinds, IpodControls, IpodKey, RenderCallback, TakeControls};
@@ -17,13 +17,13 @@ use crate::signal::{self, gpio, irq};
 mod gdb;
 mod hle_bootloader;
 
-pub use gdb::Ipod4gGdb;
 use crate::sys::{BootKind, System};
+pub use gdb::Ipod4gGdb;
 
 use hle_bootloader::run_hle_bootloader;
 
-use crate::devices::platform::pp::common::*;
 use crate::board_mmap;
+use crate::devices::platform::pp::common::*;
 use crate::devices::util::MemSniffer;
 mod devices {
     pub mod i2c {
@@ -380,7 +380,11 @@ impl System for Ipod4g {
     }
 
     fn render_callback(&self) -> RenderCallback {
-        self.devices.soc.mlcd.render_callback().expect("no LCD controller attached to the mono LCD bridge")
+        self.devices
+            .soc
+            .mlcd
+            .render_callback()
+            .expect("no LCD controller attached to the mono LCD bridge")
     }
 }
 

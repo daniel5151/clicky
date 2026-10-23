@@ -177,11 +177,7 @@ impl IpodMini1g {
             down: down_tx,
             left: left_tx,
             right: right_tx,
-            wheel: devices::QuadratureEncoder::new(
-                wheel_a_tx,
-                wheel_b_tx,
-                &sys.executor.spawner(),
-            ),
+            wheel: devices::QuadratureEncoder::new(wheel_a_tx, wheel_b_tx, &sys.executor.spawner()),
         });
 
         Ok(sys)

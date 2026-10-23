@@ -1,6 +1,6 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PMPModel {
-	/// iPod (1st Generation)
+    /// iPod (1st Generation)
     Ipod1g,
 
     /// iPod (2nd Generation)
@@ -35,24 +35,24 @@ pub enum PMPModel {
 }
 
 impl PMPModel {
-	pub fn from_gestalt(gestalt: u32) -> PMPModel {
-		use PMPModel::*;
+    pub fn from_gestalt(gestalt: u32) -> PMPModel {
+        use PMPModel::*;
 
-		// Sourced from: http://www.ipodlinux.org/Generations/
-		match gestalt {
-			0x00010000 | 0x00010001 | 0x00010002 => Ipod1g,
-			0x00020000 | 0x00020001 => Ipod2g,
-			0x00030001 => Ipod3g,
-			0x00050013 | 0x00050014 => Ipod4g,
-			0x000B0005 | 0x000B0010 => Ipod5g,
-			0x00040012 | 0x00040013 => IpodMini1g,
-			0x00070002 => IpodMini2g,
-			0x000C0005 | 0x000C0006 => IpodNano1g,
-			0x00060000 => IpodPhoto,
-			0x00060004 => IpodColor,
-			_ => Unknown,
-		}
-	}
+        // Sourced from: http://www.ipodlinux.org/Generations/
+        match gestalt {
+            0x00010000 | 0x00010001 | 0x00010002 => Ipod1g,
+            0x00020000 | 0x00020001 => Ipod2g,
+            0x00030001 => Ipod3g,
+            0x00050013 | 0x00050014 => Ipod4g,
+            0x000B0005 | 0x000B0010 => Ipod5g,
+            0x00040012 | 0x00040013 => IpodMini1g,
+            0x00070002 => IpodMini2g,
+            0x000C0005 | 0x000C0006 => IpodNano1g,
+            0x00060000 => IpodPhoto,
+            0x00060004 => IpodColor,
+            _ => Unknown,
+        }
+    }
 
     pub fn model_name(self) -> &'static str {
         match self {
@@ -69,7 +69,6 @@ impl PMPModel {
             PMPModel::Unknown => "Unknown PMP",
         }
     }
-
 }
 
 impl std::fmt::Display for PMPModel {
