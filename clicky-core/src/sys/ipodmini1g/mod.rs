@@ -261,6 +261,8 @@ impl IpodMini1g {
             }
         }
 
+        devices.soc.eidecon.tick();
+
         // TODO: don't run this on every cycle?
         self.executor.run_until_stalled();
 

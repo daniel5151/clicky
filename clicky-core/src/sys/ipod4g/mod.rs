@@ -256,6 +256,8 @@ impl Ipod4g {
             }
         }
 
+        devices.soc.eidecon.tick();
+
         if self.skip_irq_check {
             return Ok(true);
         }
