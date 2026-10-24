@@ -4,6 +4,3 @@
 .gdb_history
 sysdump.log
 *.img*
-
-# I use a custom config to speed up link times
-.cargo/
