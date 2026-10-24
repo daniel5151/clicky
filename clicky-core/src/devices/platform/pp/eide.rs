@@ -39,11 +39,16 @@ pub struct EIDECon {
 pub struct DmaErr;
 
 impl EIDECon {
-    pub fn new(irq: irq::Sender, dmarq_tx: irq::Sender, dmarq_rx: irq::Receiver) -> EIDECon {
+    pub fn new(
+        irq: irq::Sender,
+        dmarq_tx: irq::Sender,
+        dmarq_rx: irq::Receiver,
+        task_spawner: Spawner,
+    ) -> EIDECon {
         EIDECon {
             ide0_cfg: Default::default(),
             ide1_cfg: Default::default(),
-            ide: IdeController::new(irq, dmarq_tx),
+            ide: IdeController::new(irq, dmarq_tx, task_spawner),
             dmarq: dmarq_rx,
 
             dma_control: 0,
