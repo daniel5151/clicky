@@ -59,10 +59,10 @@ impl MinifbRenderer {
                 }
             }
 
-            if let Some(scroll) = window.get_scroll_wheel() {
-                if let Some(ref mut on_scroll) = controls.on_scroll {
-                    on_scroll(scroll)
-                }
+            if let Some(scroll) = window.get_scroll_wheel()
+                && let Some(ref mut on_scroll) = controls.on_scroll
+            {
+                on_scroll(scroll)
             }
 
             // update the framebuffer

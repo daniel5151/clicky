@@ -3,7 +3,7 @@
 /// Copied from include/linux/hdreg.h.
 #[derive(Copy, Clone)]
 #[repr(C, packed)]
-#[allow(non_camel_case_types, non_snake_case)]
+#[expect(non_snake_case)]
 pub struct hd_driveid {
     pub config: u16,         /* lots of obsolete bit flags */
     pub cyls: u16,           /* Obsolete, "physical" cyls */

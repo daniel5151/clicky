@@ -11,6 +11,7 @@ pub enum Error {
 // and https://ntfs.com/disk-monitor-smart-attributes.htm
 #[derive(Debug, Copy, Clone)]
 #[repr(u8)]
+#[expect(dead_code)]
 pub enum AttributeId {
     ReadErrorRate = 0x01,
     ThroughputPerformance = 0x02,

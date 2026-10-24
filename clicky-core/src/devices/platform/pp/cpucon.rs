@@ -1,12 +1,11 @@
 use crate::devices::prelude::*;
 
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 
 pub use super::common::CpuId;
 
-#[allow(dead_code)]
 mod flags {
     type Range = std::ops::RangeInclusive<usize>;
 
@@ -140,7 +139,7 @@ impl CpuCon {
                         msg: "set invalid counter source (bit 26)".into(),
                         severity: Error,
                         stub_val: None,
-                    })
+                    });
                 }
             };
 

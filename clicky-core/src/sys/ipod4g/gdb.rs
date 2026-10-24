@@ -8,7 +8,7 @@ use gdbstub::target::ext::base::multithread::{
     Actions, MultiThreadOps, ResumeAction, ThreadStopReason,
 };
 use gdbstub::target::ext::breakpoints::WatchKind;
-use gdbstub::target::ext::monitor_cmd::{outputln, ConsoleOutput};
+use gdbstub::target::ext::monitor_cmd::{ConsoleOutput, outputln};
 use gdbstub::target::{Target, TargetResult};
 
 use crate::devices::Device;
@@ -164,7 +164,7 @@ Help
                 return Err(format!(
                     "Unsupported command '{}'.\nUse `monitor help` to list all available commands.",
                     cmd
-                ))
+                ));
             }
         }
 

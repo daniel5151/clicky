@@ -1,7 +1,7 @@
 use crate::devices::prelude::*;
 
-use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU8, Ordering};
 
 use crate::devices::util::ArcMutexDevice;
 use crate::signal::{gpio, irq};

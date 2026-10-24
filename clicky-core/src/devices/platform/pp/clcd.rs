@@ -145,7 +145,7 @@ impl Memory for ColorLcdBridge {
             0x0c => Err(StubRead(Trace, 0)),
             0x20 => Err(StubRead(Trace, self.control.into_bits())),
             0x24 => Err(StubRead(Trace, self.config.into_bits())),
-            _ => return Err(Unexpected),
+            _ => Err(Unexpected),
         }
     }
 
@@ -170,22 +170,20 @@ impl Memory for ColorLcdBridge {
                 }
                 Err(StubWrite(Trace, ()))
             }
-            0x0c => {
-                match self.write_byte_latch.take() {
-                    None => {
-                        self.write_byte_latch = Some(val);
-                        return Ok(());
+            0x0c => match self.write_byte_latch.take() {
+                None => {
+                    self.write_byte_latch = Some(val);
+                    Ok(())
+                }
+                Some(hi) => {
+                    let cmd16 = ((hi & 0xff) << 8 | (val & 0xff)) as u16;
+                    if (val & 0xff00_0000) == 0x8000_0000 {
+                        self.controller()?.write_command(cmd16)
+                    } else {
+                        self.controller()?.write_data(cmd16)
                     }
-                    Some(hi) => {
-                        let cmd16 = ((hi & 0xff) << 8 | (val & 0xff)) as u16;
-                        if (val & 0xff00_0000) == 0x8000_0000 {
-                            return self.controller()?.write_command(cmd16);
-                        } else {
-                            return self.controller()?.write_data(cmd16);
-                        }
-                    }
-                };
-            }
+                }
+            },
             0x100 => {
                 if !self.config.data_ncmd() {
                     return self.controller()?.write_command(val as u16 >> 8);
@@ -204,9 +202,7 @@ impl Memory for ColorLcdBridge {
                     let _ = self.controller()?.write_data((val >> 16) as u16);
                     self.remaining = self.remaining.saturating_sub(4);
                 } else {
-                    let _ = self
-                        .controller()?
-                        .write_data(val as u16 >> 8 | (val as u16) << 8);
+                    let _ = self.controller()?.write_data((val as u16).rotate_right(8));
                     self.remaining = 0;
                 }
 

@@ -59,7 +59,7 @@ impl Seek for Null {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidInput,
                         "cannot seek to negative offset",
-                    ))
+                    ));
                 }
             },
             io::SeekFrom::Current(v) => match self.offset as i64 + v {
@@ -68,7 +68,7 @@ impl Seek for Null {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidInput,
                         "cannot seek to negative offset",
-                    ))
+                    ));
                 }
             },
         };

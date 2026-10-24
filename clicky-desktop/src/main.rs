@@ -23,7 +23,7 @@ mod controls;
 mod gdb;
 
 use crate::blockcfg::BlockCfg;
-use crate::gdb::{make_gdbstub, GdbCfg};
+use crate::gdb::{GdbCfg, make_gdbstub};
 
 const SYSDUMP_FILENAME: &str = "sysdump.log";
 
@@ -83,6 +83,7 @@ struct Args {
     hold_keys: Vec<IpodKey>,
 }
 
+#[expect(clippy::large_enum_variant)]
 enum System {
     Bare(Box<dyn sys::System>),
     Debug { system_gdb: Ipod4gGdb, cfg: GdbCfg },
@@ -169,13 +170,13 @@ fn main() -> DynResult<()> {
     };
 
     // Warn if user override doesn't match detected model
-    if let (Some(user_model), Some(detected)) = (args.model, detected_model) {
-        if user_model != detected {
-            warn!(
-                "Model override ({}) does not match model detected in flash ROM ({})",
-                user_model, detected
-            );
-        }
+    if let (Some(user_model), Some(detected)) = (args.model, detected_model)
+        && user_model != detected
+    {
+        warn!(
+            "Model override ({}) does not match model detected in flash ROM ({})",
+            user_model, detected
+        );
     }
 
     let model = args.model.or(detected_model);
