@@ -1,6 +1,6 @@
 //! IRQ signaling and notification.
 
-use super::{new as new_signal, Master, Slave, Trigger, TriggerKind};
+use super::{Master, Slave, Trigger, TriggerKind, new as new_signal};
 
 /// Create a new IRQ line. Updates `notify` when the sender asserts the IRQ.
 pub fn new(notify: Pending, debug_label: &'static str) -> (Sender, Receiver) {

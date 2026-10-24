@@ -1,6 +1,6 @@
 //! GPIO signaling and notification.
 
-use super::{new as new_signal, Master, Slave, Trigger, TriggerKind};
+use super::{Master, Slave, Trigger, TriggerKind, new as new_signal};
 
 /// Create a new GPIO line. Updates `notify` whenever the sender updates the
 /// signal.

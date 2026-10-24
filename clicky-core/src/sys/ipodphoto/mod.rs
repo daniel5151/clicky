@@ -1,17 +1,17 @@
 use std::io::{Read, Seek};
 use std::time::Duration;
 
-use armv4t_emu::{reg, Cpu};
+use armv4t_emu::{Cpu, reg};
 use relativity::Timeout;
 use thiserror::Error;
 
 use crate::block::BlockDev;
-use crate::devices::display::LcdPanel;
 use crate::devices::Device;
+use crate::devices::display::LcdPanel;
 use crate::error::*;
 use crate::executor::*;
 use crate::gui::{IpodBinds, IpodControls, IpodKey, RenderCallback, TakeControls};
-use crate::memory::{armv4t_adaptor::MemoryAdapter, Memory};
+use crate::memory::{Memory, armv4t_adaptor::MemoryAdapter};
 use crate::signal::{self, gpio, irq};
 
 use crate::sys::{BootKind, System};
@@ -25,8 +25,8 @@ mod devices {
 
     pub use crate::devices::{
         display::lr38825::LR38825,
-        generic::{ide, AsanRam},
-        input::{clickwheel::ClickWheel, Controls},
+        generic::{AsanRam, ide},
+        input::{Controls, clickwheel::ClickWheel},
         platform::pp::*,
     };
 }

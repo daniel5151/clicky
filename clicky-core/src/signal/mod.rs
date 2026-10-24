@@ -1,8 +1,8 @@
 //! General signaling and notification mechanism. Used to implement GPIO, IRQs,
 //! etc...
 
-use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 
 pub mod gpio;
 pub mod irq;

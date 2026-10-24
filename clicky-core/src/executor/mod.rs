@@ -35,6 +35,7 @@ pub trait ClickyExecutor: Debug + Sized {
     fn spawner(&self) -> Self::Spawner;
 }
 
+#[expect(dead_code)]
 mod local {
     use super::*;
 

@@ -31,6 +31,7 @@ struct InternalRegs {
 
 /// Renesas Hd66789 176x240 color LCD Controller.
 pub struct Hd66789 {
+    #[expect(dead_code)]
     panel: LcdPanel,
     gram: Arc<RwLock<[u16; GRAM_LEN]>>,
     ireg: Arc<RwLock<InternalRegs>>,

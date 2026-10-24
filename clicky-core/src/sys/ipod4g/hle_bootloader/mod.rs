@@ -1,6 +1,6 @@
 use std::io::{Read, Seek, SeekFrom};
 
-use armv4t_emu::{reg, Mode as ArmMode};
+use armv4t_emu::{Mode as ArmMode, reg};
 use std::io;
 use thiserror::Error;
 

@@ -1,7 +1,7 @@
 use crate::devices::prelude::*;
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use stdrandom;
 
 const DEV_SYSTEM: u32 = 1 << 2;

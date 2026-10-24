@@ -17,11 +17,7 @@ impl I2COp {
     }
 
     fn from_bit(bit: bool) -> Self {
-        if bit {
-            I2COp::Read
-        } else {
-            I2COp::Write
-        }
+        if bit { I2COp::Read } else { I2COp::Write }
     }
 }
 

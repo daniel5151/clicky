@@ -38,7 +38,6 @@ pub enum BootKind<F: std::io::Read + std::io::Seek> {
     HLEBoot { fw_file: F },
 }
 
-#[allow(dead_code)]
 mod size_asserts {
     use super::*;
 

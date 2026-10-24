@@ -1,6 +1,6 @@
 use std::io::{self, Read, Seek, SeekFrom};
 
-use byteorder::{BigEndian, ByteOrder, ReadBytesExt, LE};
+use byteorder::{BigEndian, ByteOrder, LE, ReadBytesExt};
 
 use super::HleBootloaderError;
 
@@ -9,6 +9,7 @@ use super::HleBootloaderError;
 /// See http://www.ipodlinux.org/Firmware.html
 #[derive(Debug)]
 pub struct FirmwareMeta {
+    #[expect(dead_code, reason = "useful for Debug impl")]
     pub header: VolumeHeader,
     pub images: Vec<ImageInfo>,
 }
@@ -44,6 +45,7 @@ impl FirmwareMeta {
 }
 
 #[derive(Debug)]
+#[expect(dead_code)]
 pub struct VolumeHeader {
     pub magic_hi: u32,
     pub dir_offset: u32,
@@ -71,6 +73,7 @@ impl VolumeHeader {
 }
 
 #[derive(Debug)]
+#[expect(dead_code)]
 pub struct ImageInfo {
     pub dev: [u8; 4],
     pub name: [u8; 4],

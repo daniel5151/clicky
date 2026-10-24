@@ -191,6 +191,7 @@ enum IdeDriveState {
 /// Transfer Mode set by the "Set Transfer Mode" (0x03) subcommand of the "Set
 /// Features" command.
 #[derive(Debug)]
+#[expect(dead_code, reason = "payloads only used for Debug impl")]
 enum IdeTransferMode {
     Pio,
     PioNoIORDY,
@@ -273,6 +274,7 @@ struct IdeDrive {
     cfg: IdeDriveConfig,
 }
 
+#[expect(clippy::question_mark)]
 impl IdeDrive {
     fn new(irq: irq::Sender, dmarq: irq::Sender, blockdev: Box<dyn BlockDev>) -> IdeDrive {
         IdeDrive {
@@ -318,7 +320,7 @@ impl IdeDrive {
                 return None;
             }
 
-            ((cyl * NUM_HEADS as u64 + head) * NUM_SECTORS as u64 + sector) as u64
+            (cyl * NUM_HEADS as u64 + head) * NUM_SECTORS as u64 + sector
         };
 
         Some(offset)
@@ -715,7 +717,7 @@ impl IdeDrive {
                         return Err(Fatal(format!(
                             "SetFeatures (0xef) subcommand not implemented: {:#04x?}",
                             other
-                        )))
+                        )));
                     }
                 };
 

@@ -10,7 +10,7 @@ use either::Either;
 
 const CGRAM_WIDTH: usize = 168;
 const CGRAM_HEIGHT: usize = 132;
-#[allow(dead_code)]
+#[expect(dead_code)]
 const CGRAM_BYTES: usize = (CGRAM_WIDTH * CGRAM_HEIGHT) * 2 / 8; // 168 * 132 at 2bpp
 
 // Although the Hd66753 contains 5544 bytes of RAM (i.e: just the right amount
@@ -156,12 +156,12 @@ impl Hd66753 {
 
         let cgram = Arc::clone(&self.cgram);
         let ireg = Arc::clone(&self.ireg);
-        let panel = self.panel.clone();
+        let panel = self.panel;
         let start = Instant::now();
 
         Box::new(move |buf: &mut Vec<u32>| -> (usize, usize) {
             // TODO: make palette configurable?
-            #[allow(clippy::unreadable_literal)]
+            #[expect(clippy::unreadable_literal)]
             const PALETTE: [u32; 4] = [0xff000000, 0xff686868, 0xffb8b8b9, 0xffffffff];
 
             // instead of holding the locks, just copy the data locally
@@ -169,7 +169,7 @@ impl Hd66753 {
             let ireg = *ireg.read().unwrap();
 
             // Hardcoded to 1Hz for now
-            let blink_on = (start.elapsed().as_millis() / 500) % 2 == 0;
+            let blink_on = (start.elapsed().as_millis() / 500).is_multiple_of(2);
 
             let height = match ireg.nl {
                 0b11111 => 132,
@@ -196,11 +196,7 @@ impl Hd66753 {
                 .enumerate()
                 .map(move |(i, x)| {
                     // REV = Inverse color
-                    if ireg.rev {
-                        (i, x)
-                    } else {
-                        (i, 3 - x)
-                    }
+                    if ireg.rev { (i, x) } else { (i, 3 - x) }
                 })
                 .map(move |(i, x)| {
                     // Cursor window
@@ -413,7 +409,7 @@ impl Hd66753 {
                     }
 
                     0b10 => {
-                        return Err(Fatal("unimplemented: two-word vertical CGRAM write".into()))
+                        return Err(Fatal("unimplemented: two-word vertical CGRAM write".into()));
                     }
                     0b11 => return Err(Fatal("EntryMode:AM cannot be set to 0b11".into())),
                     _ => unreachable!(),
@@ -423,7 +419,7 @@ impl Hd66753 {
                 return Err(Fatal(format!(
                     "attempted to execute invalid LCD command {:#x?}",
                     invalid_cmd
-                )))
+                )));
             }
         }
 

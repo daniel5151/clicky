@@ -153,11 +153,8 @@ impl LcdController for LR38825 {
         ireg.cmd = val >> 8;
         let val = val as u8;
 
-        match ireg.cmd {
-            0..=254 => {
-                trace!(target: "LCD", "write_command cmd:{:x} val:0x{:x}({})", ireg.cmd, val, val);
-            }
-            _ => {}
+        if let 0..=254 = ireg.cmd {
+            trace!(target: "LCD", "write_command cmd:{:x} val:0x{:x}({})", ireg.cmd, val, val);
         }
         match ireg.cmd {
             0x10 => {
@@ -195,7 +192,7 @@ impl LcdController for LR38825 {
                 return Err(Fatal(format!(
                     "attempted to execute invalid LCD command {:#x?}",
                     invalid_cmd
-                )))
+                )));
             }
         }
         Ok(())

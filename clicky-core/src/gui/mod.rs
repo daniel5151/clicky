@@ -2,7 +2,7 @@
 
 mod controls;
 
-pub use controls::{key_signal, IpodBinds, IpodControls, IpodKey};
+pub use controls::{IpodBinds, IpodControls, IpodKey, key_signal};
 
 /// `RenderCallback` is called with an ARGB Framebuffer, and returns the
 /// dimensions of the image.

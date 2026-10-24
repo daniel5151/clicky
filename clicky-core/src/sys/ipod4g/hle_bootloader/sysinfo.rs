@@ -1,5 +1,5 @@
 /// Copied from ipodloader2 source
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[repr(C, packed)]
 #[derive(Copy, Clone, Default)]
 pub struct sysinfo_t {

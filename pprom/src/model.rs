@@ -35,6 +35,7 @@ pub enum PMPModel {
 }
 
 impl PMPModel {
+    #[expect(clippy::manual_range_patterns)]
     pub fn from_gestalt(gestalt: u32) -> PMPModel {
         use PMPModel::*;
 
