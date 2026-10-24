@@ -1,0 +1,12 @@
+[package]
+name = "xtask"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+log = { workspace = true, features = ["std"] }
+owo-colors.workspace = true
+xshell.workspace = true

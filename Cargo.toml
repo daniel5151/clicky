@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["clicky-core", "clicky-desktop", "clicky-web", "pprom", "relativity"]
+members = ["clicky-core", "clicky-desktop", "clicky-web", "pprom", "relativity", "xtask"]
 default-members = ["clicky-desktop"]
 
 [workspace.package]
