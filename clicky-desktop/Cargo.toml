@@ -1,21 +1,21 @@
 [package]
 name = "clicky-desktop"
-version = "0.1.0"
-authors = ["Daniel Prilik <danielprilik@gmail.com>"]
-edition = "2018"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [features]
 default = ["minifb"]
 
 [dependencies]
-clicky-core = { path = "../clicky-core/" }
-pprom = { path = "../pprom/" }
+clicky-core.workspace = true
+pprom.workspace = true
 
-cfg-if = "0.1"
-gdbstub = "0.4"
-human-size = "0.4"
-log = "0.4"
-pretty_env_logger = "0.3"
-structopt = "0.3"
+cfg-if.workspace = true
+gdbstub.workspace = true
+human-size.workspace = true
+log.workspace = true
+pretty_env_logger.workspace = true
+structopt.workspace = true
 
-minifb = { version =  "0.23", optional = true }
+minifb = { workspace = true, optional = true }

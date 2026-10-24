@@ -1,12 +1,12 @@
 [package]
 name = "pprom"
-version = "0.1.0"
-authors = ["Jean THOMAS <virgule@jeanthomas.me>"]
-edition = "2018"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
-log = "0.4"
-pretty_env_logger = "0.3"
-structopt = "0.3"
-thiserror = "1.0"
-hxdmp = "0.2"
+hxdmp.workspace = true
+log.workspace = true
+pretty_env_logger.workspace = true
+structopt.workspace = true
+thiserror.workspace = true
