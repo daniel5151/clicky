@@ -284,7 +284,7 @@ impl Memory for DmaChannel {
 #[bitfield(u32, order = msb)]
 struct CommandRegister {
     /// Global enable
-    gen: bool,
+    gen_en: bool,
 
     #[bits(31)]
     _reserved: u32,
