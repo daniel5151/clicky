@@ -54,6 +54,13 @@ struct DmaControl {
     start: bool,
 }
 
+impl DmaControl {
+    /// DONE is read-only to software, so it bypasses `write_bits`.
+    fn set_done(&mut self, done: bool) {
+        *self = DmaControl::from_bits(*self.into_bits().set_bit(31, done));
+    }
+}
+
 /// PP5020 EIDE Controller
 #[derive(Debug)]
 pub struct EIDECon {
@@ -63,8 +70,13 @@ pub struct EIDECon {
     dmarq: irq::Receiver,
 
     dma_control: DmaControl,
+    /// Length - 4 (like in Rockbox)
     dma_length: u32,
+    /// Initial DMA address
     dma_addr: u32,
+    /// Current DMA address
+    dma_cursor: u32,
+    dma_remaining: u32,
     /// Second channel? Seems to share the DMA_CONTROL layout
     unknown: DmaControl,
 }
@@ -82,6 +94,8 @@ impl EIDECon {
             dma_control: DmaControl::new(),
             dma_length: 0,
             dma_addr: 0,
+            dma_cursor: 0,
+            dma_remaining: 0,
             unknown: DmaControl::new(),
         }
     }
@@ -94,23 +108,28 @@ impl EIDECon {
         self.ide.tick()
     }
 
+    /// Nothing moves until START is set; until then the drive holds its data.
     pub fn do_ide_dma(&self) -> bool {
-        self.dmarq.asserted()
+        self.dmarq.asserted() && self.dma_control.start()
     }
 
     pub fn do_dma(&mut self) -> Result<(crate::memory::MemAccessKind, u32), DmaErr> {
-        if self.dma_length == 0 {
+        if !self.dma_control.start() {
             return Err(DmaErr);
         }
 
         let op = match self.dma_control.read() {
-            true => (crate::memory::MemAccessKind::Read, self.dma_addr),
-            false => (crate::memory::MemAccessKind::Write, self.dma_addr),
+            true => (crate::memory::MemAccessKind::Read, self.dma_cursor),
+            false => (crate::memory::MemAccessKind::Write, self.dma_cursor),
         };
 
         // 16 bit transfers
-        self.dma_addr += 2;
-        self.dma_length -= 2;
+        self.dma_cursor += 2;
+        self.dma_remaining -= 2;
+        if self.dma_remaining == 0 {
+            self.dma_control.set_start(false);
+            self.dma_control.set_done(true);
+        }
 
         Ok(op)
     }
@@ -194,10 +213,14 @@ impl Memory for EIDECon {
             0x3f8 => self.ide.read8(IdeReg::AltStatus).map(|v| v as u32),
             0x3fc => self.ide.read8(IdeReg::DataLatch).map(|v| v as u32),
 
-            0x400 => Err(StubRead(Debug, self.dma_control.into_bits())),
+            0x400 => {
+                let val = self.dma_control.into_bits();
+                self.dma_control.set_done(false);
+                Ok(val)
+            }
             0x404 => Err(StubRead(Error, 0)),
-            0x408 => Err(StubRead(Info, self.dma_length)),
-            0x40c => Err(StubRead(Info, self.dma_addr)),
+            0x408 => Ok(self.dma_length),
+            0x40c => Ok(self.dma_addr),
             0x410 => Err(StubRead(Error, self.unknown.into_bits())),
             _ => Err(Unexpected),
         }
@@ -229,15 +252,16 @@ impl Memory for EIDECon {
             0x3fc => self.ide.write8(IdeReg::DataLatch, val as u8),
 
             0x400 => {
+                let was_started = self.dma_control.start();
                 self.dma_control.write_bits(val);
-                if self.dma_control.start() {
-                    Err(Unimplemented)
-                } else {
-                    Err(StubWrite(Debug, ()))
+                if self.dma_control.start() && !was_started {
+                    // The engine moves LENGTH + 4 bytes
+                    self.dma_cursor = self.dma_addr;
+                    self.dma_remaining = self.dma_length + 4;
                 }
+                Ok(())
             }
-            // HACK: why the hecc does Rockbox's pp5020 driver write `len - 4`??
-            0x408 => Ok(self.dma_length = val + 4),
+            0x408 => Ok(self.dma_length = val),
             0x40c => Ok(self.dma_addr = val),
             0x410 => Err(StubWrite(Error, self.unknown.write_bits(val))),
 
