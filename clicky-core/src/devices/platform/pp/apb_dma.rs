@@ -4,6 +4,9 @@ use crate::devices::prelude::*;
 
 use bitfields::{bitfield, bitflag};
 
+use crate::error::{FatalMemResult, MemExceptionCtx};
+use crate::memory::armv4t_adaptor::MemoryAdapter;
+
 #[bitflag(u8)]
 #[derive(Debug, PartialEq)]
 enum RequestSelection {
@@ -267,6 +270,60 @@ impl DmaChannel {
             width: self.width,
         })
     }
+
+    /// Advance past a unit returned by `next_transfer`. Returns true when the
+    /// block completes with its interrupt enabled.
+    fn complete_transfer(&mut self, step: u32) -> bool {
+        // Wrap back to the base address every N words
+        let ahb_wrap_words = match self.ahb_seq.ahb_addr_wrap() {
+            AhbWrap::NO_WRAP => None,
+            AhbWrap::WRAP_ON_32WORDS => Some(32),
+            AhbWrap::WRAP_ON_64WORDS => Some(64),
+            AhbWrap::WRAP_ON_128WORDS => Some(128),
+            AhbWrap::WRAP_ON_256WORDS => Some(256),
+            AhbWrap::WRAP_ON_512WORDS => Some(512),
+            AhbWrap::WRAP_ON_1024WORDS => Some(1024),
+            AhbWrap::WRAP_ON_2048WORDS => Some(2048),
+        };
+        self.ahb_cursor = match ahb_wrap_words {
+            None => self.ahb_cursor.wrapping_add(step),
+            Some(words) => self
+                .ahb_ptr
+                .wrapping_add((self.ahb_cursor.wrapping_sub(self.ahb_ptr) + step) % (words * 4)),
+        };
+
+        let apb_wrap_words = match self.apb_seq.apb_addr_wrap() {
+            ApbWrap::NO_WRAP => None,
+            ApbWrap::WRAP_ON_1WORDS => Some(1),
+            ApbWrap::WRAP_ON_2WORDS => Some(2),
+            ApbWrap::WRAP_ON_4WORDS => Some(4),
+            ApbWrap::WRAP_ON_8WORDS => Some(8),
+            ApbWrap::WRAP_ON_16WORDS => Some(16),
+            ApbWrap::WRAP_ON_32WORDS => Some(32),
+            ApbWrap::WRAP_ON_64WORDS => Some(64),
+        };
+        self.apb_cursor = match apb_wrap_words {
+            None => self.apb_cursor.wrapping_add(step),
+            Some(words) => self
+                .apb_ptr
+                .wrapping_add((self.apb_cursor.wrapping_sub(self.apb_ptr) + step) % (words * 4)),
+        };
+
+        self.remaining = self.remaining.saturating_sub(step);
+        if self.remaining != 0 {
+            return false;
+        }
+
+        match self.control.once() {
+            true => self.control.set_enb(false),
+            false => self.latch(),
+        }
+
+        if self.control.ie_eoc() {
+            self.status.set_is_eoc(true);
+        }
+        self.control.ie_eoc()
+    }
 }
 
 impl Device for DmaChannel {
@@ -439,6 +496,59 @@ impl ApbDma {
             .enumerate()
             .find_map(|(channel, ch)| ch.next_transfer(channel, requests))
     }
+
+    /// To be called once DMA request has been passed to bus
+    pub fn complete_transfer(&mut self, xfer: DmaTransfer) {
+        if self.dma[xfer.channel].complete_transfer(xfer.width) {
+            debug!(target: "DMA", "APB-DMA:{} done", xfer.channel);
+            self.irq.assert();
+        }
+    }
+}
+
+impl DmaTransfer {
+    pub fn execute<B: Memory + Device>(&self, bus: &mut B) -> FatalMemResult<()> {
+        use armv4t_emu::Memory as _;
+
+        let mut mem = MemoryAdapter::new(bus);
+        let val = match self.width {
+            1 => mem.r8(self.src_ptr) as u32,
+            2 => mem.r16(self.src_ptr) as u32,
+            4 => mem.r32(self.src_ptr),
+            _ => unreachable!("APB bus width is 1, 2 or 4 bytes"),
+        };
+        if let Some((access, e)) = mem.exception.take() {
+            let in_device = format!("DMA, {}", mem.mem.probe(access.offset));
+            e.resolve(
+                "DMA",
+                MemExceptionCtx {
+                    pc: 0,
+                    access,
+                    in_device,
+                },
+            )?;
+        }
+
+        match self.width {
+            1 => mem.w8(self.dst_ptr, val as u8),
+            2 => mem.w16(self.dst_ptr, val as u16),
+            4 => mem.w32(self.dst_ptr, val),
+            _ => unreachable!("APB bus width is 1, 2 or 4 bytes"),
+        }
+        if let Some((access, e)) = mem.exception.take() {
+            let in_device = format!("DMA, {}", mem.mem.probe(access.offset));
+            e.resolve(
+                "DMA",
+                MemExceptionCtx {
+                    pc: 0,
+                    access,
+                    in_device,
+                },
+            )?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Device for ApbDma {
@@ -470,13 +580,24 @@ impl Memory for ApbDma {
         match offset {
             0x0000..=0x0fff => match offset % 0x10 {
                 0x0 => Ok(self.command.into_bits()),
-                0x4 => Ok(self.status.into_bits()),
+                0x4 => {
+                    self.status.set_ch0_busy(self.dma[0].control.enb());
+                    self.status.set_ch1_busy(self.dma[1].control.enb());
+                    self.status.set_ch2_busy(self.dma[2].control.enb());
+                    self.status.set_ch3_busy(self.dma[3].control.enb());
+                    Ok(self.status.into_bits())
+                }
                 0x8 => Ok(self.req_status.into_bits()),
                 _ => Err(Unexpected),
             },
             0x1000..=0x1fff => {
                 let offset = (offset - 0x1000) % 0x80;
-                self.dma[(offset / 0x20) as usize].r32(offset % 0x20)
+                let val = self.dma[(offset / 0x20) as usize].r32(offset % 0x20);
+                // reading a channel's STA acks its completion interrupt
+                if !self.dma.iter().any(|ch| ch.status.is_eoc()) {
+                    self.irq.clear();
+                }
+                val
             }
             _ => Err(Unexpected),
         }
