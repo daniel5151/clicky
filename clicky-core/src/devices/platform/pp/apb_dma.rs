@@ -299,9 +299,11 @@ impl Memory for DmaChannel {
         match offset {
             0x00 => Ok(self.control.into_bits()),
             0x04 => {
-                let val = self.status.into_bits();
+                let mut status = self.status;
+                status.set_bsy(self.control.enb());
+                status.set_count((self.remaining / 4) as u16);
                 self.status.set_is_eoc(false);
-                Ok(val)
+                Ok(status.into_bits())
             }
             0x08 | 0x0c | 0x1c => Ok(self.apb_seq.into_bits()),
             0x10 => Ok(self.ahb_ptr),
@@ -314,10 +316,31 @@ impl Memory for DmaChannel {
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         match offset {
             0x00 => {
+                let was_enabled = self.control.enb();
                 self.control.write_bits(val);
-                if self.control.enb() {
-                    return Err(StubWrite(Warn, ()));
+                if !self.control.enb() || was_enabled {
+                    return Ok(());
                 }
+
+                if self.ahb_seq.dbl_buf() {
+                    return Err(Unimplemented);
+                }
+                self.width = match self.apb_seq.apb_bus_width() {
+                    BusWidth::BUS_WIDTH_8 => 1,
+                    BusWidth::BUS_WIDTH_16 => 2,
+                    BusWidth::BUS_WIDTH_32 => 4,
+                    other => return Err(Fatal(format!("unsupported APB bus width {:?}", other))),
+                };
+                self.latch();
+                debug!(
+                    target: "DMA",
+                    "APB-DMA:{} start csr={:#010x} ahb={:#010x} apb={:#010x} apb_seq={:#010x}",
+                    self.label.unwrap_or("?"),
+                    val,
+                    self.ahb_ptr,
+                    self.apb_ptr,
+                    self.apb_seq.into_bits()
+                );
                 Ok(())
             }
             0x04 => Ok(()),
