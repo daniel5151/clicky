@@ -63,6 +63,7 @@ impl Pp502x {
         let (gpio1_irq_tx, gpio1_irq_rx) = irq::new(irq_pending.clone(), "GPIO1");
         let (gpio2_irq_tx, gpio2_irq_rx) = irq::new(irq_pending.clone(), "GPIO2");
         let (i2c_irq_tx, i2c_irq_rx) = irq::new(irq_pending.clone(), "I2C");
+        let (apb_dma_irq_tx, apb_dma_irq_rx) = irq::new(irq_pending.clone(), "APB-DMA");
 
         let (ide_dmarq_tx, ide_dmarq_rx) = irq::new(dma_pending.clone(), "IDE DMA");
 
@@ -87,7 +88,7 @@ impl Pp502x {
             // .register(20, usb_irq_rx)
             .register(23, ide_irq_rx)
             // .register(25, firewire_irq_rx)
-            // .register(26, dma_irq_rx)
+            .register(26, apb_dma_irq_rx)
             .register(32, gpio0_irq_rx)
             .register(33, gpio1_irq_rx)
             .register(34, gpio2_irq_rx)
@@ -96,7 +97,7 @@ impl Pp502x {
             .register(40, i2c_irq_rx);
 
         let ahb_dma = AhbDma::new();
-        let apb_dma = ApbDma::new();
+        let apb_dma = ApbDma::new(apb_dma_irq_tx);
 
         Pp502x {
             fastram: AsanRam::new(96 * 1024, true), // 96 KB

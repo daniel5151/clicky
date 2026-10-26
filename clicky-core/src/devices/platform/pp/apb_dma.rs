@@ -328,6 +328,8 @@ struct RequestStatus {
 
 #[derive(Debug)]
 pub struct ApbDma {
+    irq: irq::Sender,
+
     dma: [DmaChannel; 4],
     command: CommandRegister,
     status: StatusRegister,
@@ -335,8 +337,10 @@ pub struct ApbDma {
 }
 
 impl ApbDma {
-    pub fn new() -> ApbDma {
+    pub fn new(irq: irq::Sender) -> ApbDma {
         ApbDma {
+            irq,
+
             dma: [
                 DmaChannel::new(Some("0")),
                 DmaChannel::new(Some("1")),
