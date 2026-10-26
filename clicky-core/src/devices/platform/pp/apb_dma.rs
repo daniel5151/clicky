@@ -26,6 +26,14 @@ enum RequestSelection {
     REQ_15 = 15,
 }
 
+#[bitflag(u8)]
+#[derive(Debug, PartialEq)]
+enum Direction {
+    #[base]
+    ApbToAhb = 0,
+    AhbToApb = 1,
+}
+
 // Tegra 2 TRM 10.5.4.1 "AHBDMACHAN_CHANNEL_0_CSR_0"
 #[bitfield(u32, order = msb)]
 struct ChannelControl {
@@ -42,8 +50,8 @@ struct ChannelControl {
     #[bits(access = ro)]
     hold: bool,
 
-    /// 0 = APB -> AHB
-    dir: bool,
+    #[bits(1)]
+    dir: Direction,
 
     /// 0 = Multiple Block Transfer
     once: bool,
