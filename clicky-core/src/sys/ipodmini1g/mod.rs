@@ -261,6 +261,11 @@ impl IpodMini1g {
             }
         }
 
+        if let Some(xfer) = devices.soc.apb_dma.next_transfer() {
+            xfer.execute(devices)?;
+            devices.soc.apb_dma.complete_transfer(xfer);
+        }
+
         // TODO: don't run this on every cycle?
         self.executor.run_until_stalled();
 

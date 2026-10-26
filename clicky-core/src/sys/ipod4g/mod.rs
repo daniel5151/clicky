@@ -256,6 +256,11 @@ impl Ipod4g {
             }
         }
 
+        if let Some(xfer) = devices.soc.apb_dma.next_transfer() {
+            xfer.execute(devices)?;
+            devices.soc.apb_dma.complete_transfer(xfer);
+        }
+
         if self.skip_irq_check {
             return Ok(true);
         }
