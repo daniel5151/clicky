@@ -195,6 +195,14 @@ struct ApbSequencer {
     _reserved_0: u16,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct DmaTransfer {
+    channel: usize,
+    src_ptr: u32,
+    dst_ptr: u32,
+    width: u32,
+}
+
 #[derive(Debug, Default)]
 struct DmaChannel {
     label: Option<&'static str>,
@@ -205,6 +213,12 @@ struct DmaChannel {
     ahb_seq: AhbSequencer,
     apb_ptr: u32,
     apb_seq: ApbSequencer,
+
+    ahb_cursor: u32,
+    apb_cursor: u32,
+    remaining: u32,
+    /// APB bus width
+    width: u32,
 }
 
 impl DmaChannel {
@@ -218,7 +232,40 @@ impl DmaChannel {
             ahb_seq: AhbSequencer::new(),
             apb_ptr: 0x7000_0000,
             apb_seq: ApbSequencer::new(),
+
+            ahb_cursor: 0,
+            apb_cursor: 0,
+            remaining: 0,
+            width: 4,
         }
+    }
+
+    fn latch(&mut self) {
+        self.ahb_cursor = self.ahb_ptr;
+        self.apb_cursor = self.apb_ptr;
+        self.remaining = (self.control.wcount() as u32 + 1) * 4;
+    }
+
+    fn next_transfer(&self, channel: usize, requests: u16) -> Option<DmaTransfer> {
+        if !self.control.enb() || self.remaining == 0 {
+            return None;
+        }
+
+        if self.control.flow() && !requests.get_bit(self.control.req_sel() as usize) {
+            return None;
+        }
+
+        let (src_ptr, dst_ptr) = match self.control.dir() {
+            Direction::ApbToAhb => (self.apb_cursor, self.ahb_cursor),
+            Direction::AhbToApb => (self.ahb_cursor, self.apb_cursor),
+        };
+
+        Some(DmaTransfer {
+            channel,
+            src_ptr,
+            dst_ptr,
+            width: self.width,
+        })
     }
 }
 
@@ -359,6 +406,15 @@ impl ApbDma {
             status: StatusRegister::new(),
             req_status: RequestStatus::new(),
         }
+    }
+
+    /// Get next DMA read/write request to SoC bus
+    pub fn next_transfer(&self) -> Option<DmaTransfer> {
+        let requests = self.req_status.into_bits() as u16;
+        self.dma
+            .iter()
+            .enumerate()
+            .find_map(|(channel, ch)| ch.next_transfer(channel, requests))
     }
 }
 
