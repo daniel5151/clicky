@@ -612,7 +612,13 @@ impl Memory for ApbDma {
             },
             0x1000..=0x1fff => {
                 let offset = (offset - 0x1000) % 0x80;
-                self.dma[(offset / 0x20) as usize].w32(offset % 0x20, val)
+                self.dma[(offset / 0x20) as usize].w32(offset % 0x20, val)?;
+
+                // TODO: Use of multiple channels at the same time is unimplemented
+                if self.dma.iter().filter(|ch| ch.control.enb()).count() > 1 {
+                    return Err(Unimplemented);
+                }
+                Ok(())
             }
             _ => Err(Unexpected),
         }
