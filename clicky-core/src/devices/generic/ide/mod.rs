@@ -179,13 +179,22 @@ mod iobuf {
 }
 use iobuf::IdeIoBuf;
 
-#[derive(Debug)]
+/// Number of system ticks of BSY-ness
+const MEDIA_LATENCY_STEPS: u32 = 128;
+
+#[derive(Debug, Clone, Copy)]
 enum IdeDriveState {
     Idle,
+    Busy { steps: u32, next: DataPhase },
     ReadReady,
-    ReadAsyncLoad,
     WriteReady,
-    WriteAsyncFlush,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum DataPhase {
+    Read,
+    Write,
+    Done,
 }
 
 /// Transfer Mode set by the "Set Transfer Mode" (0x03) subcommand of the "Set
@@ -268,13 +277,13 @@ struct IdeDrive {
 
     state: IdeDriveState,
     remaining_sectors: usize,
+    dma: bool, // Command being processed is a DMA one
 
     iobuf: IdeIoBuf,
     reg: IdeRegs,
     cfg: IdeDriveConfig,
 }
 
-#[expect(clippy::question_mark)]
 impl IdeDrive {
     fn new(irq: irq::Sender, dmarq: irq::Sender, blockdev: Box<dyn BlockDev>) -> IdeDrive {
         IdeDrive {
@@ -284,6 +293,7 @@ impl IdeDrive {
 
             state: IdeDriveState::Idle,
             remaining_sectors: 0,
+            dma: false,
 
             iobuf: IdeIoBuf::empty(),
             reg: IdeRegs {
@@ -344,45 +354,13 @@ impl IdeDrive {
             .ok_or_else(|| Fatal("assert: read past end of IDE iobuf".into()))?;
 
         if self.iobuf.is_done_transfer() {
-            // check if there are no more sectors remaining
             self.remaining_sectors -= 1; // TODO: this varies under `ReadMultiple`
             if self.remaining_sectors == 0 {
-                self.state = IdeDriveState::Idle;
-                (self.reg.status)
-                    .set_bit(reg::STATUS::DRDY, true)
-                    .set_bit(reg::STATUS::DRQ, false)
-                    .set_bit(reg::STATUS::BSY, false);
-
-                self.assert_intrq();
-                self.dmarq.clear();
+                self.finish_command();
             } else {
-                // the next sector needs to be loaded
-                (self.reg.status)
-                    .set_bit(reg::STATUS::DRQ, false)
-                    .set_bit(reg::STATUS::BSY, true);
-
-                self.state = IdeDriveState::ReadAsyncLoad;
-
-                futures_executor::block_on(async {
-                    // TODO: async this!
-                    if let Err(e) = self.blockdev.read_exact(self.iobuf.as_raw()).await {
-                        // XXX: actually set error bits
-                        return Err(e);
-                    }
-
-                    self.iobuf.new_transfer();
-                    self.state = IdeDriveState::ReadReady;
-                    (self.reg.status)
-                        .set_bit(reg::STATUS::DRQ, true)
-                        .set_bit(reg::STATUS::BSY, false);
-
-                    // DMA only fires a single IRQ at the end of the transfer
-                    if !self.cfg.transfer_mode.is_dma() {
-                        self.assert_intrq();
-                    }
-
-                    Ok(())
-                })?;
+                // XXX: actually set error bits
+                futures_executor::block_on(self.blockdev.read_exact(self.iobuf.as_raw()))?;
+                self.go_busy(DataPhase::Read);
             }
         }
 
@@ -405,51 +383,105 @@ impl IdeDrive {
             .write8(val)
             .ok_or_else(|| Fatal("assert: write past end of IDE iobuf".into()))?;
 
-        // check if the sector needs to be flushed to disk
         if self.iobuf.is_done_transfer() {
-            assert!(self.remaining_sectors != 0);
+            // XXX: actually set error bits
+            futures_executor::block_on(self.blockdev.write_all(self.iobuf.as_raw()))?;
 
-            (self.reg.status)
-                .set_bit(reg::STATUS::DRQ, false)
-                .set_bit(reg::STATUS::BSY, true);
-
-            self.state = IdeDriveState::WriteAsyncFlush;
-
-            // TODO: async this!
-            futures_executor::block_on(async {
-                if let Err(e) = self.blockdev.write_all(self.iobuf.as_raw()).await {
-                    // XXX: actually set error bits
-                    return Err(e);
-                }
-
-                self.iobuf.new_transfer();
-                self.state = IdeDriveState::WriteReady;
-                (self.reg.status)
-                    .set_bit(reg::STATUS::DRQ, true)
-                    .set_bit(reg::STATUS::BSY, false);
-
-                // DMA only fires a single IRQ at the end of the transfer
-                if !self.cfg.transfer_mode.is_dma() {
-                    self.assert_intrq();
-                }
-
-                // check if there are no more sectors remaining
-                self.remaining_sectors -= 1; // FIXME: this varies under `WriteMultiple`
-                if self.remaining_sectors == 0 {
-                    self.state = IdeDriveState::Idle;
-                    (self.reg.status)
-                        .set_bit(reg::STATUS::DRDY, true)
-                        .set_bit(reg::STATUS::DRQ, false);
-
-                    self.assert_intrq();
-                    self.dmarq.clear();
-                }
-
-                Ok(())
-            })?;
+            self.remaining_sectors -= 1; // FIXME: this varies under `WriteMultiple`
+            self.go_busy(match self.remaining_sectors {
+                0 => DataPhase::Done,
+                _ => DataPhase::Write,
+            });
         }
 
         Ok(())
+    }
+
+    /// Advance the drive by one system step.
+    fn tick(&mut self) {
+        let next = match &mut self.state {
+            IdeDriveState::Busy { steps: 0, next } => *next,
+            IdeDriveState::Busy { steps, .. } => return *steps -= 1,
+            _ => return,
+        };
+
+        match next {
+            DataPhase::Read => self.enter_data_phase(IdeDriveState::ReadReady, !self.dma),
+            DataPhase::Write => self.enter_data_phase(IdeDriveState::WriteReady, !self.dma),
+            DataPhase::Done => self.finish_command(),
+        }
+    }
+
+    /// Seek to the sector addressed by the taskfile and latch the transfer
+    /// length.
+    fn begin_transfer(&mut self, dma: bool) -> MemResult<()> {
+        let offset = self
+            .get_sector_offset()
+            // XXX: actually set error bits
+            .ok_or_else(|| Fatal("invalid offset".into()))?;
+        futures_executor::block_on(self.blockdev.seek(io::SeekFrom::Start(offset * 512)))?;
+
+        self.remaining_sectors = match self.reg.sector_count {
+            0 => 256,
+            n => n as usize,
+        };
+        self.dma = dma;
+        Ok(())
+    }
+
+    fn start_read(&mut self, dma: bool) -> MemResult<()> {
+        self.begin_transfer(dma)?;
+        // XXX: actually set error bits
+        futures_executor::block_on(self.blockdev.read_exact(self.iobuf.as_raw()))?;
+        self.go_busy(DataPhase::Read);
+        Ok(())
+    }
+
+    fn start_write(&mut self, dma: bool) -> MemResult<()> {
+        self.begin_transfer(dma)?;
+        // TODO: ATA requests the first data-out block without an interrupt
+        self.enter_data_phase(IdeDriveState::WriteReady, true);
+        Ok(())
+    }
+
+    fn go_busy(&mut self, next: DataPhase) {
+        self.state = IdeDriveState::Busy {
+            steps: MEDIA_LATENCY_STEPS,
+            next,
+        };
+        (self.reg.status)
+            .set_bit(reg::STATUS::BSY, true)
+            .set_bit(reg::STATUS::DRQ, false);
+        self.dmarq.clear();
+    }
+
+    fn enter_data_phase(&mut self, state: IdeDriveState, interrupt: bool) {
+        self.iobuf.new_transfer();
+        self.state = state;
+        (self.reg.status)
+            .set_bit(reg::STATUS::BSY, false)
+            .set_bit(reg::STATUS::DSC, true)
+            .set_bit(reg::STATUS::DRDY, true)
+            .set_bit(reg::STATUS::DRQ, true);
+
+        if self.dma {
+            self.dmarq.assert();
+        }
+        if interrupt {
+            self.assert_intrq();
+        }
+    }
+
+    fn finish_command(&mut self) {
+        self.state = IdeDriveState::Idle;
+        (self.reg.status)
+            .set_bit(reg::STATUS::BSY, false)
+            .set_bit(reg::STATUS::DSC, true)
+            .set_bit(reg::STATUS::DRDY, true)
+            .set_bit(reg::STATUS::DRQ, false);
+
+        self.assert_intrq();
+        self.dmarq.clear();
     }
 
     fn assert_intrq(&mut self) {
@@ -467,13 +499,20 @@ impl IdeDrive {
             });
         }
 
-        (self.reg.status)
-            .set_bit(reg::STATUS::BSY, true)
-            .set_bit(reg::STATUS::ERR, false);
+        self.reg.status = (1 << reg::STATUS::BSY | 1 << reg::STATUS::DRDY) as u8;
         self.reg.error = 0;
+        self.dma = false;
+
+        if let Ok(cmd_val) = IdeCmd::try_from(cmd) {
+            trace!(
+                target: "IDE",
+                "Executing command: {:?}",
+                cmd_val,
+            );
+        }
 
         if cmd & 0xf0 == 0x10 {
-            (self.reg.status).set_bit(reg::STATUS::BSY, false);
+            self.reg.status.set_bit(reg::STATUS::BSY, false);
             self.assert_intrq();
             return Ok(());
         }
@@ -525,8 +564,7 @@ impl IdeDrive {
                 if self.cfg.multi_sect != 1 {
                     Err(Fatal("(stubbed Multi-Sector support) cannot ReadMultiple (0xc4) with multi_sect > 1".into()))
                 } else {
-                    (self.reg.status).set_bit(reg::STATUS::BSY, false);
-                    self.exec_cmd(ReadSectors as u8)
+                    self.start_read(false)
                 }
             }
             Ok(ReadDMA) | Ok(ReadDMANoRetry) => {
@@ -539,61 +577,9 @@ impl IdeDrive {
                     });
                 }
 
-                // basically just ReadSectors, except it only fires a _single_
-                // IRQ at the end of the transfer, and asserts dmarq
-                self.dmarq.assert();
-                (self.reg.status).set_bit(reg::STATUS::BSY, false);
-                self.exec_cmd(ReadSectors as u8)
+                self.start_read(true)
             }
-            Ok(ReadSectors) | Ok(ReadSectorsNoRetry) => {
-                let offset = match self.get_sector_offset() {
-                    Some(offset) => offset,
-                    None => {
-                        // XXX: actually set error bits
-                        return Err(Fatal("invalid offset".into()));
-                    }
-                };
-
-                self.state = IdeDriveState::ReadAsyncLoad;
-                futures_executor::block_on(async {
-                    // Seek into the blockdev
-                    if let Err(e) = self.blockdev.seek(io::SeekFrom::Start(offset * 512)).await {
-                        // XXX: actually set error bits
-                        return Err(e);
-                    }
-
-                    // Read the first sector from the blockdev
-                    // TODO: this should be done asynchronously, with a separate task/thread
-                    // notifying the IDE device when the read is completed.
-                    if let Err(e) = self.blockdev.read_exact(self.iobuf.as_raw()).await {
-                        // XXX: actually set error bits
-                        return Err(e);
-                    }
-
-                    self.remaining_sectors = if self.reg.sector_count == 0 {
-                        256
-                    } else {
-                        self.reg.sector_count as usize
-                    };
-
-                    self.iobuf.new_transfer();
-                    self.state = IdeDriveState::ReadReady;
-                    (self.reg.status)
-                        .set_bit(reg::STATUS::BSY, false)
-                        .set_bit(reg::STATUS::DSC, true)
-                        .set_bit(reg::STATUS::DRDY, true)
-                        .set_bit(reg::STATUS::DRQ, true);
-
-                    // TODO: fire interrupt?
-                    if !self.cfg.transfer_mode.is_dma() {
-                        self.assert_intrq();
-                    }
-
-                    Ok(())
-                })?;
-
-                Ok(())
-            }
+            Ok(ReadSectors) | Ok(ReadSectorsNoRetry) => self.start_read(false),
             Ok(StandbyImmediate) | Ok(StandbyImmediateAlt) => {
                 // I mean, it's a virtual disk, there is no "spin up / spin down"
                 self.reg.status.set_bit(reg::STATUS::BSY, false);
@@ -615,8 +601,7 @@ impl IdeDrive {
                 if self.cfg.multi_sect != 1 {
                     Err(Fatal("(stubbed Multi-Sector support) cannot WriteMultiple (0xc4) with multi_sect > 1".into()))
                 } else {
-                    (self.reg.status).set_bit(reg::STATUS::BSY, false);
-                    self.exec_cmd(WriteSectors as u8)
+                    self.start_write(false)
                 }
             }
             Ok(WriteDMA) | Ok(WriteDMANoRetry) => {
@@ -629,52 +614,9 @@ impl IdeDrive {
                     });
                 }
 
-                // basically just WriteSectors, except it only fires a _single_
-                // IRQ at the end of the transfer, and asserts dmarq
-                self.dmarq.assert();
-                (self.reg.status).set_bit(reg::STATUS::BSY, false);
-                self.exec_cmd(WriteSectors as u8)
+                self.start_write(true)
             }
-            Ok(WriteSectors) | Ok(WriteSectorsNoRetry) => {
-                // NOTE: this code is somewhat UNTESTED
-
-                let offset = match self.get_sector_offset() {
-                    Some(offset) => offset,
-                    None => {
-                        // XXX: actually set error bits
-                        return Err(Fatal("invalid offset".into()));
-                    }
-                };
-
-                self.state = IdeDriveState::WriteAsyncFlush;
-                futures_executor::block_on(async {
-                    // Seek into the blockdev
-                    if let Err(e) = self.blockdev.seek(io::SeekFrom::Start(offset * 512)).await {
-                        // XXX: actually set error bits
-                        return Err(e);
-                    }
-
-                    self.remaining_sectors = if self.reg.sector_count == 0 {
-                        256
-                    } else {
-                        self.reg.sector_count as usize
-                    };
-
-                    self.iobuf.new_transfer();
-                    self.state = IdeDriveState::WriteReady;
-                    (self.reg.status)
-                        .set_bit(reg::STATUS::BSY, false)
-                        .set_bit(reg::STATUS::DSC, true)
-                        .set_bit(reg::STATUS::DRDY, false)
-                        .set_bit(reg::STATUS::DRQ, true);
-
-                    // TODO: fire interrupt?
-
-                    Ok(())
-                })?;
-
-                Ok(())
-            }
+            Ok(WriteSectors) | Ok(WriteSectorsNoRetry) => self.start_write(false),
 
             Ok(SetMultipleMode) => {
                 self.cfg.multi_sect = self.reg.sector_count;
@@ -749,8 +691,7 @@ impl IdeDrive {
             }
 
             Ok(InitializeDriveParameters) => {
-                (self.reg.status).set_bit(reg::STATUS::BSY, false);
-                self.assert_intrq();
+                self.go_busy(DataPhase::Done);
                 Ok(())
             }
 
@@ -970,6 +911,15 @@ impl IdeController {
         };
 
         ide.take().map(|ide| ide.blockdev)
+    }
+
+    /// Advance the attached drives by one system step.
+    pub fn tick(&mut self) {
+        for ide in [&mut self.ide0, &mut self.ide1].iter_mut() {
+            if let Some(ide) = ide.as_mut() {
+                ide.tick();
+            }
+        }
     }
 
     /// Check if an IDE drive is currently asserting an IRQ.

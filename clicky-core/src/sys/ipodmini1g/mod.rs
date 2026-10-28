@@ -261,6 +261,7 @@ impl IpodMini1g {
             }
         }
 
+        devices.soc.eidecon.tick();
         if let Some(xfer) = devices.soc.apb_dma.next_transfer() {
             xfer.execute(devices)?;
             devices.soc.apb_dma.complete_transfer(xfer);
