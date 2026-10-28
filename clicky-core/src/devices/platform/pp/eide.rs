@@ -57,6 +57,10 @@ impl EIDECon {
         &mut self.ide
     }
 
+    pub fn tick(&mut self) {
+        self.ide.tick()
+    }
+
     pub fn do_ide_dma(&self) -> bool {
         self.dmarq.asserted()
     }
