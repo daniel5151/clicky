@@ -8,6 +8,7 @@ use thiserror::Error;
 use crate::block::BlockDev;
 use crate::devices::Device;
 use crate::devices::display::LcdPanel;
+use crate::devices::util::Deadline;
 use crate::error::*;
 use crate::executor::*;
 use crate::gui::{IpodBinds, IpodControls, IpodKey, RenderCallback, TakeControls};
@@ -34,6 +35,38 @@ mod devices {
 /// How "--hold-keys" are held down for
 const BOOT_HOLD_DURATION: Duration = Duration::from_millis(3000);
 
+const LCD_REFRESH_FREQ: u64 = 30;
+const LCDINT_HALF_PERIOD: Duration = Duration::from_micros(1_000_000 / (LCD_REFRESH_FREQ * 2));
+
+#[derive(Debug)]
+struct LcdInt {
+    pin: gpio::Sender,
+    high: bool,
+    deadline: Deadline,
+}
+
+impl LcdInt {
+    fn new(pin: gpio::Sender) -> LcdInt {
+        LcdInt {
+            pin,
+            high: false,
+            deadline: Deadline::repeating(LCDINT_HALF_PERIOD),
+        }
+    }
+
+    fn tick(&mut self) {
+        if !self.deadline.expired() {
+            return;
+        }
+
+        self.high = !self.high;
+        match self.high {
+            true => self.pin.set_high(),
+            false => self.pin.set_low(),
+        }
+    }
+}
+
 /// A IpodPhoto system
 #[derive(Debug)]
 pub struct IpodPhoto {
@@ -48,6 +81,7 @@ pub struct IpodPhoto {
     synthetic_controls: devices::Controls<signal::Master>,
     /// Keys to hold down once the system starts executing code.
     boot_hold: Option<Vec<IpodKey>>,
+    lcdint: LcdInt,
 
     irq_pending: irq::Pending,
     dma_pending: irq::Pending,
@@ -97,6 +131,7 @@ impl IpodPhoto {
 
         // hook-up external controls
         let (mut hold_tx, hold_rx) = gpio::new(gpio_changed.clone(), "Hold");
+        let (lcdint_tx, lcdint_rx) = gpio::new(gpio_changed.clone(), "LCDINT");
         let (controls_tx, controls_rx) = devices::Controls::new_tx_rx(i2c_changed.clone());
 
         let mut sys = IpodPhoto {
@@ -112,6 +147,7 @@ impl IpodPhoto {
             controls: None,
             synthetic_controls: controls_tx.clone(),
             boot_hold: None,
+            lcdint: LcdInt::new(lcdint_tx),
 
             irq_pending,
             dma_pending,
@@ -141,6 +177,7 @@ impl IpodPhoto {
 
         {
             let mut gpio_abcd = sys.devices.soc.gpio_abcd.lock().unwrap();
+            gpio_abcd.register_in(0, lcdint_rx);
             gpio_abcd.register_in(5, hold_rx.clone());
         }
 
@@ -276,6 +313,8 @@ impl IpodPhoto {
                 }
             }
         }
+
+        self.lcdint.tick();
 
         // TODO?: explore adding callbacks to the signaling system
         if self.gpio_changed.check_and_clear() {
