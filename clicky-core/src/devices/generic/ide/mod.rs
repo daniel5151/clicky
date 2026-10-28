@@ -87,6 +87,7 @@ enum IdeCmd {
     ReadDMANoRetry = 0xc9,
     WriteDMA = 0xca,
     WriteDMANoRetry = 0xcb,
+    ReadNativeMax = 0xf8,
 
     InitializeDriveParameters = 0x91,
 
@@ -691,6 +692,11 @@ impl IdeDrive {
             }
 
             Ok(InitializeDriveParameters) => {
+                self.go_busy(DataPhase::Done);
+                Ok(())
+            }
+
+            Ok(ReadNativeMax) => {
                 self.go_busy(DataPhase::Done);
                 Ok(())
             }
