@@ -26,7 +26,7 @@ struct InternalRegs {
     x_end: usize,
     y_start: usize,
     y_end: usize,
-    mirror: bool,
+    flip_x: bool,
 
     cur_x: usize,
     cur_y: usize,
@@ -76,6 +76,14 @@ impl LR38825 {
         ireg.y_start.abs_diff(ireg.y_end) + 1
     }
 
+    /// Map a vertical window address (ASY / AEY) to an iPod X coordinate.
+    fn map_x(ireg: &InternalRegs, val: u8) -> usize {
+        match ireg.flip_x {
+            true => (MAX_WIDTH - 1).saturating_sub(val as usize),
+            false => val as usize,
+        }
+    }
+
     fn reset_cursor(ireg: &mut InternalRegs) {
         ireg.cur_x = 0;
         ireg.cur_y = 0;
@@ -117,11 +125,19 @@ impl LR38825 {
             let idx = y * MAX_WIDTH + x;
             self.gram.write().unwrap()[idx] = val;
         }
-        
-        ireg.cur_x += 1;
-        if ireg.cur_x >= width {
-            ireg.cur_x = 0;
+
+        if ireg.swap_xy {
+            ireg.cur_x += 1;
+            if ireg.cur_x >= width {
+                ireg.cur_x = 0;
+                ireg.cur_y += 1;
+            }
+        } else {
             ireg.cur_y += 1;
+            if ireg.cur_y >= height {
+                ireg.cur_y = 0;
+                ireg.cur_x += 1;
+            }
         }
     }
 
@@ -168,7 +184,7 @@ impl LcdController for LR38825 {
             //  4-5: ?
             //  6: 0=RGB, 1=BGR
             0x10 => {
-                ireg.mirror = !val.get_bit(2);
+                ireg.flip_x = val.get_bit(2);
             }
 
             // HIF2
@@ -182,11 +198,7 @@ impl LcdController for LR38825 {
 
             // ASY
             0x13 => {
-                if ireg.mirror {
-                    ireg.x_start = MAX_WIDTH - val as usize - 1;
-                } else {
-                    ireg.x_end = val as usize;
-                }
+                ireg.x_start = Self::map_x(&ireg, val);
                 Self::reset_cursor(&mut ireg);
             }
 
@@ -201,11 +213,7 @@ impl LcdController for LR38825 {
 
             // AEY
             0x16 => {
-                if ireg.mirror {
-                    ireg.x_end = MAX_WIDTH - val as usize - 1;
-                } else {
-                    ireg.x_start = val as usize;
-                }
+                ireg.x_end = Self::map_x(&ireg, val);
                 Self::reset_cursor(&mut ireg);
             }
 
@@ -242,7 +250,7 @@ impl LcdController for LR38825 {
             0xef => {},
 
             // Unidentified commands used in RetailOS
-            0x02 | 0x08 | 0xce => {},
+            0x02 | 0xce => {},
 
             invalid_cmd => {
                 return Err(Fatal(format!(
