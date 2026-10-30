@@ -7,7 +7,7 @@
 
 ---
 
-**Current focus:** Fixing RetailOS emulation bugs on an emulated [iPod 4G (Grayscale)](https://everymac.com/systems/apple/ipod/specs/ipod_4thgen.html).
+**Current focus:** Working on PP5020 models (iPod 4G, iPod photo, iPod Color, iPod mini 1G) - they are capable of booting RetailOS and Rockbox, but there are some rough edges.
 
 Here are some clips:
 
