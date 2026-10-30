@@ -2,9 +2,9 @@
 
 | Model                            | Introduction Date | SoC    | Supported | LCD  | Audio | RTC | USB | FireWire  | DMA | Clickwheel |
 | -------------------------------- | ----------------- | ------ | --------- | ---- | ----- | --- | --- | --------- | --- | ---------- |
-| iPod mini                        | January ‘04       | PP5020 | WIP       | Yes  | TODO  | WIP | WIP | Won’t Do¹ | WIP | Yes        |
+| iPod mini                        | January ‘04       | PP5020 | Yes       | Yes  | TODO  | WIP | WIP | Won’t Do¹ | WIP | Yes        |
 | iPod (4th Generation)            | July ‘04          | PP5020 | Yes       | Yes  | TODO  | WIP | WIP | Won’t Do¹ | WIP | Yes        |
-| iPod photo                       | February ‘05      | PP5020 | WIP       | Yes  | TODO  | WIP | WIP | Won’t Do¹ | WIP | Yes        |
+| iPod photo                       | February ‘05      | PP5020 | Yes       | Yes  | TODO  | WIP | WIP | Won’t Do¹ | WIP | Yes        |
 | iPod mini (2nd Generation)       | February ‘05      | PP5022 | TODO      | Yes  | TODO  | WIP | WIP | Won’t Do¹ | ?   | ?          |
 | iPod with Color Display          | June ‘05          | PP5020 | WIP       | TODO | TODO  | WIP | WIP | Won’t Do¹ | WIP | ?          |
 | iPod Nano                        | September ‘05     | PP5021 | TODO      | TODO | TODO  | ?   | ?   | Won’t Do¹ | ?   | ?          |
