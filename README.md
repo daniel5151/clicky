@@ -25,9 +25,11 @@ Here are some clips:
 <table>
   <tr>
     <td><img width="320px" src="screenshots/clicky-retailos.gif" alt="clicky running RetailOS"></td>
+    <td><img width="320px" src="screenshots/clicky-ipodphoto.gif" alt="clicky emulating an iPod photo"></td>
   </tr>
   <tr>
     <td width="320px">Playing Brick in <code>RetailOS</code></td>
+    <td width="320px">Booting <code>RetailOS</code> on iPod photo</td>
   </tr>
 </table>
 
