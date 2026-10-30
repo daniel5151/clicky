@@ -114,7 +114,7 @@ impl core::ops::DerefMut for System {
 fn main() -> DynResult<()> {
     pretty_env_logger::formatted_builder()
         .filter(None, log::LevelFilter::Error)
-        .filter(Some("clicky"), log::LevelFilter::Trace)
+        .filter(Some("clicky"), log::LevelFilter::Debug)
         .filter(Some("MMIO"), log::LevelFilter::Info)
         .filter(Some("I2C"), log::LevelFilter::Info)
         .filter(Some("armv4t_emu"), log::LevelFilter::Debug)
