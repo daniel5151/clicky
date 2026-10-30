@@ -147,10 +147,18 @@ impl LR38825 {
             let gram = *gram.read().unwrap();
             let new_buf = gram.iter().map(|&px| {
                 let p = px.rotate_left(8);
-                0xff000000
-                    | (((p & 0xf800) as u32) << 8)
-                    | (((p & 0x07e0) as u32) << 5)
-                    | (((p & 0x001f) as u32) << 3)
+
+                // RGB565 -> RGB888 conversion courtesy of
+                // https://stackoverflow.com/questions/2442576/how-does-one-convert-16-bit-rgb565-to-24-bit-rgb888
+                let r5 = (p & 0xf800) >> 11;
+                let g6 = (p & 0x07e0) >> 5;
+                let b5 = p & 0x001f;
+
+                let r8 = (r5 * 255) / 31;
+                let g8 = (g6 * 255) / 63;
+                let b8 = (b5 * 255) / 31;
+
+                0xff000000 | ((r8 as u32) << 16) | ((g8 as u32) << 8) | (b8 as u32)
             });
 
             buf.splice(.., new_buf);
