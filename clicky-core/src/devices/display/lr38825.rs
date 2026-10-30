@@ -116,11 +116,11 @@ impl LR38825 {
         let mut ireg = self.ireg.write().unwrap();
         let width = Self::width(&ireg);
         let height = Self::height(&ireg);
-        
+
         let Some((x, y)) = Self::cursor_position(&ireg) else {
             return;
         };
-        
+
         if x < MAX_WIDTH && y < MAX_HEIGHT {
             let idx = y * MAX_WIDTH + x;
             self.gram.write().unwrap()[idx] = val;
@@ -170,12 +170,12 @@ impl LcdController for LR38825 {
         }
         match ireg.cmd {
             // 0: Oscillator stop
-            0x1 => {},
+            0x1 => {}
 
             // VMD
             0x3 => {}
 
-            0x8 => {},
+            0x8 => {}
 
             // HIF1 Layout:
             //  0-1: ?
@@ -188,7 +188,7 @@ impl LcdController for LR38825 {
             }
 
             // HIF2
-            0x11 => {},
+            0x11 => {}
 
             // ASX
             0x12 => {
@@ -203,7 +203,7 @@ impl LcdController for LR38825 {
             }
 
             // Horizontal RAM address
-            0x14 => {},
+            0x14 => {}
 
             // AEX
             0x15 => {
@@ -218,7 +218,7 @@ impl LcdController for LR38825 {
             }
 
             // Vertical RAM address
-            0x17 => {},
+            0x17 => {}
 
             // AGM layout:
             //  0: Mirror X
@@ -228,14 +228,14 @@ impl LcdController for LR38825 {
                 ireg.mirror_x = val.get_bit(0);
                 ireg.mirror_y = val.get_bit(1);
                 ireg.swap_xy = val.get_bit(2);
-            },
+            }
 
             // "Display displaying setting register" (sic)
-            0x7E => {},
+            0x7E => {}
 
             // "V sync parameter transfer flag"
             //  0: TG parameter refresh
-            0x7F => {},
+            0x7F => {}
 
             // "Display displaying control register" (sic)
             //  0: Display on
@@ -247,10 +247,10 @@ impl LcdController for LR38825 {
 
             // Set Page
             // Page 0 = CPU bank
-            0xef => {},
+            0xef => {}
 
             // Unidentified commands used in RetailOS
-            0x02 | 0xce => {},
+            0x02 | 0xce => {}
 
             invalid_cmd => {
                 return Err(Fatal(format!(
