@@ -864,7 +864,7 @@ macro_rules! selected_ide {
             IdeIdx::IDE1 => $self.ide1.as_mut(),
         }
         // not a real error. The OS might just be probing for IDE devices.
-        .ok_or(ContractViolation {
+        .ok_or_else(|| ContractViolation {
             msg: format!(
                 "tried to access {} when no drive is connected",
                 $self.selected_device
