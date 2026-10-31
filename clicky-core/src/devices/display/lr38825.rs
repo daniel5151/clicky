@@ -15,6 +15,8 @@ use std::sync::{Arc, RwLock};
 use crate::devices::display::{LcdController, LcdPanel};
 use crate::gui::RenderCallback;
 
+use bitfields::{bitfield, bitflag};
+
 const MAX_WIDTH: usize = 220;
 const MAX_HEIGHT: usize = 176;
 const GRAM_LEN: usize = MAX_WIDTH * MAX_HEIGHT;
@@ -111,21 +113,22 @@ struct DisplayControl {
     _unknown_1: u8,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone)]
 struct InternalRegs {
     cmd: u16,
+
+    hif1: Hif1,
+    hif2: Hif2,
+    agm: Agm,
+    display_setting: DisplaySetting,
+    display_control: DisplayControl,
+
     x_start: usize,
     x_end: usize,
     y_start: usize,
     y_end: usize,
-    flip_x: bool,
-
     cur_x: usize,
     cur_y: usize,
-
-    mirror_x: bool,
-    mirror_y: bool,
-    swap_xy: bool,
 }
 
 pub struct LR38825 {
@@ -170,7 +173,7 @@ impl LR38825 {
 
     /// Map a vertical window address (ASY / AEY) to an iPod X coordinate.
     fn map_x(ireg: &InternalRegs, val: u8) -> usize {
-        match ireg.flip_x {
+        match ireg.agm.x_decr() {
             true => (MAX_WIDTH - 1).saturating_sub(val as usize),
             false => val as usize,
         }
@@ -218,7 +221,7 @@ impl LR38825 {
             self.gram.write().unwrap()[idx] = val;
         }
 
-        if ireg.swap_xy {
+        if ireg.agm.swap_xy() {
             ireg.cur_x += 1;
             if ireg.cur_x >= width {
                 ireg.cur_x = 0;
@@ -277,18 +280,8 @@ impl LcdController for LR38825 {
 
             0x8 => {}
 
-            // HIF1 Layout:
-            //  0-1: ?
-            //  2: Display RAM memory address incr/decr
-            //  3: PDF0 (?)
-            //  4-5: ?
-            //  6: 0=RGB, 1=BGR
-            0x10 => {
-                ireg.flip_x = val.get_bit(2);
-            }
-
-            // HIF2
-            0x11 => {}
+            0x10 => ireg.hif1.write_bits(val),
+            0x11 => ireg.hif2.write_bits(val),
 
             // ASX
             0x12 => {
@@ -320,27 +313,14 @@ impl LcdController for LR38825 {
             // Vertical RAM address
             0x17 => {}
 
-            // AGM layout:
-            //  0: Mirror X
-            //  1: Mirror Y
-            //  2: Swap X/Y
-            0x18 => {
-                ireg.mirror_x = val.get_bit(0);
-                ireg.mirror_y = val.get_bit(1);
-                ireg.swap_xy = val.get_bit(2);
-            }
-
-            // "Display displaying setting register" (sic)
-            0x7E => {}
+            0x18 => ireg.agm.write_bits(val),
+            0x7E => ireg.display_setting.write_bits(val),
 
             // "V sync parameter transfer flag"
             //  0: TG parameter refresh
             0x7F => {}
 
-            // "Display displaying control register" (sic)
-            //  0: Display on
-            //  1-7: ?
-            0x80 => {}
+            0x80 => ireg.display_control.write_bits(val),
 
             // Display displaying color setting register
             0x88 => {}
