@@ -19,7 +19,99 @@ const MAX_WIDTH: usize = 220;
 const MAX_HEIGHT: usize = 176;
 const GRAM_LEN: usize = MAX_WIDTH * MAX_HEIGHT;
 
-#[derive(Debug, Default, Copy, Clone)]
+/// Pixel data format from HIF1
+#[bitflag(u8)]
+#[derive(Debug, PartialEq, Eq)]
+enum PixelFormat {
+    /// 1BPP
+    Rgb332 = 0b000,
+
+    /// 2BPP
+    #[base]
+    Rgb565 = 0b001,
+
+    /// 3BPP, dummy byte first
+    PadFirstRgb565 = 0b010,
+
+    /// 3BPP, dummy byte last
+    PadLastRgb565 = 0b100,
+}
+
+/// HIF1 (0x10)
+///
+/// Most of these bit definitions were found through a lot of trial and
+/// error on real hardware.
+#[bitfield(u8)]
+struct Hif1 {
+    #[bits(2)]
+    _unknown_0: u8,
+
+    msb_first: bool,
+
+    #[bits(3, default = PixelFormat::Rgb565)]
+    format: PixelFormat,
+
+    /// Swap red and blue
+    bgr: bool,
+
+    _unknown_7: bool,
+}
+
+/// HIF2 (0x11)
+#[bitfield(u8)]
+struct Hif2 {
+    _unknown_0: bool,
+
+    /// GRAM writes are dropped (or sent to a special place?)
+    write_inhibit: bool,
+
+    #[bits(6)]
+    _unknown_2: u8,
+}
+
+/// AGM (0x18)
+#[bitfield(u8)]
+struct Agm {
+    y_decr: bool,
+
+    x_decr: bool,
+
+    /// X address changes first when set, Y address when clear
+    swap_xy: bool,
+
+    /// GRAM writes are dropped when non-zero (either bit)
+    #[bits(2)]
+    write_inhibit: u8,
+
+    #[bits(3)]
+    _unknown_5: u8,
+}
+
+/// "Display displaying setting register" (sic) (0x7e)
+#[bitfield(u8)]
+struct DisplaySetting {
+    /// Scan display from GRAM?
+    /// LCDINT pulse keeps on running when cleared
+    #[bits(default = true)]
+    output: bool,
+
+    #[bits(7)]
+    _unknown_1: u8,
+}
+
+/// "Display displaying control register" (sic) (0x80)
+#[bitfield(u8)]
+struct DisplayControl {
+    /// Scan display from GRAM?
+    /// LCDINT pulse stops when cleared
+    #[bits(default = true)]
+    scan: bool,
+
+    #[bits(7)]
+    _unknown_1: u8,
+}
+
+#[derive(Debug, Copy, Clone)]
 struct InternalRegs {
     cmd: u16,
     x_start: usize,
