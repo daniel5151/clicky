@@ -28,9 +28,7 @@ pub trait LcdController: std::fmt::Debug + Send + Sync {
     fn render_callback(&self) -> RenderCallback;
 
     /// Called on each tick
-    fn tick(&mut self) {
-        
-    }
+    fn tick(&mut self) {}
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
