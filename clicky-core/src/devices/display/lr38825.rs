@@ -20,9 +20,9 @@ use crate::signal::gpio;
 
 use bitfields::{bitfield, bitflag};
 
-const MAX_WIDTH: usize = 220;
-const MAX_HEIGHT: usize = 176;
-const GRAM_LEN: usize = MAX_WIDTH * MAX_HEIGHT;
+const MAX_WIDTH: u8 = 220;
+const MAX_HEIGHT: u8 = 176;
+const GRAM_LEN: usize = MAX_WIDTH as usize * MAX_HEIGHT as usize;
 
 // LCDINT frame pulse, measured on an iPod photo: 65.63 Hz, active-low.
 const LCDINT_PERIOD: Duration = Duration::from_micros(15_237);
@@ -144,12 +144,12 @@ struct InternalRegs {
     display_setting: DisplaySetting,
     display_control: DisplayControl,
 
-    x_start: usize,
-    x_end: usize,
-    y_start: usize,
-    y_end: usize,
-    cur_x: usize,
-    cur_y: usize,
+    x_start: u8,
+    x_end: u8,
+    y_start: u8,
+    y_end: u8,
+    x_addr: u8,
+    y_addr: u8,
 }
 
 pub struct LR38825 {
@@ -191,81 +191,52 @@ impl LR38825 {
         self.lcdint_gpio = pin;
     }
 
-    fn width(ireg: &InternalRegs) -> usize {
-        ireg.x_start.abs_diff(ireg.x_end) + 1
-    }
-
-    fn height(ireg: &InternalRegs) -> usize {
-        ireg.y_start.abs_diff(ireg.y_end) + 1
-    }
-
-    /// Map a vertical window address (ASY / AEY) to an iPod X coordinate.
-    fn map_x(ireg: &InternalRegs, val: u8) -> usize {
-        match ireg.agm.x_decr() {
-            true => (MAX_WIDTH - 1).saturating_sub(val as usize),
-            false => val as usize,
-        }
-    }
-
-    fn reset_cursor(ireg: &mut InternalRegs) {
-        ireg.cur_x = 0;
-        ireg.cur_y = 0;
-    }
-
-    fn cursor_position(ireg: &InternalRegs) -> Option<(usize, usize)> {
-        let width = Self::width(ireg);
-        let height = Self::height(ireg);
-
-        if ireg.cur_x >= width || ireg.cur_y >= height {
-            return None;
-        }
-
-        let x = if ireg.x_start <= ireg.x_end {
-            ireg.x_start + ireg.cur_x
-        } else {
-            ireg.x_start - ireg.cur_x
-        };
-
-        let y = if ireg.y_start <= ireg.y_end {
-            ireg.y_start + ireg.cur_y
-        } else {
-            ireg.y_start - ireg.cur_y
-        };
-
-        Some((x, y))
-    }
-
     fn write_ram(&mut self, val: u16) {
         let mut ireg = self.ireg.write().unwrap();
-        let width = Self::width(&ireg);
-        let height = Self::height(&ireg);
 
-        let Some((x, y)) = Self::cursor_position(&ireg) else {
-            return;
-        };
-
-        if x < MAX_WIDTH && y < MAX_HEIGHT {
-            let idx = y * MAX_WIDTH + x;
-            self.gram.write().unwrap()[idx] = val;
+        // Perform memory write, check we're within bounds
+        if ireg.x_addr < MAX_WIDTH && ireg.y_addr < MAX_HEIGHT {
+            let x = ireg.x_addr as usize;
+            let y = ireg.y_addr as usize;
+            self.gram.write().unwrap()[y * MAX_WIDTH as usize + x] = val;
         }
 
+        // Compute x and y address wraps
+        let x_wrap = ireg.x_addr == ireg.x_end;
+        let next_x = match (x_wrap, ireg.agm.x_decr()) {
+            (true, _) => ireg.x_start,
+            (false, true) => ireg.x_addr.wrapping_sub(1),
+            (false, false) => ireg.x_addr.wrapping_add(1),
+        };
+
+        let y_wrap = ireg.y_addr == ireg.y_end;
+        let next_y = match (y_wrap, ireg.agm.y_decr()) {
+            (true, _) => ireg.y_start,
+            (false, true) => ireg.y_addr.wrapping_sub(1),
+            (false, false) => ireg.y_addr.wrapping_add(1),
+        };
+
+        // Update x and y addresses
         if ireg.agm.swap_xy() {
-            ireg.cur_x += 1;
-            if ireg.cur_x >= width {
-                ireg.cur_x = 0;
-                ireg.cur_y += 1;
+            ireg.x_addr = next_x;
+            if x_wrap {
+                ireg.y_addr = next_y;
             }
         } else {
-            ireg.cur_y += 1;
-            if ireg.cur_y >= height {
-                ireg.cur_y = 0;
-                ireg.cur_x += 1;
+            ireg.y_addr = next_y;
+            if y_wrap {
+                ireg.x_addr = next_x;
             }
         }
     }
 
     fn make_render_callback(&self) -> RenderCallback {
+        if self.panel.is_none() {
+            panic!("make_render_callback called on LR38825 with no LCD panel set");
+        }
+
         let gram = Arc::clone(&self.gram);
+        let panel = self.panel;
         Box::new(move |buf: &mut Vec<u32>| -> (usize, usize) {
             let gram = *gram.read().unwrap();
             let new_buf = gram.iter().map(|&px| {
@@ -274,7 +245,14 @@ impl LR38825 {
             });
 
             buf.splice(.., new_buf);
-            (MAX_WIDTH, MAX_HEIGHT)
+
+            if panel.unwrap().reverse_hor {
+                for row in buf.chunks_exact_mut(MAX_WIDTH as usize) {
+                    row.reverse()
+                }
+            }
+
+            (MAX_WIDTH as usize, MAX_HEIGHT as usize)
         })
     }
 }
@@ -302,33 +280,27 @@ impl LcdController for LR38825 {
 
             // ASX
             0x12 => {
-                ireg.y_start = val as usize;
-                Self::reset_cursor(&mut ireg);
+                ireg.y_start = val;
+                ireg.y_addr = val;
             }
 
             // ASY
             0x13 => {
-                ireg.x_start = Self::map_x(&ireg, val);
-                Self::reset_cursor(&mut ireg);
+                ireg.x_start = val;
+                ireg.x_addr = val;
             }
 
             // Horizontal RAM address
-            0x14 => {}
+            0x14 => ireg.y_addr = val,
 
             // AEX
-            0x15 => {
-                ireg.y_end = val as usize;
-                Self::reset_cursor(&mut ireg);
-            }
+            0x15 => ireg.y_end = val,
 
             // AEY
-            0x16 => {
-                ireg.x_end = Self::map_x(&ireg, val);
-                Self::reset_cursor(&mut ireg);
-            }
+            0x16 => ireg.x_end = val,
 
             // Vertical RAM address
-            0x17 => {}
+            0x17 => ireg.x_addr = val,
 
             0x18 => ireg.agm.write_bits(val),
             0x7E => ireg.display_setting.write_bits(val),

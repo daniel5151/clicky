@@ -129,7 +129,7 @@ impl IpodPhoto {
         let lcd_panel = LcdPanel {
             width: 220,
             height: 176,
-            reverse_hor: false,
+            reverse_hor: true,
         };
         let mut lcd = devices::LR38825::new();
         lcd.attach(lcd_panel, Some(lcdint_tx));
