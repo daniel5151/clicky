@@ -115,6 +115,12 @@ impl ColorLcdBridge {
             None => None,
         }
     }
+
+    pub fn tick(&mut self) {
+        if let Some(controller) = &mut self.controller {
+            controller.tick();
+        }
+    }
 }
 
 impl Device for ColorLcdBridge {

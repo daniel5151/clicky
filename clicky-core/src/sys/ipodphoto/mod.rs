@@ -8,7 +8,6 @@ use thiserror::Error;
 use crate::block::BlockDev;
 use crate::devices::Device;
 use crate::devices::display::LcdPanel;
-use crate::devices::util::Deadline;
 use crate::error::*;
 use crate::executor::*;
 use crate::gui::{IpodBinds, IpodControls, IpodKey, RenderCallback, TakeControls};
@@ -35,38 +34,6 @@ mod devices {
 /// How "--hold-keys" are held down for
 const BOOT_HOLD_DURATION: Duration = Duration::from_millis(3000);
 
-const LCD_REFRESH_FREQ: u64 = 30;
-const LCDINT_HALF_PERIOD: Duration = Duration::from_micros(1_000_000 / (LCD_REFRESH_FREQ * 2));
-
-#[derive(Debug)]
-struct LcdInt {
-    pin: gpio::Sender,
-    high: bool,
-    deadline: Deadline,
-}
-
-impl LcdInt {
-    fn new(pin: gpio::Sender) -> LcdInt {
-        LcdInt {
-            pin,
-            high: false,
-            deadline: Deadline::repeating(LCDINT_HALF_PERIOD),
-        }
-    }
-
-    fn tick(&mut self) {
-        if !self.deadline.expired() {
-            return;
-        }
-
-        self.high = !self.high;
-        match self.high {
-            true => self.pin.set_high(),
-            false => self.pin.set_low(),
-        }
-    }
-}
-
 /// A IpodPhoto system
 #[derive(Debug)]
 pub struct IpodPhoto {
@@ -81,7 +48,6 @@ pub struct IpodPhoto {
     synthetic_controls: devices::Controls<signal::Master>,
     /// Keys to hold down once the system starts executing code.
     boot_hold: Option<Vec<IpodKey>>,
-    lcdint: LcdInt,
 
     irq_pending: irq::Pending,
     dma_pending: irq::Pending,
@@ -147,7 +113,6 @@ impl IpodPhoto {
             controls: None,
             synthetic_controls: controls_tx.clone(),
             boot_hold: None,
-            lcdint: LcdInt::new(lcdint_tx),
 
             irq_pending,
             dma_pending,
@@ -159,6 +124,16 @@ impl IpodPhoto {
         };
 
         sys.reset_requested = sys.devices.soc.devcon.reset_requested();
+
+        // Connect LCD
+        let lcd_panel = LcdPanel {
+            width: 220,
+            height: 176,
+            reverse_hor: false,
+        };
+        let mut lcd = devices::LR38825::new();
+        lcd.attach(lcd_panel, Some(lcdint_tx));
+        sys.devices.soc.clcd.attach(Box::new(lcd));
 
         // connect HDD
         sys.devices
@@ -315,7 +290,7 @@ impl IpodPhoto {
             }
         }
 
-        self.lcdint.tick();
+        devices.soc.clcd.tick();
 
         // TODO?: explore adding callbacks to the signaling system
         if self.gpio_changed.check_and_clear() {
@@ -440,15 +415,6 @@ impl IpodPhotoBoard {
 
         soc.i2ccon
             .register_device(0x08, Box::new(i2c::Pcf5060x::new()));
-
-        let lcd_panel = LcdPanel {
-            width: 220,
-            height: 176,
-            reverse_hor: false,
-        };
-        let mut lcd = LR38825::new();
-        lcd.attach(lcd_panel);
-        soc.clcd.attach(Box::new(lcd));
 
         IpodPhotoBoard {
             soc,
