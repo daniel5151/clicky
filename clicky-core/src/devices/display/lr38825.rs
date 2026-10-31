@@ -11,15 +11,22 @@
 use crate::devices::prelude::*;
 
 use std::sync::{Arc, RwLock};
+use std::time::Duration;
 
 use crate::devices::display::{LcdController, LcdPanel};
+use crate::devices::util::Deadline;
 use crate::gui::RenderCallback;
+use crate::signal::gpio;
 
 use bitfields::{bitfield, bitflag};
 
 const MAX_WIDTH: usize = 220;
 const MAX_HEIGHT: usize = 176;
 const GRAM_LEN: usize = MAX_WIDTH * MAX_HEIGHT;
+
+// LCDINT frame pulse, measured on an iPod photo: 65.63 Hz, active-low.
+const LCDINT_PERIOD: Duration = Duration::from_micros(15_237);
+const LCDINT_LOW: Duration = Duration::from_micros(534);
 
 fn rgb565_to_rgb888(p: u16) -> u32 {
     // RGB565 -> RGB888 conversion courtesy of
@@ -149,6 +156,9 @@ pub struct LR38825 {
     panel: Option<LcdPanel>,
     gram: Arc<RwLock<[u16; GRAM_LEN]>>,
     ireg: Arc<RwLock<InternalRegs>>,
+    lcdint_gpio: Option<gpio::Sender>,
+    lcdint_state: bool,
+    lcdint_deadline: Deadline,
 }
 
 impl std::fmt::Debug for LR38825 {
@@ -170,11 +180,15 @@ impl LR38825 {
                 y_end: MAX_HEIGHT - 1,
                 ..InternalRegs::default()
             })),
+            lcdint_gpio: None,
+            lcdint_state: false,
+            lcdint_deadline: Deadline::oneshot(Duration::ZERO),
         }
     }
 
-    pub fn attach(&mut self, panel: LcdPanel) {
+    pub fn attach(&mut self, panel: LcdPanel, pin: Option<gpio::Sender>) {
         self.panel = Some(panel);
+        self.lcdint_gpio = pin;
     }
 
     fn width(ireg: &InternalRegs) -> usize {
@@ -360,5 +374,22 @@ impl LcdController for LR38825 {
 
     fn render_callback(&self) -> RenderCallback {
         self.make_render_callback()
+    }
+
+    fn tick(&mut self) {
+        if self.lcdint_gpio.is_none() || !self.lcdint_deadline.expired() {
+            return;
+        }
+
+        let scan = self.ireg.read().unwrap().display_control.scan();
+        let gpio = self.lcdint_gpio.as_mut().unwrap();
+        self.lcdint_state = !(self.lcdint_state && scan);
+        if self.lcdint_state {
+            gpio.set_high();
+            self.lcdint_deadline = Deadline::oneshot(LCDINT_PERIOD - LCDINT_LOW);
+        } else {
+            gpio.set_low();
+            self.lcdint_deadline = Deadline::oneshot(LCDINT_LOW);
+        }
     }
 }

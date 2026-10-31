@@ -26,6 +26,11 @@ pub trait LcdController: std::fmt::Debug + Send + Sync {
     ///
     /// The callback accepts a framebuffer, and returns the rendered dimensions.
     fn render_callback(&self) -> RenderCallback;
+
+    /// Called on each tick
+    fn tick(&mut self) {
+        
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
