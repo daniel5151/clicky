@@ -136,8 +136,6 @@ struct DisplayControl {
 
 #[derive(Debug, Default, Copy, Clone)]
 struct InternalRegs {
-    cmd: u16,
-
     hif1: Hif1,
     hif2: Hif2,
     agm: Agm,
@@ -249,13 +247,11 @@ impl LR38825 {
 
 impl LcdController for LR38825 {
     fn write_command(&mut self, val: u16) -> MemResult<()> {
-        self.ireg.cmd = val >> 8;
-        let val = val as u8;
+        let cmd = val >> 8;
+        let param = val as u8;
 
-        if let 0..=254 = self.ireg.cmd {
-            trace!(target: "LCD", "write_command cmd:{:x} val:0x{:x}({})", self.ireg.cmd, val, val);
-        }
-        match self.ireg.cmd {
+        trace!(target: "LCD", "write_command cmd:{:x} param:{:x}", cmd, param);
+        match cmd {
             // 0: Oscillator stop
             0x1 => {}
 
@@ -265,7 +261,7 @@ impl LcdController for LR38825 {
             0x8 => {}
 
             0x10 => {
-                self.ireg.hif1.write_bits(val);
+                self.ireg.hif1.write_bits(param);
 
                 if self.ireg.hif1.format() != PixelFormat::Rgb565 {
                     error!(target: "LCD", "LR38825: unimplemented pixel format {:?}", self.ireg.hif1.format());
@@ -277,7 +273,7 @@ impl LcdController for LR38825 {
                 }
             }
             0x11 => {
-                self.ireg.hif2.write_bits(val);
+                self.ireg.hif2.write_bits(param);
                 if self.ireg.hif2.write_inhibit() {
                     error!(target: "LCD", "LR38825: unimplemented HIF2 write inhibit");
                     return Err(Unimplemented);
@@ -286,42 +282,42 @@ impl LcdController for LR38825 {
 
             // ASX
             0x12 => {
-                self.ireg.y_start = val;
-                self.ireg.y_addr = val;
+                self.ireg.y_start = param;
+                self.ireg.y_addr = param;
             }
 
             // ASY
             0x13 => {
-                self.ireg.x_start = val;
-                self.ireg.x_addr = val;
+                self.ireg.x_start = param;
+                self.ireg.x_addr = param;
             }
 
             // Horizontal RAM address
-            0x14 => self.ireg.y_addr = val,
+            0x14 => self.ireg.y_addr = param,
 
             // AEX
-            0x15 => self.ireg.y_end = val,
+            0x15 => self.ireg.y_end = param,
 
             // AEY
-            0x16 => self.ireg.x_end = val,
+            0x16 => self.ireg.x_end = param,
 
             // Vertical RAM address
-            0x17 => self.ireg.x_addr = val,
+            0x17 => self.ireg.x_addr = param,
 
             0x18 => {
-                self.ireg.agm.write_bits(val);
+                self.ireg.agm.write_bits(param);
                 if self.ireg.agm.write_inhibit() != 0 {
                     error!(target: "LCD", "LR38825: unimplemented AGM write inhibit");
                     return Err(Unimplemented);
                 }
             }
-            0x7E => self.ireg.display_setting.write_bits(val),
+            0x7E => self.ireg.display_setting.write_bits(param),
 
             // "V sync parameter transfer flag"
             //  0: TG parameter refresh
             0x7F => {}
 
-            0x80 => self.ireg.display_control.write_bits(val),
+            0x80 => self.ireg.display_control.write_bits(param),
 
             // Display displaying color setting register
             0x88 => {}
