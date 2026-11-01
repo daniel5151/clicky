@@ -153,7 +153,7 @@ struct InternalRegs {
 }
 
 pub struct LR38825 {
-    panel: Option<LcdPanel>,
+    panel: LcdPanel,
     gram: Arc<RwLock<[u16; GRAM_LEN]>>,
     ireg: InternalRegs,
     lcdint_gpio: Option<gpio::Sender>,
@@ -171,9 +171,9 @@ impl std::fmt::Debug for LR38825 {
 }
 
 impl LR38825 {
-    pub fn new() -> LR38825 {
+    pub fn new(panel: LcdPanel) -> LR38825 {
         LR38825 {
-            panel: None,
+            panel,
             gram: Arc::new(RwLock::new([0; GRAM_LEN])),
             ireg: InternalRegs {
                 x_end: MAX_WIDTH - 1,
@@ -186,8 +186,7 @@ impl LR38825 {
         }
     }
 
-    pub fn attach(&mut self, panel: LcdPanel, pin: Option<gpio::Sender>) {
-        self.panel = Some(panel);
+    pub fn attach(&mut self, pin: Option<gpio::Sender>) {
         self.lcdint_gpio = pin;
     }
 
@@ -229,10 +228,6 @@ impl LR38825 {
     }
 
     fn make_render_callback(&self) -> RenderCallback {
-        if self.panel.is_none() {
-            panic!("make_render_callback called on LR38825 with no LCD panel set");
-        }
-
         let gram = Arc::clone(&self.gram);
         let panel = self.panel;
         Box::new(move |buf: &mut Vec<u32>| -> (usize, usize) {
@@ -241,7 +236,7 @@ impl LR38825 {
 
             buf.splice(.., new_buf);
 
-            if panel.unwrap().reverse_hor {
+            if panel.reverse_hor {
                 for row in buf.chunks_exact_mut(MAX_WIDTH as usize) {
                     row.reverse()
                 }

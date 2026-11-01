@@ -131,8 +131,8 @@ impl IpodPhoto {
             height: 176,
             reverse_hor: true,
         };
-        let mut lcd = devices::LR38825::new();
-        lcd.attach(lcd_panel, Some(lcdint_tx));
+        let mut lcd = devices::LR38825::new(lcd_panel);
+        lcd.attach(Some(lcdint_tx));
         sys.devices.soc.clcd.attach(Box::new(lcd));
 
         // connect HDD

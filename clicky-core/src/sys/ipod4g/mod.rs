@@ -8,6 +8,7 @@ use thiserror::Error;
 use crate::block::BlockDev;
 use crate::devices::Device;
 use crate::devices::display::LcdPanel;
+use crate::devices::display::hd66753::Hd66753;
 use crate::error::*;
 use crate::executor::*;
 use crate::gui::{IpodBinds, IpodControls, IpodKey, RenderCallback, TakeControls};
@@ -31,7 +32,6 @@ mod devices {
     }
 
     pub use crate::devices::{
-        display::hd66753::Hd66753,
         generic::{AsanRam, ide},
         input::{Controls, clickwheel::ClickWheel},
         platform::pp::*,
@@ -129,6 +129,15 @@ impl Ipod4g {
         };
 
         sys.reset_requested = sys.devices.soc.devcon.reset_requested();
+
+        // Connect LCD
+        let lcd_panel = LcdPanel {
+            width: 160,
+            height: 128,
+            reverse_hor: false,
+        };
+        let lcd = Hd66753::new(lcd_panel);
+        sys.devices.soc.mlcd.attach(Box::new(lcd));
 
         // connect HDD
         sys.devices
@@ -425,15 +434,6 @@ impl Ipod4gBoard {
 
         soc.i2ccon
             .register_device(0x08, Box::new(i2c::Pcf5060x::new()));
-
-        let lcd_panel = LcdPanel {
-            width: 160,
-            height: 128,
-            reverse_hor: false,
-        };
-        let mut lcd = Hd66753::new();
-        lcd.attach(lcd_panel);
-        soc.mlcd.attach(Box::new(lcd));
 
         Ipod4gBoard {
             soc,
