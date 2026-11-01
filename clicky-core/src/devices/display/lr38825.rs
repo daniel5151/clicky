@@ -155,7 +155,7 @@ struct InternalRegs {
 pub struct LR38825 {
     panel: Option<LcdPanel>,
     gram: Arc<RwLock<[u16; GRAM_LEN]>>,
-    ireg: Arc<RwLock<InternalRegs>>,
+    ireg: InternalRegs,
     lcdint_gpio: Option<gpio::Sender>,
     lcdint_state: bool,
     lcdint_deadline: Deadline,
@@ -175,11 +175,11 @@ impl LR38825 {
         LR38825 {
             panel: None,
             gram: Arc::new(RwLock::new([0; GRAM_LEN])),
-            ireg: Arc::new(RwLock::new(InternalRegs {
+            ireg: InternalRegs {
                 x_end: MAX_WIDTH - 1,
                 y_end: MAX_HEIGHT - 1,
                 ..InternalRegs::default()
-            })),
+            },
             lcdint_gpio: None,
             lcdint_state: false,
             lcdint_deadline: Deadline::oneshot(Duration::ZERO),
@@ -192,40 +192,38 @@ impl LR38825 {
     }
 
     fn write_ram(&mut self, val: u16) {
-        let mut ireg = self.ireg.write().unwrap();
-
         // Perform memory write, check we're within bounds
-        if ireg.x_addr < MAX_WIDTH && ireg.y_addr < MAX_HEIGHT {
-            let x = ireg.x_addr as usize;
-            let y = ireg.y_addr as usize;
+        if self.ireg.x_addr < MAX_WIDTH && self.ireg.y_addr < MAX_HEIGHT {
+            let x = self.ireg.x_addr as usize;
+            let y = self.ireg.y_addr as usize;
             self.gram.write().unwrap()[y * MAX_WIDTH as usize + x] = val;
         }
 
         // Compute x and y address wraps
-        let x_wrap = ireg.x_addr == ireg.x_end;
-        let next_x = match (x_wrap, ireg.agm.x_decr()) {
-            (true, _) => ireg.x_start,
-            (false, true) => ireg.x_addr.wrapping_sub(1),
-            (false, false) => ireg.x_addr.wrapping_add(1),
+        let x_wrap = self.ireg.x_addr == self.ireg.x_end;
+        let next_x = match (x_wrap, self.ireg.agm.x_decr()) {
+            (true, _) => self.ireg.x_start,
+            (false, true) => self.ireg.x_addr.wrapping_sub(1),
+            (false, false) => self.ireg.x_addr.wrapping_add(1),
         };
 
-        let y_wrap = ireg.y_addr == ireg.y_end;
-        let next_y = match (y_wrap, ireg.agm.y_decr()) {
-            (true, _) => ireg.y_start,
-            (false, true) => ireg.y_addr.wrapping_sub(1),
-            (false, false) => ireg.y_addr.wrapping_add(1),
+        let y_wrap = self.ireg.y_addr == self.ireg.y_end;
+        let next_y = match (y_wrap, self.ireg.agm.y_decr()) {
+            (true, _) => self.ireg.y_start,
+            (false, true) => self.ireg.y_addr.wrapping_sub(1),
+            (false, false) => self.ireg.y_addr.wrapping_add(1),
         };
 
         // Update x and y addresses
-        if ireg.agm.swap_xy() {
-            ireg.x_addr = next_x;
+        if self.ireg.agm.swap_xy() {
+            self.ireg.x_addr = next_x;
             if x_wrap {
-                ireg.y_addr = next_y;
+                self.ireg.y_addr = next_y;
             }
         } else {
-            ireg.y_addr = next_y;
+            self.ireg.y_addr = next_y;
             if y_wrap {
-                ireg.x_addr = next_x;
+                self.ireg.x_addr = next_x;
             }
         }
     }
@@ -256,14 +254,13 @@ impl LR38825 {
 
 impl LcdController for LR38825 {
     fn write_command(&mut self, val: u16) -> MemResult<()> {
-        let mut ireg = self.ireg.write().unwrap();
-        ireg.cmd = val >> 8;
+        self.ireg.cmd = val >> 8;
         let val = val as u8;
 
-        if let 0..=254 = ireg.cmd {
-            trace!(target: "LCD", "write_command cmd:{:x} val:0x{:x}({})", ireg.cmd, val, val);
+        if let 0..=254 = self.ireg.cmd {
+            trace!(target: "LCD", "write_command cmd:{:x} val:0x{:x}({})", self.ireg.cmd, val, val);
         }
-        match ireg.cmd {
+        match self.ireg.cmd {
             // 0: Oscillator stop
             0x1 => {}
 
@@ -273,20 +270,20 @@ impl LcdController for LR38825 {
             0x8 => {}
 
             0x10 => {
-                ireg.hif1.write_bits(val);
+                self.ireg.hif1.write_bits(val);
 
-                if ireg.hif1.format() != PixelFormat::Rgb565 {
-                    error!(target: "LCD", "LR38825: unimplemented pixel format {:?}", ireg.hif1.format());
+                if self.ireg.hif1.format() != PixelFormat::Rgb565 {
+                    error!(target: "LCD", "LR38825: unimplemented pixel format {:?}", self.ireg.hif1.format());
                     return Err(Unimplemented);
                 }
-                if ireg.hif1.bgr() {
+                if self.ireg.hif1.bgr() {
                     error!(target: "LCD", "LR38825: unimplemented BGR pixel order");
                     return Err(Unimplemented);
                 }
             }
             0x11 => {
-                ireg.hif2.write_bits(val);
-                if ireg.hif2.write_inhibit() {
+                self.ireg.hif2.write_bits(val);
+                if self.ireg.hif2.write_inhibit() {
                     error!(target: "LCD", "LR38825: unimplemented HIF2 write inhibit");
                     return Err(Unimplemented);
                 }
@@ -294,42 +291,42 @@ impl LcdController for LR38825 {
 
             // ASX
             0x12 => {
-                ireg.y_start = val;
-                ireg.y_addr = val;
+                self.ireg.y_start = val;
+                self.ireg.y_addr = val;
             }
 
             // ASY
             0x13 => {
-                ireg.x_start = val;
-                ireg.x_addr = val;
+                self.ireg.x_start = val;
+                self.ireg.x_addr = val;
             }
 
             // Horizontal RAM address
-            0x14 => ireg.y_addr = val,
+            0x14 => self.ireg.y_addr = val,
 
             // AEX
-            0x15 => ireg.y_end = val,
+            0x15 => self.ireg.y_end = val,
 
             // AEY
-            0x16 => ireg.x_end = val,
+            0x16 => self.ireg.x_end = val,
 
             // Vertical RAM address
-            0x17 => ireg.x_addr = val,
+            0x17 => self.ireg.x_addr = val,
 
             0x18 => {
-                ireg.agm.write_bits(val);
-                if ireg.agm.write_inhibit() != 0 {
+                self.ireg.agm.write_bits(val);
+                if self.ireg.agm.write_inhibit() != 0 {
                     error!(target: "LCD", "LR38825: unimplemented AGM write inhibit");
                     return Err(Unimplemented);
                 }
             }
-            0x7E => ireg.display_setting.write_bits(val),
+            0x7E => self.ireg.display_setting.write_bits(val),
 
             // "V sync parameter transfer flag"
             //  0: TG parameter refresh
             0x7F => {}
 
-            0x80 => ireg.display_control.write_bits(val),
+            0x80 => self.ireg.display_control.write_bits(val),
 
             // Display displaying color setting register
             0x88 => {}
@@ -356,7 +353,7 @@ impl LcdController for LR38825 {
     }
 
     fn write_data(&mut self, val: u16) -> MemResult<()> {
-        if self.ireg.read().unwrap().hif1.msb_first() {
+        if self.ireg.hif1.msb_first() {
             self.write_ram(val.swap_bytes());
         } else {
             self.write_ram(val);
@@ -377,7 +374,7 @@ impl LcdController for LR38825 {
             return;
         }
 
-        let scan = self.ireg.read().unwrap().display_control.scan();
+        let scan = self.ireg.display_control.scan();
         let gpio = self.lcdint_gpio.as_mut().unwrap();
         self.lcdint_state = !(self.lcdint_state && scan);
         if self.lcdint_state {
