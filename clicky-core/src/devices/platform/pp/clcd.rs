@@ -203,14 +203,13 @@ impl Memory for ColorLcdBridge {
                     });
                 }
 
+                let _ = self.controller()?.write_data((val as u16).swap_bytes());
                 if self.remaining > 2 {
-                    let _ = self.controller()?.write_data(val as u16);
-                    let _ = self.controller()?.write_data((val >> 16) as u16);
-                    self.remaining = self.remaining.saturating_sub(4);
-                } else {
-                    let _ = self.controller()?.write_data((val as u16).rotate_right(8));
-                    self.remaining = 0;
+                    let _ = self
+                        .controller()?
+                        .write_data(((val >> 16) as u16).swap_bytes());
                 }
+                self.remaining = self.remaining.saturating_sub(4);
 
                 if self.remaining == 0 {
                     self.control.set_done(true);

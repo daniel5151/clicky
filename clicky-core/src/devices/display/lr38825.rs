@@ -349,9 +349,9 @@ impl LcdController for LR38825 {
 
     fn write_data(&mut self, val: u16) -> MemResult<()> {
         if self.ireg.hif1.msb_first() {
-            self.write_ram(val.swap_bytes());
-        } else {
             self.write_ram(val);
+        } else {
+            self.write_ram(val.swap_bytes());
         }
         Ok(())
     }
