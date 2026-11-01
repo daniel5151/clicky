@@ -239,10 +239,7 @@ impl LR38825 {
         let panel = self.panel;
         Box::new(move |buf: &mut Vec<u32>| -> (usize, usize) {
             let gram = *gram.read().unwrap();
-            let new_buf = gram.iter().map(|&px| {
-                let p = px.rotate_left(8);
-                0xff000000 | rgb565_to_rgb888(p)
-            });
+            let new_buf = gram.iter().map(|&px| 0xff000000 | rgb565_to_rgb888(px));
 
             buf.splice(.., new_buf);
 
@@ -336,7 +333,11 @@ impl LcdController for LR38825 {
     }
 
     fn write_data(&mut self, val: u16) -> MemResult<()> {
-        self.write_ram(val);
+        if self.ireg.read().unwrap().hif1.msb_first() {
+            self.write_ram(val.swap_bytes());
+        } else {
+            self.write_ram(val);
+        }
         Ok(())
     }
 
