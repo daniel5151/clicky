@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 /// Helper struct to parse Block Device configurations.
+#[derive(Clone)]
 pub enum BlockCfg {
     /// `null:len=<len>`
     Null { len: u64 },

@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 pub type DynResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
-use structopt::StructOpt;
+use clap::Parser;
 
 use clicky_core::block::{self, BlockDev};
 use clicky_core::gui::IpodKey;
@@ -27,18 +27,15 @@ use crate::gdb::{GdbCfg, make_gdbstub};
 
 const SYSDUMP_FILENAME: &str = "sysdump.log";
 
-#[derive(StructOpt)]
-#[structopt(name = "clicky")]
-#[structopt(about = r#"
-An emulator for classic clickwheel iPods.
-"#)]
+#[derive(Parser)]
+#[command(name = "clicky", about = "An emulator for classic clickwheel iPods.")]
 struct Args {
     /// Load a firmware file using the HLE bootloader.
-    #[structopt(long, parse(from_os_str))]
+    #[arg(long)]
     hle: Option<PathBuf>,
 
     /// Path to dumped Flash ROM binary.
-    #[structopt(long, parse(from_os_str), required_unless("hle"))]
+    #[arg(long, required_unless_present("hle"))]
     flash_rom: Option<PathBuf>,
 
     /// HDD image to use.
@@ -46,7 +43,7 @@ struct Args {
     /// At the moment, this should most likely be set to either
     /// `raw:file=/path/to/ipodhd.img` (for persistence) or
     /// `mem:file=/path/to/ipodhd.img` (for testing).
-    #[structopt(long)]
+    #[arg(long)]
     hdd: BlockCfg,
 
     /// Spawn a GDB server at system startup.
@@ -61,7 +58,7 @@ struct Args {
     /// 9001 if the system experiences a fatal error, `-g /tmp/clicky`
     /// creates a new Unix Domain Socket at `/tmp/clicky`, and waits for a GDB
     /// connection before starting execution.
-    #[structopt(short, long)]
+    #[arg(short, long)]
     gdb: Option<GdbCfg>,
 
     /// Media player model to emulate.
@@ -70,7 +67,7 @@ struct Args {
     ///
     /// Valid values: ipod1g, ipod2g, ipod3g, ipod4g, ipod5g, ipodmini1g,
     /// ipodmini2g, ipodcolor, ipodphoto, ipodnano1g
-    #[structopt(long, required_unless("flash-rom"))]
+    #[arg(long, required_unless_present("flash_rom"))]
     model: Option<PMPModel>,
 
     /// Keys to hold down for the first 3000ms of execution.
@@ -79,7 +76,7 @@ struct Args {
     /// `action`.
     ///
     /// e.g: `--hold-keys action,down` boots the iPod into Disk Mode.
-    #[structopt(long, use_delimiter = true, parse(try_from_str))]
+    #[arg(long, value_delimiter = ',')]
     hold_keys: Vec<IpodKey>,
 }
 
@@ -121,7 +118,7 @@ fn main() -> DynResult<()> {
         .parse_filters(&std::env::var("RUST_LOG").unwrap_or_default())
         .init();
 
-    let args = Args::from_args();
+    let args = Args::parse();
 
     let hdd: Box<dyn BlockDev> = match args.hdd {
         BlockCfg::Null { len } => Box::new(block::backend::Null::new(len)),

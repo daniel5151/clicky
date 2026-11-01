@@ -8,7 +8,7 @@ use crate::DynResult;
 
 use gdbstub::{Connection, GdbStub};
 
-/// GDB server configuration. Typically instantiated via StructOpt.
+/// GDB server configuration. Typically instantiated via clap.
 #[derive(Debug, Clone)]
 pub struct GdbCfg {
     pub kind: ConnKind,
