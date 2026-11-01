@@ -5,7 +5,7 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
-use structopt::StructOpt;
+use clap::{Parser, Subcommand};
 use thiserror::Error;
 
 use pprom::Rom;
@@ -25,19 +25,20 @@ enum PpromError {
     Hexdump(#[from] io::Error),
 }
 
-#[derive(StructOpt)]
-#[structopt(name = "pprom")]
-#[structopt(about = "Explore PortalPlayer-based iPod InternalROM dumps.")]
+#[derive(Parser)]
+#[command(
+    name = "pprom",
+    about = "Explore PortalPlayer-based iPod InternalROM dumps."
+)]
 struct Args {
     /// Path to a dumped InternalROM binary.
-    #[structopt(parse(from_os_str))]
     rom: PathBuf,
 
-    #[structopt(subcommand)]
+    #[command(subcommand)]
     cmd: Option<Command>,
 }
 
-#[derive(StructOpt)]
+#[derive(Subcommand)]
 enum Command {
     /// Summarize the ROM. This is the default when no subcommand is given.
     Info,
@@ -55,7 +56,7 @@ fn main() {
 }
 
 fn run() -> Result<(), PpromError> {
-    let args = Args::from_args();
+    let args = Args::parse();
 
     let dump = fs::read(&args.rom).map_err(|source| PpromError::Read {
         path: args.rom.clone(),
