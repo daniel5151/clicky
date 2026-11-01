@@ -272,8 +272,25 @@ impl LcdController for LR38825 {
 
             0x8 => {}
 
-            0x10 => ireg.hif1.write_bits(val),
-            0x11 => ireg.hif2.write_bits(val),
+            0x10 => {
+                ireg.hif1.write_bits(val);
+
+                if ireg.hif1.format() != PixelFormat::Rgb565 {
+                    error!(target: "LCD", "LR38825: unimplemented pixel format {:?}", ireg.hif1.format());
+                    return Err(Unimplemented);
+                }
+                if ireg.hif1.bgr() {
+                    error!(target: "LCD", "LR38825: unimplemented BGR pixel order");
+                    return Err(Unimplemented);
+                }
+            }
+            0x11 => {
+                ireg.hif2.write_bits(val);
+                if ireg.hif2.write_inhibit() {
+                    error!(target: "LCD", "LR38825: unimplemented HIF2 write inhibit");
+                    return Err(Unimplemented);
+                }
+            }
 
             // ASX
             0x12 => {
@@ -299,7 +316,13 @@ impl LcdController for LR38825 {
             // Vertical RAM address
             0x17 => ireg.x_addr = val,
 
-            0x18 => ireg.agm.write_bits(val),
+            0x18 => {
+                ireg.agm.write_bits(val);
+                if ireg.agm.write_inhibit() != 0 {
+                    error!(target: "LCD", "LR38825: unimplemented AGM write inhibit");
+                    return Err(Unimplemented);
+                }
+            }
             0x7E => ireg.display_setting.write_bits(val),
 
             // "V sync parameter transfer flag"
