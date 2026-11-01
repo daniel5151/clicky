@@ -260,7 +260,7 @@ impl LcdController for Hd66789 {
     }
 
     fn read_command(&mut self) -> MemResult<u16> {
-        panic!("Unimplemented");
+        Err(Unimplemented)
     }
 
     fn write_data(&mut self, val: u16) -> MemResult<()> {
@@ -269,7 +269,7 @@ impl LcdController for Hd66789 {
     }
 
     fn read_data(&mut self) -> MemResult<u16> {
-        panic!("Unimplemented");
+        Err(Unimplemented)
     }
 
     fn render_callback(&self) -> RenderCallback {

@@ -344,7 +344,7 @@ impl LcdController for LR38825 {
     }
 
     fn read_command(&mut self) -> MemResult<u16> {
-        panic!("Not implemented");
+        Err(Unimplemented)
     }
 
     fn write_data(&mut self, val: u16) -> MemResult<()> {
@@ -357,7 +357,7 @@ impl LcdController for LR38825 {
     }
 
     fn read_data(&mut self) -> MemResult<u16> {
-        panic!("Not implemented");
+        Err(Unimplemented)
     }
 
     fn render_callback(&self) -> RenderCallback {
