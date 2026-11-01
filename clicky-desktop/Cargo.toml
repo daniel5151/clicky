@@ -12,10 +12,10 @@ clicky-core.workspace = true
 pprom.workspace = true
 
 cfg-if.workspace = true
+clap.workspace = true
 gdbstub.workspace = true
 human-size.workspace = true
 log.workspace = true
 pretty_env_logger.workspace = true
-structopt.workspace = true
 
 minifb = { workspace = true, optional = true }

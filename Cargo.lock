@@ -345,6 +345,7 @@ name = "clicky-desktop"
 version = "0.1.0"
 dependencies = [
  "cfg-if 0.1.10",
+ "clap 4.6.7",
  "clicky-core",
  "gdbstub",
  "human-size",
@@ -352,7 +353,6 @@ dependencies = [
  "minifb",
  "pprom",
  "pretty_env_logger",
- "structopt",
 ]
 
 [[package]]
