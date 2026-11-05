@@ -5,6 +5,7 @@ use crate::gui::{IpodKey, RenderCallback, TakeControls};
 
 pub mod ipod4g;
 pub mod ipodmini1g;
+pub mod ipodnano1g;
 pub mod ipodphoto;
 
 pub trait System: TakeControls + std::fmt::Debug + Send {
@@ -50,5 +51,6 @@ mod size_asserts {
 
     const_assert!(std::mem::size_of::<ipod4g::Ipod4g>() < MAX_SYS_SIZE);
     const_assert!(std::mem::size_of::<ipodmini1g::IpodMini1g>() < MAX_SYS_SIZE);
+    const_assert!(std::mem::size_of::<ipodnano1g::IpodNano1g>() < MAX_SYS_SIZE);
     const_assert!(std::mem::size_of::<ipodphoto::IpodPhoto>() < MAX_SYS_SIZE);
 }
