@@ -73,4 +73,26 @@ pub mod common {
             }
         }
     }
+
+    #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+    pub enum PpModel {
+        Pp5020,
+        Pp5022,
+    }
+
+    impl PpModel {
+        pub fn iram_size(self) -> usize {
+            match self {
+                PpModel::Pp5020 => 96 * 1024,
+                PpModel::Pp5022 => 128 * 1024,
+            }
+        }
+
+        pub fn id(self) -> &'static [u8; 8] {
+            match self {
+                PpModel::Pp5020 => b"PP5020D ",
+                PpModel::Pp5022 => b"PP5022C ",
+            }
+        }
+    }
 }
