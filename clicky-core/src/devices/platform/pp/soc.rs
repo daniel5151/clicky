@@ -3,10 +3,13 @@ use crate::devices::prelude::*;
 use crate::devices::generic::{AsanRam, Stub};
 use crate::devices::util::ArcMutexDevice;
 
+use super::common::PpModel;
 use super::*;
 
 #[derive(Debug)]
 pub struct Pp502x {
+    pub model: PpModel,
+
     /// On-chip SRAM ("IRAM").
     pub fastram: AsanRam,
 
@@ -52,6 +55,7 @@ pub struct Pp502x {
 
 impl Pp502x {
     pub fn new(
+        model: PpModel,
         task_spawner: Spawner,
         irq_pending: irq::Pending,
         dma_pending: irq::Pending,
@@ -100,7 +104,8 @@ impl Pp502x {
         let apb_dma = ApbDma::new(apb_dma_irq_tx);
 
         Pp502x {
-            fastram: AsanRam::new(96 * 1024, true), // 96 KB
+            model,
+            fastram: AsanRam::new(model.iram_size(), true),
             cpuid: CpuIdReg::new(),
             cpucon: CpuCon::new(task_spawner.clone()),
             clcd: ColorLcdBridge::new(),
@@ -120,7 +125,7 @@ impl Pp502x {
             i2ccon: I2CCon::new(i2c_irq_tx.clone()),
             // opto IRQ line is shared with I2C
             opto: OptoWheel::new(i2c_irq_tx),
-            ppcon: PPCon::new(),
+            ppcon: PPCon::new(model),
             devcon: DevCon::new(),
             intcon,
             eidecon: EIDECon::new(ide_irq_tx, ide_dmarq_tx, ide_dmarq_rx),
@@ -155,12 +160,12 @@ impl Pp502x {
 }
 
 macro_rules! soc_mmap {
-    ($($start:literal $(..= $end:literal)? => $dev:ident,)*) => {
+    (@munch [$(($start:literal ($($range:tt)*) $dev:ident $($model:ident)?))*]) => {
         macro_rules! impl_mem_r {
             ($fn:ident, $ret:ty) => {
                 fn $fn(&mut self, addr: u32) -> MemResult<$ret> {
                     match addr {
-                        $($start$(..=$end)? => self.$dev.$fn(addr - $start),)*
+                        $($start $($range)* $(if self.model == PpModel::$model)? => self.$dev.$fn(addr - $start),)*
                         _ => Err(Unexpected),
                     }
                 }
@@ -171,7 +176,7 @@ macro_rules! soc_mmap {
             ($fn:ident, $val:ty) => {
                 fn $fn(&mut self, addr: u32, val: $val) -> MemResult<()> {
                     match addr {
-                        $($start$(..=$end)? => self.$dev.$fn(addr - $start, val),)*
+                        $($start $($range)* $(if self.model == PpModel::$model)? => self.$dev.$fn(addr - $start, val),)*
                         _ => Err(Unexpected),
                     }
                 }
@@ -185,7 +190,7 @@ macro_rules! soc_mmap {
 
             fn probe(&self, addr: u32) -> Probe {
                 match addr {
-                    $($start$(..=$end)? => Probe::from_device(&self.$dev, addr - $start),)*
+                    $($start $($range)* $(if self.model == PpModel::$model)? => Probe::from_device(&self.$dev, addr - $start),)*
                     _ => Probe::Unmapped,
                 }
             }
@@ -202,10 +207,27 @@ macro_rules! soc_mmap {
             impl_mem_r!(x32, u32);
         }
     };
+
+    (@munch [$($acc:tt)*] $model:ident { $($start:literal $(..= $end:literal)? => $dev:ident,)* } $($rest:tt)*) => {
+        soc_mmap!(@munch [$($acc)* $(($start ($(..= $end)?) $dev $model))*] $($rest)*);
+    };
+
+    (@munch [$($acc:tt)*] $start:literal $(..= $end:literal)? => $dev:ident, $($rest:tt)*) => {
+        soc_mmap!(@munch [$($acc)* ($start ($(..= $end)?) $dev)] $($rest)*);
+    };
+
+    ($($map:tt)*) => {
+        soc_mmap!(@munch [] $($map)*);
+    };
 }
 
 soc_mmap! {
-    0x4000_0000..=0x4001_7fff => fastram,
+    Pp5020 {
+        0x4000_0000..=0x4001_7fff => fastram,
+    }
+    Pp5022 {
+        0x4000_0000..=0x4001_ffff => fastram,
+    }
 
     0x6000_0000..=0x6000_0fff => cpuid,
     0x6000_1000..=0x6000_102f => mailbox,

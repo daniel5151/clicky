@@ -411,7 +411,7 @@ impl IpodPhotoBoard {
     ) -> IpodPhotoBoard {
         use devices::*;
 
-        let mut soc = Pp502x::new(task_spawner, irq_pending, dma_pending);
+        let mut soc = Pp502x::new(PpModel::Pp5020, task_spawner, irq_pending, dma_pending);
 
         soc.i2ccon
             .register_device(0x08, Box::new(i2c::Pcf5060x::new()));

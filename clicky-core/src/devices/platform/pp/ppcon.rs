@@ -1,8 +1,13 @@
 use crate::devices::prelude::*;
 
+use byteorder::{BigEndian, ByteOrder};
+
+use super::common::PpModel;
+
 /// Poorly documented PP50XX controller
 #[derive(Debug)]
 pub struct PPCon {
+    model: PpModel,
     dev_init: [u32; 8],
     dev_timing: [u32; 3],
     bootstrap_maybe: [u32; 2],
@@ -13,8 +18,9 @@ pub struct PPCon {
 }
 
 impl PPCon {
-    pub fn new() -> PPCon {
+    pub fn new(model: PpModel) -> PPCon {
         PPCon {
+            model,
             dev_init: [0; 8],
             dev_timing: [0; 3],
             bootstrap_maybe: [0; 2],
@@ -62,8 +68,8 @@ impl Device for PPCon {
 impl Memory for PPCon {
     fn r32(&mut self, offset: u32) -> MemResult<u32> {
         match offset {
-            0x00 => Ok(u32::from_le_bytes(*b"PP50")),
-            0x04 => Ok(u32::from_le_bytes(*b"20D ")),
+            0x00 => Ok(BigEndian::read_u32(&self.model.id()[4..8])),
+            0x04 => Ok(BigEndian::read_u32(&self.model.id()[0..4])),
             0x08 => Err(StubRead(Info, self.bootstrap_maybe[0])),
             0x0c => Err(StubRead(Info, self.bootstrap_maybe[1])),
             0x10 => Err(StubRead(Info, self.dev_init[0])),
