@@ -54,6 +54,7 @@ pub struct IpodNano1g {
     gpio_changed: gpio::Changed,
     i2c_changed: signal::Trigger,
     reset_requested: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    _lcd_model_strap: gpio::Sender,
 
     executor: Executor,
 }
@@ -99,6 +100,10 @@ impl IpodNano1g {
         let (mut hold_tx, hold_rx) = gpio::new(gpio_changed.clone(), "Hold");
         let (controls_tx, controls_rx) = devices::Controls::new_tx_rx(i2c_changed.clone());
 
+        // LCD model strap
+        let (mut lcd_model_tx, lcd_model_rx) = gpio::new(gpio_changed.clone(), "LCD model strap");
+        lcd_model_tx.set_high();
+
         let mut sys = IpodNano1g {
             frozen: false,
 
@@ -118,6 +123,7 @@ impl IpodNano1g {
             gpio_changed: gpio_changed.clone(),
             i2c_changed: i2c_changed.clone(),
             reset_requested: Default::default(),
+            _lcd_model_strap: lcd_model_tx,
 
             executor,
         };
@@ -152,6 +158,12 @@ impl IpodNano1g {
             let mut gpio_abcd = sys.devices.soc.gpio_abcd.lock().unwrap();
             gpio_abcd.register_in(5, hold_rx.clone());
         }
+        sys.devices
+            .soc
+            .gpio_ijkl
+            .lock()
+            .unwrap()
+            .register_in(3 * 8 + 6, lcd_model_rx);
 
         {
             let mut clickwheel = devices::ClickWheel::new();
