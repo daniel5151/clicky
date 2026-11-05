@@ -163,8 +163,7 @@ impl Hd66789 {
         Box::new(move |buf: &mut Vec<u32>| -> (usize, usize) {
             let gram = *gram.read().unwrap();
             if !rotated {
-                let new_buf = gram.iter().map(|&px| {
-                    let p = px.rotate_left(8);
+                let new_buf = gram.iter().map(|&p| {
                     0xff000000
                         | (((p & 0xf800) as u32) << 8)
                         | (((p & 0x07e0) as u32) << 5)
