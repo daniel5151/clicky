@@ -79,6 +79,23 @@ impl Memory for Evp {
         }
     }
 
+    fn r16(&mut self, offset: u32) -> MemResult<u16> {
+        if offset & 1 != 0 {
+            return Err(Misaligned);
+        }
+        let vector = self.r32(offset & !3)?;
+        if offset & 2 == 0 {
+            Ok(vector as u16)
+        } else {
+            Ok((vector >> 16) as u16)
+        }
+    }
+
+    fn r8(&mut self, offset: u32) -> MemResult<u8> {
+        let bytes = self.r32(offset & !3)?.to_le_bytes();
+        Ok(bytes[(offset & 3) as usize])
+    }
+
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         match offset {
             0x0 => Ok(self.reset_vec = val),
