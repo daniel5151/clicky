@@ -155,7 +155,10 @@ impl Memory for Flash {
                 self.state = CFIState::ReadArrayMode;
                 Ok(())
             }
-            _ => Err(Unimplemented),
+            _ => {
+                self.state = CFIState::ReadArrayMode;
+                Err(StubWrite(Debug, ()))
+            }
         }
     }
 
