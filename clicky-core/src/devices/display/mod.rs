@@ -44,3 +44,17 @@ pub struct LcdPanel {
     /// Panel segments are connected in the reverse order
     pub reverse_hor: bool,
 }
+
+pub fn rgb565_to_rgb888(p: u16) -> u32 {
+    // RGB565 -> RGB888 conversion courtesy of
+    // https://stackoverflow.com/questions/2442576/how-does-one-convert-16-bit-rgb565-to-24-bit-rgb888
+    let r5 = p.get_bits(11..=15) as u32;
+    let g6 = p.get_bits(5..=10) as u32;
+    let b5 = p.get_bits(0..=4) as u32;
+
+    let r8 = (r5 * 255) / 31;
+    let g8 = (g6 * 255) / 63;
+    let b8 = (b5 * 255) / 31;
+
+    (r8 << 16) | (g8 << 8) | b8
+}
