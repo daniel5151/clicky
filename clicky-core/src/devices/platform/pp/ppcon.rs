@@ -81,7 +81,8 @@ impl Memory for PPCon {
             // HACK: flag needs to be set to progress through USB init in rockbox
             0x28 => Err(StubRead(Info, self.dev_init[6] | 0x80)),
             0x2c => Err(StubRead(Info, self.dev_init[7])),
-            0x30 => Err(StubRead(Info, self.dev_timing[0])),
+            // HACK: iPod Nano 1G is polling MSB during boot
+            0x30 => Err(StubRead(Info, self.dev_timing[0] | 0x8000000)),
             0x34 => Err(StubRead(Debug, self.dev_timing[1])),
             0x3c => Err(StubRead(Info, self.dev_timing[2])),
             0x80 => Ok(self.gpo_val),
@@ -107,8 +108,7 @@ impl Memory for PPCon {
             0x24 => Err(StubWrite(Info, self.dev_init[5] = val)),
             0x28 => Err(StubWrite(Info, self.dev_init[6] = val)),
             0x2c => Err(StubWrite(Info, self.dev_init[7] = val)),
-            // HACK: flag needs to be set to progress through the Flash ROM bootloader
-            0x30 => Err(StubWrite(Info, self.dev_timing[0] = val | 0x8000000)),
+            0x30 => Err(StubWrite(Info, self.dev_timing[0] = val)),
             0x34 => Err(StubWrite(Debug, self.dev_timing[1] = val)),
             // HACK: flag needs to be set to progress through the Flash ROM bootloader
             0x3c => Err(StubWrite(Info, self.dev_timing[2] = val | 0x80000000)),
