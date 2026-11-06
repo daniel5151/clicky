@@ -2,7 +2,7 @@ use crate::devices::prelude::*;
 
 use std::sync::{Arc, RwLock};
 
-use crate::devices::display::{LcdController, LcdPanel};
+use crate::devices::display::{LcdController, LcdPanel, rgb565_to_rgb888};
 use crate::gui::RenderCallback;
 
 const MAX_WIDTH: usize = 176;
@@ -163,12 +163,7 @@ impl Hd66789 {
         Box::new(move |buf: &mut Vec<u32>| -> (usize, usize) {
             let gram = *gram.read().unwrap();
             if !rotated {
-                let new_buf = gram.iter().map(|&p| {
-                    0xff000000
-                        | (((p & 0xf800) as u32) << 8)
-                        | (((p & 0x07e0) as u32) << 5)
-                        | (((p & 0x001f) as u32) << 3)
-                });
+                let new_buf = gram.iter().map(|&p| 0xff000000 | rgb565_to_rgb888(p));
 
                 buf.splice(.., new_buf);
                 (MAX_WIDTH, MAX_HEIGHT)
@@ -178,10 +173,7 @@ impl Hd66789 {
                     for old_x in 0..MAX_WIDTH {
                         let px = gram[old_y * MAX_WIDTH + old_x];
                         let p = px.rotate_left(8);
-                        let color = 0xff000000
-                            | (((p & 0xf800) as u32) << 8)
-                            | (((p & 0x07e0) as u32) << 5)
-                            | (((p & 0x001f) as u32) << 3);
+                        let color = 0xff000000 | rgb565_to_rgb888(p);
 
                         // 90° clockwise
                         let new_x = MAX_HEIGHT - 1 - old_y;
