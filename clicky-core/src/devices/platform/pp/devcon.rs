@@ -4,11 +4,14 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use stdrandom;
 
+use super::common::PpModel;
+
 const DEV_SYSTEM: u32 = 1 << 2;
 
 /// PP5020 Device Controller.
 #[derive(Debug)]
 pub struct DevCon {
+    model: PpModel,
     reset: [u32; 2],
     enable: [u32; 2],
     clock_source: u32,
@@ -21,8 +24,9 @@ pub struct DevCon {
 }
 
 impl DevCon {
-    pub fn new() -> DevCon {
+    pub fn new(model: PpModel) -> DevCon {
         DevCon {
+            model,
             reset: [0, 0],
             enable: [0, 0],
             clock_source: 0,
@@ -43,7 +47,7 @@ impl DevCon {
     /// Restore the register state a reset leaves behind.
     pub fn reset(&mut self) {
         let flag = Arc::clone(&self.reset_requested);
-        *self = DevCon::new();
+        *self = DevCon::new(self.model);
         self.reset_requested = flag;
     }
 }
@@ -87,8 +91,16 @@ impl Memory for DevCon {
             0x2c => Err(StubRead(Error, 0)),
             0x34 => Ok(self.pll_control),
             0x38 => Ok(stdrandom::fast_u16() as u32),
-            0x3c => Ok(self.pll_status),
+            0x3c => {
+                // Emulate PLL lock bit
+                let mut status = self.pll_status;
+                if self.model == PpModel::Pp5022 && self.pll_control.get_bit(31) {
+                    status.set_bit(31, true);
+                }
+                Ok(status)
+            }
             0x44 => Err(StubRead(Error, self.cache_priority as u32)),
+            0x4c => Err(StubRead(Error, 0)),
             0xa0 => Err(StubRead(Trace, 0)),
             0xa4 => Err(StubRead(Error, self.mystery_i2c)),
             0xc4 => Err(InvalidAccess),
@@ -117,6 +129,7 @@ impl Memory for DevCon {
                 let val = val.trunc_to_u8()?;
                 self.cache_priority = val;
             })),
+            0x4c => Err(StubWrite(Error, ())),
             0x84 => Err(StubWrite(Trace, ())),
             0xa0 => Err(StubWrite(Trace, ())),
             0xa4 => Err(StubWrite(Error, self.mystery_i2c = val)),

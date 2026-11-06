@@ -126,7 +126,7 @@ impl Pp502x {
             // opto IRQ line is shared with I2C
             opto: OptoWheel::new(i2c_irq_tx),
             ppcon: PPCon::new(model),
-            devcon: DevCon::new(),
+            devcon: DevCon::new(model),
             intcon,
             eidecon: EIDECon::new(ide_irq_tx, ide_dmarq_tx, ide_dmarq_rx),
             memcon: MemCon::new(),
