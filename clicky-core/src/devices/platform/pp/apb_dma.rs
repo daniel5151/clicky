@@ -607,7 +607,8 @@ impl Memory for ApbDma {
         match offset {
             0x0000..=0x0fff => match offset % 0x10 {
                 0x0 => Ok(self.command.write_bits(val)),
-                0x4 | 0x8 => Err(InvalidAccess),
+                0x4 => Err(InvalidAccess),
+                0x8 => Err(StubWrite(Error, ())),
                 _ => Err(Unexpected),
             },
             0x1000..=0x1fff => {
