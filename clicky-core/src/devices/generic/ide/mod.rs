@@ -199,7 +199,7 @@ enum DataPhase {
 }
 
 /// Transfer Mode set by the "Set Transfer Mode" (0x03) subcommand of the "Set
-/// Features" command.
+/// Features" command (8.37.11 T13/1321D revision 3).
 #[derive(Debug)]
 #[expect(dead_code, reason = "payloads only used for Debug impl")]
 enum IdeTransferMode {
@@ -208,6 +208,7 @@ enum IdeTransferMode {
     PioFlowControl(u8),
     DMASingleWord(u8),
     DMAMultiWord(u8),
+    UltraDMA(u8),
     Reserved,
     Invalid,
 }
@@ -230,7 +231,7 @@ impl IdeTransferMode {
             4 => PioFlowControl(val & 7),
             3 => DMASingleWord(val & 7),
             2 => DMAMultiWord(val & 7),
-            1 => Reserved,
+            1 => UltraDMA(val & 7),
             0 => Reserved,
             _ => unreachable!(),
         }
@@ -238,7 +239,7 @@ impl IdeTransferMode {
 
     fn is_dma(&self) -> bool {
         use self::IdeTransferMode::*;
-        matches!(self, DMASingleWord(..) | DMAMultiWord(..))
+        matches!(self, DMASingleWord(..) | DMAMultiWord(..) | UltraDMA(..))
     }
 }
 
@@ -265,9 +266,8 @@ struct IdeRegs {
 struct IdeDriveConfig {
     eightbit: bool,
     multi_sect: u8,
-    // NOTE: from what I understand, the transfer mode is only used for hardware timings, and
-    // doesn't actually impact emulation?
-    transfer_mode: IdeTransferMode,
+    pio_mode: IdeTransferMode,
+    dma_mode: Option<IdeTransferMode>,
 }
 
 #[derive(Debug)]
@@ -304,7 +304,8 @@ impl IdeDrive {
             cfg: IdeDriveConfig {
                 eightbit: false,
                 multi_sect: 0,
-                transfer_mode: IdeTransferMode::Pio,
+                pio_mode: IdeTransferMode::Pio,
+                dma_mode: None,
             },
         }
     }
@@ -569,7 +570,7 @@ impl IdeDrive {
                 }
             }
             Ok(ReadDMA) | Ok(ReadDMANoRetry) => {
-                if !self.cfg.transfer_mode.is_dma() {
+                if self.cfg.dma_mode.is_none() {
                     // TODO?: use the ATA abort mechanism instead of loudly failing
                     return Err(ContractViolation {
                         msg: "Called ReadDMA without setting DMA transfer mode".into(),
@@ -606,7 +607,7 @@ impl IdeDrive {
                 }
             }
             Ok(WriteDMA) | Ok(WriteDMANoRetry) => {
-                if !self.cfg.transfer_mode.is_dma() {
+                if self.cfg.dma_mode.is_none() {
                     // TODO?: use the ATA abort mechanism instead of loudly failing
                     return Err(ContractViolation {
                         msg: "Called WriteDMA without setting DMA transfer mode".into(),
@@ -638,7 +639,10 @@ impl IdeDrive {
                 match IdeSetFeaturesReg::try_from(self.reg.feature) {
                     Ok(Enable8BitPIOTransferMode) => self.cfg.eightbit = true,
                     Ok(SetTransferModeBasedOnValueInSectorCountRegister) => {
-                        self.cfg.transfer_mode = IdeTransferMode::from(self.reg.sector_count)
+                        match IdeTransferMode::from(self.reg.sector_count) {
+                            mode if mode.is_dma() => self.cfg.dma_mode = Some(mode),
+                            mode => self.cfg.pio_mode = mode,
+                        }
                     }
                     Ok(Disable8BitPIOTransferMode) => self.cfg.eightbit = false,
 
