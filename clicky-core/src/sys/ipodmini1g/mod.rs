@@ -25,7 +25,7 @@ use crate::board_mmap;
 use crate::devices::platform::pp::common::*;
 mod devices {
     pub mod i2c {
-        pub use crate::devices::i2c::devices::Pcf5060x;
+        pub use crate::devices::i2c::devices::{Pcf5060x, Wm8731};
     }
 
     pub use crate::devices::input::quadrature::QuadratureEncoder;
@@ -427,6 +427,8 @@ impl IpodMini1gBoard {
 
         soc.i2ccon
             .register_device(0x08, Box::new(i2c::Pcf5060x::new()));
+        soc.i2ccon
+            .register_device(0x1a, Box::new(i2c::Wm8731::new()));
 
         IpodMini1gBoard {
             soc,
