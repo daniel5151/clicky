@@ -1,9 +1,11 @@
 use crate::devices::i2c::prelude::*;
+use bitfields::bitfield;
 
 #[derive(Debug)]
 pub struct Wm8975 {
     last_op_was_write: bool,
     register: Option<u8>,
+    data_msb: bool,
     inner: Wm8975Impl,
 }
 
@@ -12,6 +14,7 @@ impl Wm8975 {
         Wm8975 {
             last_op_was_write: false,
             register: None,
+            data_msb: false,
             inner: Wm8975Impl::new(),
         }
     }
@@ -48,8 +51,13 @@ impl I2CDevice for Wm8975 {
         self.last_op_was_write = true;
 
         match self.register {
-            None => Ok(self.register = Some(data >> 1)),
-            Some(reg) => self.inner.write(reg, data),
+            None => Ok({
+                self.register = Some(data >> 1);
+                self.data_msb = data & 1 != 0;
+            }),
+            Some(reg) => self
+                .inner
+                .write(reg, (self.data_msb as u16) << 8 | data as u16),
         }
     }
 
@@ -61,12 +69,14 @@ impl I2CDevice for Wm8975 {
 
 #[derive(Debug)]
 struct Wm8975Impl {
-    reg_gpio: u8,
+    pwr_mgmt_3: PowerManagement3,
 }
 
 impl Wm8975Impl {
     fn new() -> Wm8975Impl {
-        Wm8975Impl { reg_gpio: 0 }
+        Wm8975Impl {
+            pwr_mgmt_3: PowerManagement3::new(),
+        }
     }
 
     fn probe(&self, reg: u8) -> Probe {
@@ -122,18 +132,44 @@ impl Wm8975Impl {
         Err(Unimplemented)
     }
 
-    fn write(&mut self, reg: u8, _data: u8) -> MemResult<()> {
+    fn write(&mut self, reg: u8, data: u16) -> MemResult<()> {
         match reg {
+            0x02 => Err(StubWrite(Trace, ())),
+            0x03 => Err(StubWrite(Trace, self.pwr_mgmt_3.write_bits(data))),
             0x05 => Err(StubWrite(Trace, ())),
             0x07 => Err(StubWrite(Trace, ())),
             0x08 => Err(StubWrite(Error, ())),
             0x0F => Err(StubWrite(Trace, ())),
             0x10 | 0x1A => Err(StubWrite(Error, ())), // Undocumented registers
-            0x18..=0x19 => Ok(()), // Ignore DAC Limiter registers (not needed)
+            0x18..=0x19 => Ok(()),                    // Ignore DAC Limiter registers (not needed)
             0x1B..=0x1E => Err(StubWrite(Trace, ())), // Ignore Notch Filter (might be emulated later)
             0x20..=0x22 => Err(StubWrite(Trace, ())), // Ignore ALC control
             0x24..=0x27 => Err(StubWrite(Trace, ())), // Ignore PLL registers
             _ => Err(Unimplemented),
         }
     }
+}
+
+#[bitfield(u16, order = msb)]
+struct PowerManagement3 {
+    #[bits(7)]
+    _padding: u8,
+
+    _reserved_8: bool,
+
+    mono_en: bool,
+
+    spkn_en: bool,
+
+    spkp_en: bool,
+
+    _reserved_4: bool,
+
+    mono_mix_en: bool,
+
+    spk_mix_en: bool,
+
+    _reserved_1: bool,
+
+    dac_en: bool,
 }
