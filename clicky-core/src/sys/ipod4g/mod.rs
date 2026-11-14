@@ -27,7 +27,7 @@ use crate::devices::platform::pp::common::*;
 use crate::devices::util::MemSniffer;
 mod devices {
     pub mod i2c {
-        pub use crate::devices::i2c::devices::Pcf5060x;
+        pub use crate::devices::i2c::devices::{Pcf5060x, Wm8975};
     }
 
     pub use crate::devices::{
@@ -425,6 +425,8 @@ impl Ipod4gBoard {
 
         soc.i2ccon
             .register_device(0x08, Box::new(i2c::Pcf5060x::new()));
+        soc.i2ccon
+            .register_device(0x1a, Box::new(i2c::Wm8975::new()));
 
         let lcd_panel = LcdPanel {
             width: 160,
