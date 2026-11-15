@@ -496,15 +496,21 @@ impl ApbDma {
         self
     }
 
-    /// Get next DMA read/write request to SoC bus
-    pub fn next_transfer(&self) -> Option<DmaTransfer> {
+    /// Generate requests bit vectors from requests lines (i.e. directly from peripherals)
+    /// and from self.req_status
+    fn requests(&self) -> u16 {
         let mut requests = self.req_status.into_bits() as u16;
         for (i, drq) in self.requests.iter().enumerate() {
             if let Some(drq) = drq {
                 requests.set_bit(i, drq.asserted());
             }
         }
+        requests
+    }
 
+    /// Get next DMA read/write request to SoC bus
+    pub fn next_transfer(&self) -> Option<DmaTransfer> {
+        let requests = self.requests();
         self.dma
             .iter()
             .enumerate()
