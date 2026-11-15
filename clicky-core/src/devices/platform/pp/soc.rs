@@ -60,6 +60,7 @@ impl Pp502x {
         irq_pending: irq::Pending,
         dma_pending: irq::Pending,
     ) -> Pp502x {
+        // IRQs
         let (ide_irq_tx, ide_irq_rx) = irq::new(irq_pending.clone(), "IDE");
         let (timer1_irq_tx, timer1_irq_rx) = irq::new(irq_pending.clone(), "Timer1");
         let (timer2_irq_tx, timer2_irq_rx) = irq::new(irq_pending.clone(), "Timer2");
@@ -68,12 +69,13 @@ impl Pp502x {
         let (gpio2_irq_tx, gpio2_irq_rx) = irq::new(irq_pending.clone(), "GPIO2");
         let (i2c_irq_tx, i2c_irq_rx) = irq::new(irq_pending.clone(), "I2C");
         let (apb_dma_irq_tx, apb_dma_irq_rx) = irq::new(irq_pending.clone(), "APB-DMA");
-
-        let (ide_dmarq_tx, ide_dmarq_rx) = irq::new(dma_pending.clone(), "IDE DMA");
-
-        // mailbox is the only core-specific IRQ in the system, which is kinda neat
         let (mbx_cpu_irq_tx, mbx_cpu_irq_rx) = irq::new(irq_pending.clone(), "Mailbox (CPU)");
         let (mbx_cop_irq_tx, mbx_cop_irq_rx) = irq::new(irq_pending.clone(), "Mailbox (COP)");
+
+        let (ide_dmarq_tx, ide_dmarq_rx) = irq::new(dma_pending.clone(), "IDE DMA"); // TODO: Migrate to DRQ?
+
+        // Data requests
+        let (i2s_output_drq_tx, i2s_output_drq_rx) = drq::new("I2S output");
 
         let gpio_abcd = ArcMutexDevice::new(GpioBlock::new(gpio0_irq_tx, ["A", "B", "C", "D"]));
         let gpio_efgh = ArcMutexDevice::new(GpioBlock::new(gpio1_irq_tx, ["E", "F", "G", "H"]));
@@ -131,7 +133,7 @@ impl Pp502x {
             eidecon: EIDECon::new(ide_irq_tx, ide_dmarq_tx, ide_dmarq_rx),
             memcon: MemCon::new(),
             cachecon: CacheCon::new(),
-            i2s: I2SCon::new(),
+            i2s: I2SCon::new(i2s_output_drq_tx),
             mailbox: Mailbox::new(mbx_cpu_irq_tx, mbx_cop_irq_tx),
             ahb_dma,
             apb_dma,

@@ -13,7 +13,7 @@ pub use crate::error::{
 };
 pub use crate::executor::*;
 pub use crate::memory::Memory;
-pub use crate::signal::{self, irq};
+pub use crate::signal::{self, drq, irq};
 
 // XXX: the fact that this is required is indicative of the need to rework the
 // device memory interface.
