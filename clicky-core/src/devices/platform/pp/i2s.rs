@@ -201,6 +201,21 @@ impl I2SCon {
             output_fifo: VecDeque::with_capacity(OUTPUT_FIFO_SLOTS),
         }
     }
+
+    fn update_drq(&mut self) {
+        // For the audio output path, the attention level is the amount
+        // of minimal free slots we want to use to trigger DMA.
+        // Goal here is to AVOID STARVING.
+        let attention_level = match self.fifo_scr.fifo1_atn_lvl() {
+            0 => 1,
+            1 => 4,
+            2 => 8,
+            3 => 12,
+            _ => panic!("Unexpected attention level")
+        };
+        let attention = OUTPUT_FIFO_SLOTS - self.output_fifo.len() >= attention_level;
+        self.drq.set(attention);
+    }
 }
 
 impl Device for I2SCon {
@@ -255,8 +270,8 @@ impl Memory for I2SCon {
                         stub_val: None,
                     });
                 }
-
                 self.output_fifo.push_back(val);
+                self.update_drq();
                 Ok(())
             },
             0x80 => Err(Unimplemented),
