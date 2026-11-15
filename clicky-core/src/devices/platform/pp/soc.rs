@@ -103,7 +103,8 @@ impl Pp502x {
             .register(40, i2c_irq_rx);
 
         let ahb_dma = AhbDma::new();
-        let apb_dma = ApbDma::new(apb_dma_irq_tx);
+        let mut apb_dma = ApbDma::new(apb_dma_irq_tx);
+        apb_dma.register_request(RequestSelection::IIS, i2s_output_drq_rx);
 
         Pp502x {
             model,
