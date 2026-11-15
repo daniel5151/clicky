@@ -9,7 +9,7 @@ use crate::memory::armv4t_adaptor::MemoryAdapter;
 
 #[bitflag(u8)]
 #[derive(Debug, PartialEq)]
-enum RequestSelection {
+pub enum RequestSelection {
     #[base]
     REQ_0 = 0,
     REQ_1 = 1,
@@ -469,6 +469,7 @@ pub struct ApbDma {
     command: CommandRegister,
     status: StatusRegister,
     req_status: RequestStatus,
+    requests: [Option<drq::Receiver>; 16],
 }
 
 impl ApbDma {
@@ -485,12 +486,25 @@ impl ApbDma {
             command: CommandRegister::new(),
             status: StatusRegister::new(),
             req_status: RequestStatus::new(),
+            requests: Default::default(),
         }
+    }
+
+    /// Connect a peripheral DRQ line to a request line.
+    pub fn register_request(&mut self, req: RequestSelection, drq: drq::Receiver) -> &mut Self {
+        self.requests[req as usize] = Some(drq);
+        self
     }
 
     /// Get next DMA read/write request to SoC bus
     pub fn next_transfer(&self) -> Option<DmaTransfer> {
-        let requests = self.req_status.into_bits() as u16;
+        let mut requests = self.req_status.into_bits() as u16;
+        for (i, drq) in self.requests.iter().enumerate() {
+            if let Some(drq) = drq {
+                requests.set_bit(i, drq.asserted());
+            }
+        }
+
         self.dma
             .iter()
             .enumerate()
@@ -587,7 +601,7 @@ impl Memory for ApbDma {
                     self.status.set_ch3_busy(self.dma[3].control.enb());
                     Ok(self.status.into_bits())
                 }
-                0x8 => Ok(self.req_status.into_bits()),
+                0x8 => Ok(self.requests() as u32),
                 _ => Err(Unexpected),
             },
             0x1000..=0x1fff => {
