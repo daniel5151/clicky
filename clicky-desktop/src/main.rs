@@ -73,8 +73,9 @@ struct Args {
 
     /// Keys to hold down for the first 3000ms of execution.
     ///
-    /// Accepts a comma separated list of `up`, `down`, `left`, `right`, and
-    /// `action`.
+    /// Accepts a comma separated list of `up`, `down`, `left`, `right`,
+    /// `action`, and `hold`. Unlike the other keys, the Hold switch stays
+    /// engaged until it is toggled off (with "h").
     ///
     /// e.g: `--hold-keys action,down` boots the iPod into Disk Mode.
     #[arg(long, value_delimiter = ',')]
