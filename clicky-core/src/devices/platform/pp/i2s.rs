@@ -256,6 +256,7 @@ impl Memory for I2SCon {
                 self.control.write_bits(val);
                 if self.control.reset() {
                     self.output_fifo.clear();
+                    self.update_drq();
                 }
 
                 Ok(())
