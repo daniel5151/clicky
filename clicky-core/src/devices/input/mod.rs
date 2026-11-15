@@ -27,12 +27,12 @@ impl Controls<()> {
     pub fn new_tx_rx(
         notify: signal::Trigger,
     ) -> (Controls<signal::Master>, Controls<signal::Slave>) {
-        let (action_tx, action_rx) = signal::new(notify.clone(), "Controls", "KeyAction");
-        let (up_tx, up_rx) = signal::new(notify.clone(), "Controls", "KeyUp");
-        let (down_tx, down_rx) = signal::new(notify.clone(), "Controls", "KeyDown");
-        let (left_tx, left_rx) = signal::new(notify.clone(), "Controls", "KeyLeft");
-        let (right_tx, right_rx) = signal::new(notify.clone(), "Controls", "KeyRight");
-        let (wheel_tx, wheel_rx) = signal::new(notify, "Controls", "Wheel");
+        let (action_tx, action_rx) = signal::new(Some(notify.clone()), "Controls", "KeyAction");
+        let (up_tx, up_rx) = signal::new(Some(notify.clone()), "Controls", "KeyUp");
+        let (down_tx, down_rx) = signal::new(Some(notify.clone()), "Controls", "KeyDown");
+        let (left_tx, left_rx) = signal::new(Some(notify.clone()), "Controls", "KeyLeft");
+        let (right_tx, right_rx) = signal::new(Some(notify.clone()), "Controls", "KeyRight");
+        let (wheel_tx, wheel_rx) = signal::new(Some(notify), "Controls", "Wheel");
 
         let wheel_data = Arc::new(Mutex::new(0));
 
