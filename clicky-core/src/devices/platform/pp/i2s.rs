@@ -2,6 +2,9 @@
 
 use crate::devices::prelude::*;
 use bitfields::{bitfield, bitflag};
+use std::collections::VecDeque;
+
+const OUTPUT_FIFO_SLOTS: usize = 16;
 
 #[bitflag(u8)]
 #[derive(Debug, PartialEq)]
@@ -181,6 +184,8 @@ pub struct I2SCon {
     control: Control,
     timing: Timing,
     fifo_scr: FifoScr,
+
+    output_fifo: VecDeque<u32>,
 }
 
 impl I2SCon {
@@ -189,6 +194,7 @@ impl I2SCon {
             control: Control::new(),
             timing: Timing::new(),
             fifo_scr: FifoScr::new(),
+            output_fifo: VecDeque::with_capacity(OUTPUT_FIFO_SLOTS),
         }
     }
 }
@@ -230,7 +236,18 @@ impl Memory for I2SCon {
             0x00 => Err(StubWrite(Error, self.control.write_bits(val))),
             0x08 => Err(StubWrite(Error, self.timing.write_bits(val))),
             0x0c => Err(StubWrite(Error, self.fifo_scr.write_bits(val))),
-            0x40 => Err(Unimplemented),
+            0x40 => {
+                if self.output_fifo.len() >= OUTPUT_FIFO_SLOTS {
+                    return Err(ContractViolation {
+                        msg: "write to full output FIFO, sample dropped".into(),
+                        severity: Warn,
+                        stub_val: None,
+                    });
+                }
+
+                self.output_fifo.push_back(val);
+                Ok(())
+            },
             0x80 => Err(Unimplemented),
             _ => Err(Unexpected),
         }
