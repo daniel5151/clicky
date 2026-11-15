@@ -3,8 +3,18 @@
 use crate::devices::prelude::*;
 use bitfields::{bitfield, bitflag};
 use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use relativity::Instant;
+
+use crate::gui::AudioCallback;
 
 const OUTPUT_FIFO_SLOTS: usize = 16;
+const SAMPLE_RATE: u32 = 44_100;
+
+/// Most audio buffered for the host, in slots (0.25 s)
+const HOST_BUFFER_SLOTS: usize = SAMPLE_RATE as usize / 4;
 
 #[bitflag(u8)]
 #[derive(Debug, PartialEq)]
@@ -188,18 +198,78 @@ pub struct I2SCon {
     fifo_scr: FifoScr,
 
     output_fifo: VecDeque<u32>,
+
+    /// Last drain to host_buffer
+    last_drain: Instant,
+    host_buffer: Arc<Mutex<VecDeque<u32>>>,
 }
 
 impl I2SCon {
     pub fn new(drq: drq::Sender) -> I2SCon {
-        I2SCon {
+        let mut i2s = I2SCon {
             drq,
 
             control: Control::new(),
             timing: Timing::new(),
             fifo_scr: FifoScr::new(),
             output_fifo: VecDeque::with_capacity(OUTPUT_FIFO_SLOTS),
+            last_drain: Instant::now(),
+            host_buffer: Default::default(),
+        };
+        // the output FIFO starts empty
+        i2s.update_drq();
+        i2s
+    }
+
+    pub fn tick(&mut self) {
+        if !self.control.fifo1_transaction_en() || self.output_fifo.is_empty() {
+            return;
         }
+
+        // Compute how much frame should be read from self.output_fifo to keep
+        // a steady 44.1kHz output rate
+        let now = Instant::now();
+        let due_frames = (now.duration_since(self.last_drain).as_nanos() * SAMPLE_RATE as u128
+            / 1_000_000_000) as usize;
+        if due_frames == 0 {
+            return;
+        }
+
+        if due_frames > self.output_fifo.len() {
+            // Underrun (or first slots after idling): restart the clock from now
+            self.last_drain = now;
+        } else {
+            self.last_drain +=
+                Duration::from_nanos((due_frames as u64 * 1_000_000_000) / SAMPLE_RATE as u64);
+        }
+
+        // Move self.output_fifo frames into host_buffer
+        let n = due_frames.min(self.output_fifo.len());
+        let mut host_buffer = self.host_buffer.lock().unwrap();
+        for slot in self.output_fifo.drain(..n) {
+            // Drop slots when the host doesn't keep up
+            if host_buffer.len() < HOST_BUFFER_SLOTS {
+                host_buffer.push_back(slot);
+            }
+        }
+        drop(host_buffer);
+
+        self.update_drq();
+    }
+
+    /// Returns a callback playing the shifted out slots, mixed down to mono.
+    pub fn audio_callback(&self) -> AudioCallback {
+        let host_buffer = Arc::clone(&self.host_buffer);
+        Box::new(move |out: &mut [f32], _sample_rate: u32| {
+            let mut host_buffer = host_buffer.lock().unwrap();
+            for sample in out.iter_mut() {
+                *sample = match host_buffer.pop_front() {
+                    // two 16-bit samples packed into a slot
+                    Some(slot) => (slot as i16 as f32 + (slot >> 16) as i16 as f32) / 65536.0,
+                    None => 0.0,
+                };
+            }
+        })
     }
 
     fn update_drq(&mut self) {
@@ -211,7 +281,7 @@ impl I2SCon {
             1 => 4,
             2 => 8,
             3 => 12,
-            _ => panic!("Unexpected attention level")
+            _ => panic!("Unexpected attention level"),
         };
         let attention = OUTPUT_FIFO_SLOTS - self.output_fifo.len() >= attention_level;
         self.drq.set(attention);
@@ -260,9 +330,14 @@ impl Memory for I2SCon {
                 }
 
                 Ok(())
-            },
+            }
             0x08 => Err(StubWrite(Error, self.timing.write_bits(val))),
-            0x0c => Err(StubWrite(Error, self.fifo_scr.write_bits(val))),
+            0x0c => {
+                // the attention level may have changed
+                self.fifo_scr.write_bits(val);
+                self.update_drq();
+                Err(StubWrite(Error, ()))
+            }
             0x40 => {
                 if self.output_fifo.len() >= OUTPUT_FIFO_SLOTS {
                     return Err(ContractViolation {
@@ -274,7 +349,7 @@ impl Memory for I2SCon {
                 self.output_fifo.push_back(val);
                 self.update_drq();
                 Ok(())
-            },
+            }
             0x80 => Err(Unimplemented),
             _ => Err(Unexpected),
         }
