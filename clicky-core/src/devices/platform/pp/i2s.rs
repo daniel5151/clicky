@@ -181,6 +181,8 @@ struct FifoScr {
 /// PP5020 I2S controller.
 #[derive(Debug)]
 pub struct I2SCon {
+    drq: drq::Sender,
+
     control: Control,
     timing: Timing,
     fifo_scr: FifoScr,
@@ -189,8 +191,10 @@ pub struct I2SCon {
 }
 
 impl I2SCon {
-    pub fn new() -> I2SCon {
+    pub fn new(drq: drq::Sender) -> I2SCon {
         I2SCon {
+            drq,
+
             control: Control::new(),
             timing: Timing::new(),
             fifo_scr: FifoScr::new(),
