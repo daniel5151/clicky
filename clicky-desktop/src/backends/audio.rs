@@ -4,7 +4,7 @@ use clicky_core::gui::AudioCallback;
 
 use crate::DynResult;
 
-const SAMPLE_RATE: usize = 48_000;
+const SAMPLE_RATE: usize = 44_100;
 const BUFFER_SIZE: usize = SAMPLE_RATE / 100;
 
 pub fn start(mut render: AudioCallback) -> DynResult<OutputDevice> {
