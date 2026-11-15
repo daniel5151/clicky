@@ -5,7 +5,7 @@ use super::{Master, Slave, Trigger, TriggerKind, new as new_signal};
 /// Create a new GPIO line. Updates `notify` whenever the sender updates the
 /// signal.
 pub fn new(notify: Changed, debug_label: &'static str) -> (Sender, Receiver) {
-    let (master, slave) = new_signal(notify.trigger, "GPIO", debug_label);
+    let (master, slave) = new_signal(Some(notify.trigger), "GPIO", debug_label);
 
     let sender = Sender { master };
     let receiver = Receiver { slave };

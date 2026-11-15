@@ -4,15 +4,16 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 
+pub mod drq;
 pub mod gpio;
 pub mod irq;
 
 // TODO: Explore using a less-restrictive ordering. `Ordering::SeqCst` was
 // picked just to "play it safe"
 
-/// Create a new signal.
+/// Create a new signal. `trigger` (if any) is notified of level changes.
 pub fn new(
-    trigger: Trigger,
+    trigger: Option<Trigger>,
     debug_group: &'static str,
     debug_label: &'static str,
 ) -> (Master, Slave) {
@@ -117,7 +118,7 @@ impl Slave {
 /// if ALL Masters have called clear.
 #[derive(Debug, Clone)]
 pub struct Master {
-    trigger: Trigger,
+    trigger: Option<Trigger>,
     own_signal: Arc<AtomicBool>,
     signal: Arc<AtomicIsize>,
     debug_group: &'static str,
@@ -138,7 +139,9 @@ impl Master {
         self.own_signal.store(true, Ordering::SeqCst);
         let old_val = self.signal.fetch_add(1, Ordering::SeqCst);
         assert!(old_val >= 0);
-        self.trigger.update(old_val != 0, true);
+        if let Some(trigger) = &self.trigger {
+            trigger.update(old_val != 0, true);
+        }
     }
 
     /// Set the signal low.
@@ -154,7 +157,9 @@ impl Master {
         self.own_signal.store(false, Ordering::SeqCst);
         let old_val = self.signal.fetch_sub(1, Ordering::SeqCst);
         assert!(old_val > 0);
-        self.trigger.update(old_val != 0, false);
+        if let Some(trigger) = &self.trigger {
+            trigger.update(old_val != 0, false);
+        }
     }
 
     /// Check if this Master is asserting the signal.
