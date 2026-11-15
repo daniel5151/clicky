@@ -233,7 +233,14 @@ impl Memory for I2SCon {
 
     fn w32(&mut self, offset: u32, val: u32) -> MemResult<()> {
         match offset {
-            0x00 => Err(StubWrite(Error, self.control.write_bits(val))),
+            0x00 => {
+                self.control.write_bits(val);
+                if self.control.reset() {
+                    self.output_fifo.clear();
+                }
+
+                Ok(())
+            },
             0x08 => Err(StubWrite(Error, self.timing.write_bits(val))),
             0x0c => Err(StubWrite(Error, self.fifo_scr.write_bits(val))),
             0x40 => {
