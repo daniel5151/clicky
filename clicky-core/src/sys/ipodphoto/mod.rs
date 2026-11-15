@@ -10,7 +10,7 @@ use crate::devices::Device;
 use crate::devices::display::LcdPanel;
 use crate::error::*;
 use crate::executor::*;
-use crate::gui::{IpodBinds, IpodControls, IpodKey, RenderCallback, TakeControls};
+use crate::gui::{AudioCallback, IpodBinds, IpodControls, IpodKey, RenderCallback, TakeControls};
 use crate::memory::{Memory, armv4t_adaptor::MemoryAdapter};
 use crate::signal::{self, gpio, irq};
 
@@ -251,6 +251,7 @@ impl IpodPhoto {
         }
 
         devices.soc.eidecon.tick();
+        devices.soc.i2s.tick();
         if let Some(xfer) = devices.soc.apb_dma.next_transfer() {
             xfer.execute(devices)?;
             devices.soc.apb_dma.complete_transfer(xfer);
@@ -392,6 +393,10 @@ impl System for IpodPhoto {
             .clcd
             .render_callback()
             .expect("no LCD controller attached to the color LCD bridge")
+    }
+
+    fn audio_callback(&self) -> AudioCallback {
+        self.devices.soc.i2s.audio_callback()
     }
 }
 
