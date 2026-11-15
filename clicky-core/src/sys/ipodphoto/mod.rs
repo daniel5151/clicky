@@ -353,7 +353,18 @@ impl System for IpodPhoto {
         (220, 176)
     }
 
-    fn set_hold_keys(&mut self, keys: Vec<IpodKey>) {
+    fn set_hold_keys(&mut self, mut keys: Vec<IpodKey>) {
+        // Hold is a latching switch: engage it now and leave it engaged until
+        // the user toggles it off.
+        if keys.contains(&IpodKey::Hold) {
+            keys.retain(|key| *key != IpodKey::Hold);
+            match &mut self.controls {
+                // active-low
+                Some(controls) => controls.hold.set_low(),
+                None => warn!("controls already taken, can't engage Hold at boot"),
+            }
+        }
+
         if !keys.is_empty() {
             self.boot_hold = Some(keys);
         }

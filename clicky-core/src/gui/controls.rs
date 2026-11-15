@@ -102,8 +102,6 @@ impl IpodControls {
 impl FromStr for IpodKey {
     type Err = String;
 
-    // NOTE: the Hold switch is a latching, active-low GPIO rather than a keypad
-    // signal, so it isn't one of the keys that can be parsed here.
     fn from_str(s: &str) -> Result<IpodKey, String> {
         match s.trim().to_ascii_lowercase().as_str() {
             "up" => Ok(IpodKey::Up),
@@ -111,8 +109,9 @@ impl FromStr for IpodKey {
             "left" => Ok(IpodKey::Left),
             "right" => Ok(IpodKey::Right),
             "action" => Ok(IpodKey::Action),
+            "hold" => Ok(IpodKey::Hold),
             _ => Err(format!(
-                "no such key: {:?} (expected one of: up, down, left, right, action)",
+                "no such key: {:?} (expected one of: up, down, left, right, action, hold)",
                 s
             )),
         }
