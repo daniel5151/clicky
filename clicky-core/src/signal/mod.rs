@@ -82,7 +82,7 @@ impl Trigger {
     /// Retrieves and un-sets the trigger.
     #[inline]
     pub fn check_and_clear(&self) -> bool {
-        self.trigger.fetch_and(false, Ordering::SeqCst)
+        self.trigger.load(Ordering::SeqCst) && self.trigger.swap(false, Ordering::SeqCst)
     }
 
     /// Retrieves the trigger.
