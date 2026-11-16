@@ -541,15 +541,8 @@ impl IdeDrive {
                 (self.iobuf.as_raw())
                     .copy_from_slice(bytemuck::bytes_of(&drive_meta.to_hd_driveid()));
 
-                self.iobuf.new_transfer();
-                self.state = IdeDriveState::ReadReady;
                 self.remaining_sectors = 1;
-
-                (self.reg.status)
-                    .set_bit(reg::STATUS::BSY, false)
-                    .set_bit(reg::STATUS::DRQ, true);
-
-                self.assert_intrq();
+                self.go_busy(DataPhase::Read);
 
                 Ok(())
             }
