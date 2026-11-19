@@ -58,7 +58,6 @@ impl Pp502x {
         model: PpModel,
         task_spawner: Spawner,
         irq_pending: irq::Pending,
-        dma_pending: irq::Pending,
     ) -> Pp502x {
         // IRQs
         let (ide_irq_tx, ide_irq_rx) = irq::new(irq_pending.clone(), "IDE");
@@ -72,9 +71,9 @@ impl Pp502x {
         let (mbx_cpu_irq_tx, mbx_cpu_irq_rx) = irq::new(irq_pending.clone(), "Mailbox (CPU)");
         let (mbx_cop_irq_tx, mbx_cop_irq_rx) = irq::new(irq_pending.clone(), "Mailbox (COP)");
 
-        let (ide_dmarq_tx, ide_dmarq_rx) = irq::new(dma_pending.clone(), "IDE DMA"); // TODO: Migrate to DRQ?
 
         // Data requests
+        let (ide_dmarq_tx, ide_dmarq_rx) = drq::new("IDE DMA");
         let (i2s_output_drq_tx, i2s_output_drq_rx) = drq::new("I2S output");
 
         let gpio_abcd = ArcMutexDevice::new(GpioBlock::new(gpio0_irq_tx, ["A", "B", "C", "D"]));

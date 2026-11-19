@@ -274,7 +274,7 @@ struct IdeDriveConfig {
 struct IdeDrive {
     blockdev: Box<dyn BlockDev>,
     irq: irq::Sender,   // shared between both drives
-    dmarq: irq::Sender, // shared between both drives
+    dmarq: drq::Sender, // shared between both drives
 
     state: IdeDriveState,
     remaining_sectors: usize,
@@ -286,7 +286,7 @@ struct IdeDrive {
 }
 
 impl IdeDrive {
-    fn new(irq: irq::Sender, dmarq: irq::Sender, blockdev: Box<dyn BlockDev>) -> IdeDrive {
+    fn new(irq: irq::Sender, dmarq: drq::Sender, blockdev: Box<dyn BlockDev>) -> IdeDrive {
         IdeDrive {
             blockdev,
             irq,
@@ -454,7 +454,7 @@ impl IdeDrive {
         (self.reg.status)
             .set_bit(reg::STATUS::BSY, true)
             .set_bit(reg::STATUS::DRQ, false);
-        self.dmarq.clear();
+        self.dmarq.set(false);
     }
 
     fn enter_data_phase(&mut self, state: IdeDriveState, interrupt: bool) {
@@ -467,7 +467,7 @@ impl IdeDrive {
             .set_bit(reg::STATUS::DRQ, true);
 
         if self.dma {
-            self.dmarq.assert();
+            self.dmarq.set(true);
         }
         if interrupt {
             self.assert_intrq();
@@ -483,7 +483,7 @@ impl IdeDrive {
             .set_bit(reg::STATUS::DRQ, false);
 
         self.assert_intrq();
-        self.dmarq.clear();
+        self.dmarq.set(false);
     }
 
     fn assert_intrq(&mut self) {
@@ -849,7 +849,7 @@ impl IdeDrive {
 #[derive(Debug)]
 pub struct IdeController {
     common_irq_line: irq::Sender,
-    dmarq: irq::Sender,
+    dmarq: drq::Sender,
 
     selected_device: IdeIdx,
     ide0: Option<IdeDrive>,
@@ -880,7 +880,7 @@ macro_rules! selected_ide {
 }
 
 impl IdeController {
-    pub fn new(irq: irq::Sender, dmarq: irq::Sender) -> IdeController {
+    pub fn new(irq: irq::Sender, dmarq: drq::Sender) -> IdeController {
         IdeController {
             common_irq_line: irq,
             dmarq,
