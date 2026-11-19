@@ -302,9 +302,7 @@ impl System for IpodNano1g {
 
         // TODO?: explore adding callbacks to the signaling system
         if self.gpio_changed.check_and_clear() {
-            devices.soc.gpio_abcd.lock().unwrap().update();
-            devices.soc.gpio_efgh.lock().unwrap().update();
-            devices.soc.gpio_ijkl.lock().unwrap().update();
+            devices.soc.update_gpio();
         }
         if self.i2c_changed.check_and_clear() {
             devices.soc.opto.on_change();

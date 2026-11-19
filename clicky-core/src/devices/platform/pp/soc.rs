@@ -160,6 +160,12 @@ impl Pp502x {
         self.intcon.reset();
         self.devcon.reset();
     }
+
+    pub fn update_gpio(&self) {
+        for block in [&self.gpio_abcd, &self.gpio_efgh, &self.gpio_ijkl] {
+            block.lock().unwrap().update();
+        }
+    }
 }
 
 macro_rules! soc_mmap {
