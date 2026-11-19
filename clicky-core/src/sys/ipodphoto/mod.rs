@@ -179,10 +179,9 @@ impl IpodPhoto {
         self.cpu = Cpu::new();
         self.cop = Cpu::new();
     }
+}
 
-    /// Run the system for a single CPU instruction, returning `true` if the
-    /// system is still running, or `false` upon reaching some sort of "graceful
-    /// exit" condition (e.g: power-off).
+impl System for IpodPhoto {
     fn step(&mut self) -> FatalMemResult<bool> {
         if self.frozen {
             return Ok(true);
@@ -343,9 +342,7 @@ impl IpodPhoto {
 
         Ok(true)
     }
-}
 
-impl System for IpodPhoto {
     fn model_name(&self) -> &'static str {
         "iPod photo"
     }
@@ -369,18 +366,6 @@ impl System for IpodPhoto {
         if !keys.is_empty() {
             self.boot_hold = Some(keys);
         }
-    }
-
-    fn run(&mut self) -> FatalMemResult<()> {
-        while self.step()? {}
-        Ok(())
-    }
-
-    fn run_cycles(&mut self, cycles: usize) -> FatalMemResult<()> {
-        for _ in 0..cycles {
-            self.step()?;
-        }
-        Ok(())
     }
 
     fn freeze(&mut self) {

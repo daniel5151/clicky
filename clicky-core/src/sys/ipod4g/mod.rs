@@ -188,10 +188,8 @@ impl Ipod4g {
         self.cop = Cpu::new();
     }
 
-    /// Run the system for a single CPU instruction, returning `true` if the
-    /// system is still running, or `false` upon reaching some sort of "graceful
-    /// exit" condition (e.g: power-off).
-    fn step(
+    /// like step() but reporting memory accesses to sniff_memory
+    fn step_sniffed(
         &mut self,
         _halt_block_mode: BlockMode,
         mut sniff_memory: (&[u32], impl FnMut(CpuId, MemAccess)),
@@ -388,18 +386,8 @@ impl System for Ipod4g {
         }
     }
 
-    fn run(&mut self) -> FatalMemResult<()> {
-        let dummy_sniff_memory = |_, _| {};
-        while self.step(BlockMode::Blocking, (&[], dummy_sniff_memory))? {}
-        Ok(())
-    }
-
-    fn run_cycles(&mut self, cycles: usize) -> FatalMemResult<()> {
-        let dummy_sniff_memory = |_, _| {};
-        for _ in 0..cycles {
-            self.step(BlockMode::Blocking, (&[], dummy_sniff_memory))?;
-        }
-        Ok(())
+    fn step(&mut self) -> FatalMemResult<bool> {
+        self.step_sniffed(BlockMode::Blocking, (&[], |_, _| {}))
     }
 
     fn freeze(&mut self) {

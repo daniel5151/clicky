@@ -24,14 +24,27 @@ pub trait System: TakeControls + std::fmt::Debug + Send {
     /// Set keys hold at boot
     fn set_hold_keys(&mut self, keys: Vec<IpodKey>);
 
+    /// Run the system for a single step, returning `true` if the system is
+    /// still running, or `false` upon reaching some sort of "graceful exit"
+    /// condition (e.g: power-off).
+    fn step(&mut self) -> FatalMemResult<bool>;
+
     /// Run the system, returning successfully on "graceful exit"
     /// (e.g: power-off).
-    fn run(&mut self) -> FatalMemResult<()>;
+    fn run(&mut self) -> FatalMemResult<()> {
+        while self.step()? {}
+        Ok(())
+    }
 
     /// Run the system, returning successfully on "graceful exit" (e.g:
     /// power-off). This method will return after the specified number of cycles
     /// have been executed.
-    fn run_cycles(&mut self, cycles: usize) -> FatalMemResult<()>;
+    fn run_cycles(&mut self, cycles: usize) -> FatalMemResult<()> {
+        for _ in 0..cycles {
+            self.step()?;
+        }
+        Ok(())
+    }
 
     /// Freeze the system such that it stops executing code. Called prior to
     /// spawning a "post-mortem" GDB session.

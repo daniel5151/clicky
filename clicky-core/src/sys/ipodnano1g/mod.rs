@@ -188,10 +188,9 @@ impl IpodNano1g {
         self.cpu = Cpu::new();
         self.cop = Cpu::new();
     }
+}
 
-    /// Run the system for a single CPU instruction, returning `true` if the
-    /// system is still running, or `false` upon reaching some sort of "graceful
-    /// exit" condition (e.g: power-off).
+impl System for IpodNano1g {
     fn step(&mut self) -> FatalMemResult<bool> {
         if self.frozen {
             return Ok(true);
@@ -351,9 +350,7 @@ impl IpodNano1g {
 
         Ok(true)
     }
-}
 
-impl System for IpodNano1g {
     fn model_name(&self) -> &'static str {
         "iPod nano (1st generation)"
     }
@@ -366,18 +363,6 @@ impl System for IpodNano1g {
         if !keys.is_empty() {
             self.boot_hold = Some(keys);
         }
-    }
-
-    fn run(&mut self) -> FatalMemResult<()> {
-        while self.step()? {}
-        Ok(())
-    }
-
-    fn run_cycles(&mut self, cycles: usize) -> FatalMemResult<()> {
-        for _ in 0..cycles {
-            self.step()?;
-        }
-        Ok(())
     }
 
     fn freeze(&mut self) {
