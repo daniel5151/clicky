@@ -63,7 +63,6 @@ pub struct Ipod4g {
     boot_hold: Option<Vec<IpodKey>>,
 
     irq_pending: irq::Pending,
-    dma_pending: irq::Pending,
     gpio_changed: gpio::Changed,
     i2c_changed: signal::Trigger,
     reset_requested: std::sync::Arc<std::sync::atomic::AtomicBool>,
@@ -100,7 +99,6 @@ impl Ipod4g {
 
         // initialize base system
         let irq_pending = irq::Pending::new();
-        let dma_pending = irq::Pending::new();
         let gpio_changed = gpio::Changed::new();
         let i2c_changed = signal::Trigger::new(signal::TriggerKind::Edge);
 
@@ -114,13 +112,12 @@ impl Ipod4g {
 
             cpu: Cpu::new(),
             cop: Cpu::new(),
-            devices: Ipod4gBoard::new(executor.spawner(), irq_pending.clone(), dma_pending.clone()),
+            devices: Ipod4gBoard::new(executor.spawner(), irq_pending.clone()),
             controls: None,
             synthetic_controls: controls_tx.clone(),
             boot_hold: None,
 
             irq_pending,
-            dma_pending,
             gpio_changed: gpio_changed.clone(),
             i2c_changed: i2c_changed.clone(),
             reset_requested: Default::default(),
@@ -281,31 +278,28 @@ impl Ipod4g {
 
         // XXX: this is terrible. truly god awful. it _really_ needs to be rewritten,
         // reorganized, and moved somewhere more appropriate.
-        if self.dma_pending.check() {
-            self.dma_pending.clear();
-            if devices.soc.eidecon.do_ide_dma() {
-                let (kind, addr) = match (devices.soc.eidecon).do_dma() {
-                    Ok(tup) => tup,
-                    Err(_) => panic!("asd"),
-                };
+        if devices.soc.eidecon.do_ide_dma() {
+            let (kind, addr) = match (devices.soc.eidecon).do_dma() {
+                Ok(tup) => tup,
+                Err(_) => panic!("asd"),
+            };
 
-                use crate::memory::MemAccessKind;
-                match kind {
-                    MemAccessKind::Read => {
-                        let val = (devices.soc.eidecon.as_ide())
-                            .read16(devices::ide::IdeReg::Data)
-                            .unwrap();
-                        devices.w16(addr, val).unwrap();
-                    }
-                    MemAccessKind::Write => {
-                        let val = devices.r16(addr).unwrap();
-                        (devices.soc.eidecon.as_ide())
-                            .write16(devices::ide::IdeReg::Data, val)
-                            .unwrap();
-                    }
-                    MemAccessKind::Execute => {
-                        panic!("Unsupported execute DMA");
-                    }
+            use crate::memory::MemAccessKind;
+            match kind {
+                MemAccessKind::Read => {
+                    let val = (devices.soc.eidecon.as_ide())
+                        .read16(devices::ide::IdeReg::Data)
+                        .unwrap();
+                    devices.w16(addr, val).unwrap();
+                }
+                MemAccessKind::Write => {
+                    let val = devices.r16(addr).unwrap();
+                    (devices.soc.eidecon.as_ide())
+                        .write16(devices::ide::IdeReg::Data, val)
+                        .unwrap();
+                }
+                MemAccessKind::Execute => {
+                    panic!("Unsupported execute DMA");
                 }
             }
         }
@@ -439,14 +433,10 @@ pub struct Ipod4gBoard {
 }
 
 impl Ipod4gBoard {
-    fn new(
-        task_spawner: Spawner,
-        irq_pending: irq::Pending,
-        dma_pending: irq::Pending,
-    ) -> Ipod4gBoard {
+    fn new(task_spawner: Spawner, irq_pending: irq::Pending) -> Ipod4gBoard {
         use devices::*;
 
-        let mut soc = Pp502x::new(PpModel::Pp5020, task_spawner, irq_pending, dma_pending);
+        let mut soc = Pp502x::new(PpModel::Pp5020, task_spawner, irq_pending);
 
         soc.i2ccon
             .register_device(0x08, Box::new(i2c::Pcf5060x::new()));

@@ -67,7 +67,7 @@ pub struct EIDECon {
     ide0_cfg: IdeDriveCfg,
     ide1_cfg: IdeDriveCfg,
     ide: IdeController,
-    dmarq: irq::Receiver,
+    dmarq: drq::Receiver,
 
     dma_control: DmaControl,
     /// Length - 4 (like in Rockbox)
@@ -84,7 +84,7 @@ pub struct EIDECon {
 pub struct DmaErr;
 
 impl EIDECon {
-    pub fn new(irq: irq::Sender, dmarq_tx: irq::Sender, dmarq_rx: irq::Receiver) -> EIDECon {
+    pub fn new(irq: irq::Sender, dmarq_tx: drq::Sender, dmarq_rx: drq::Receiver) -> EIDECon {
         EIDECon {
             ide0_cfg: Default::default(),
             ide1_cfg: Default::default(),
