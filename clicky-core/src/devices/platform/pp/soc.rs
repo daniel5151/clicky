@@ -54,11 +54,7 @@ pub struct Pp502x {
 }
 
 impl Pp502x {
-    pub fn new(
-        model: PpModel,
-        task_spawner: Spawner,
-        irq_pending: irq::Pending,
-    ) -> Pp502x {
+    pub fn new(model: PpModel, task_spawner: Spawner, irq_pending: irq::Pending) -> Pp502x {
         // IRQs
         let (ide_irq_tx, ide_irq_rx) = irq::new(irq_pending.clone(), "IDE");
         let (timer1_irq_tx, timer1_irq_rx) = irq::new(irq_pending.clone(), "Timer1");
@@ -70,7 +66,6 @@ impl Pp502x {
         let (apb_dma_irq_tx, apb_dma_irq_rx) = irq::new(irq_pending.clone(), "APB-DMA");
         let (mbx_cpu_irq_tx, mbx_cpu_irq_rx) = irq::new(irq_pending.clone(), "Mailbox (CPU)");
         let (mbx_cop_irq_tx, mbx_cop_irq_rx) = irq::new(irq_pending.clone(), "Mailbox (COP)");
-
 
         // Data requests
         let (ide_dmarq_tx, ide_dmarq_rx) = drq::new("IDE DMA");
