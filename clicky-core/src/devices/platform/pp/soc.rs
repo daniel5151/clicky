@@ -10,6 +10,10 @@ use super::*;
 pub struct Pp502x {
     pub model: PpModel,
 
+    pub irq_pending: irq::Pending,
+    pub dma_pending: irq::Pending,
+    pub opto_int: signal::Trigger,
+
     /// On-chip SRAM ("IRAM").
     pub fastram: AsanRam,
 
@@ -54,13 +58,9 @@ pub struct Pp502x {
 }
 
 impl Pp502x {
-    pub fn new(
-        model: PpModel,
-        task_spawner: Spawner,
-        irq_pending: irq::Pending,
-        dma_pending: irq::Pending,
-    ) -> Pp502x {
+    pub fn new(model: PpModel, task_spawner: Spawner) -> Pp502x {
         // IRQs
+        let irq_pending = irq::Pending::new();
         let (ide_irq_tx, ide_irq_rx) = irq::new(irq_pending.clone(), "IDE");
         let (timer1_irq_tx, timer1_irq_rx) = irq::new(irq_pending.clone(), "Timer1");
         let (timer2_irq_tx, timer2_irq_rx) = irq::new(irq_pending.clone(), "Timer2");
@@ -72,7 +72,10 @@ impl Pp502x {
         let (mbx_cpu_irq_tx, mbx_cpu_irq_rx) = irq::new(irq_pending.clone(), "Mailbox (CPU)");
         let (mbx_cop_irq_tx, mbx_cop_irq_rx) = irq::new(irq_pending.clone(), "Mailbox (COP)");
 
+        let dma_pending = irq::Pending::new();
         let (ide_dmarq_tx, ide_dmarq_rx) = irq::new(dma_pending.clone(), "IDE DMA"); // TODO: Migrate to DRQ?
+
+        let opto_int = signal::Trigger::new(signal::TriggerKind::Edge);
 
         // Data requests
         let (i2s_output_drq_tx, i2s_output_drq_rx) = drq::new("I2S output");
@@ -108,6 +111,9 @@ impl Pp502x {
 
         Pp502x {
             model,
+            irq_pending,
+            dma_pending,
+            opto_int,
             fastram: AsanRam::new(model.iram_size(), true),
             cpuid: CpuIdReg::new(),
             cpucon: CpuCon::new(task_spawner.clone()),
@@ -159,6 +165,12 @@ impl Pp502x {
         self.cpucon.reset();
         self.intcon.reset();
         self.devcon.reset();
+    }
+
+    pub fn update_gpio(&self) {
+        for block in [&self.gpio_abcd, &self.gpio_efgh, &self.gpio_ijkl] {
+            block.lock().unwrap().update();
+        }
     }
 }
 

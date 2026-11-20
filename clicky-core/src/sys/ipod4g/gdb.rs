@@ -58,7 +58,7 @@ impl Ipod4gGdb {
         let mut hit_watchpoint = None;
 
         let watchpoint_kinds = &self.watchpoint_kinds;
-        self.sys.step(
+        self.sys.step_sniffed(
             BlockMode::NonBlocking,
             (&self.watchpoints, |cpuid, access| {
                 if watchpoint_kinds.get(&access.offset) == Some(&access.kind) {

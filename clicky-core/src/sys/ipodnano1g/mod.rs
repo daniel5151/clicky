@@ -12,7 +12,7 @@ use crate::error::*;
 use crate::executor::*;
 use crate::gui::{IpodBinds, IpodControls, IpodKey, RenderCallback, TakeControls};
 use crate::memory::{Memory, armv4t_adaptor::MemoryAdapter};
-use crate::signal::{self, gpio, irq};
+use crate::signal::{self, gpio};
 
 use crate::sys::{BootKind, System};
 
@@ -49,11 +49,7 @@ pub struct IpodNano1g {
     /// Keys to hold down once the system starts executing code.
     boot_hold: Option<Vec<IpodKey>>,
 
-    irq_pending: irq::Pending,
-    dma_pending: irq::Pending,
     gpio_changed: gpio::Changed,
-    i2c_changed: signal::Trigger,
-    reset_requested: std::sync::Arc<std::sync::atomic::AtomicBool>,
     _lcd_model_strap: gpio::Sender,
 
     executor: Executor,
@@ -89,16 +85,14 @@ impl IpodNano1g {
         }
 
         let executor = Executor::new().expect("failed to create task executor");
+        let board = IpodNano1gBoard::new(executor.spawner());
 
         // initialize base system
-        let irq_pending = irq::Pending::new();
-        let dma_pending = irq::Pending::new();
         let gpio_changed = gpio::Changed::new();
-        let i2c_changed = signal::Trigger::new(signal::TriggerKind::Edge);
 
         // hook-up external controls
         let (mut hold_tx, hold_rx) = gpio::new(gpio_changed.clone(), "Hold");
-        let (controls_tx, controls_rx) = devices::Controls::new_tx_rx(i2c_changed.clone());
+        let (controls_tx, controls_rx) = devices::Controls::new_tx_rx(board.soc.opto_int.clone());
 
         // LCD model strap
         let (mut lcd_model_tx, lcd_model_rx) = gpio::new(gpio_changed.clone(), "LCD model strap");
@@ -109,26 +103,16 @@ impl IpodNano1g {
 
             cpu: Cpu::new(),
             cop: Cpu::new(),
-            devices: IpodNano1gBoard::new(
-                executor.spawner(),
-                irq_pending.clone(),
-                dma_pending.clone(),
-            ),
+            devices: board,
             controls: None,
             synthetic_controls: controls_tx.clone(),
             boot_hold: None,
 
-            irq_pending,
-            dma_pending,
             gpio_changed: gpio_changed.clone(),
-            i2c_changed: i2c_changed.clone(),
-            reset_requested: Default::default(),
             _lcd_model_strap: lcd_model_tx,
 
             executor,
         };
-
-        sys.reset_requested = sys.devices.soc.devcon.reset_requested();
 
         // Connect LCD
         let lcd_panel = LcdPanel {
@@ -188,10 +172,9 @@ impl IpodNano1g {
         self.cpu = Cpu::new();
         self.cop = Cpu::new();
     }
+}
 
-    /// Run the system for a single CPU instruction, returning `true` if the
-    /// system is still running, or `false` upon reaching some sort of "graceful
-    /// exit" condition (e.g: power-off).
+impl System for IpodNano1g {
     fn step(&mut self) -> FatalMemResult<bool> {
         if self.frozen {
             return Ok(true);
@@ -219,10 +202,7 @@ impl IpodNano1g {
                 .expect("failed to spawn boot-hold task");
         }
 
-        if self
-            .reset_requested
-            .swap(false, std::sync::atomic::Ordering::SeqCst)
-        {
+        if self.devices.soc.devcon.take_reset_request() {
             info!("system reset requested");
             self.warm_reset();
             return Ok(true);
@@ -270,8 +250,8 @@ impl IpodNano1g {
 
         // XXX: this is terrible. truly god awful. it _really_ needs to be rewritten,
         // reorganized, and moved somewhere more appropriate.
-        if self.dma_pending.check() {
-            self.dma_pending.clear();
+        if devices.soc.dma_pending.check() {
+            devices.soc.dma_pending.clear();
             if devices.soc.eidecon.do_ide_dma() {
                 let (kind, addr) = match (devices.soc.eidecon).do_dma() {
                     Ok(tup) => tup,
@@ -303,15 +283,13 @@ impl IpodNano1g {
 
         // TODO?: explore adding callbacks to the signaling system
         if self.gpio_changed.check_and_clear() {
-            devices.soc.gpio_abcd.lock().unwrap().update();
-            devices.soc.gpio_efgh.lock().unwrap().update();
-            devices.soc.gpio_ijkl.lock().unwrap().update();
+            devices.soc.update_gpio();
         }
-        if self.i2c_changed.check_and_clear() {
+        if devices.soc.opto_int.check_and_clear() {
             devices.soc.opto.on_change();
         }
 
-        if self.irq_pending.check() {
+        if devices.soc.irq_pending.check() {
             use armv4t_emu::Exception;
 
             let (cpu_status, cop_status) = devices.soc.intcon.interrupt_status();
@@ -331,7 +309,7 @@ impl IpodNano1g {
                     }
 
                     if core.irq_enable() {
-                        self.irq_pending.clear();
+                        devices.soc.irq_pending.clear();
                     }
                 }
                 if status.fiq {
@@ -343,7 +321,7 @@ impl IpodNano1g {
                     }
 
                     if core.fiq_enable() {
-                        self.irq_pending.clear();
+                        devices.soc.irq_pending.clear();
                     }
                 }
             }
@@ -351,9 +329,7 @@ impl IpodNano1g {
 
         Ok(true)
     }
-}
 
-impl System for IpodNano1g {
     fn model_name(&self) -> &'static str {
         "iPod nano (1st generation)"
     }
@@ -366,18 +342,6 @@ impl System for IpodNano1g {
         if !keys.is_empty() {
             self.boot_hold = Some(keys);
         }
-    }
-
-    fn run(&mut self) -> FatalMemResult<()> {
-        while self.step()? {}
-        Ok(())
-    }
-
-    fn run_cycles(&mut self, cycles: usize) -> FatalMemResult<()> {
-        for _ in 0..cycles {
-            self.step()?;
-        }
-        Ok(())
     }
 
     fn freeze(&mut self) {
@@ -413,14 +377,10 @@ pub struct IpodNano1gBoard {
 }
 
 impl IpodNano1gBoard {
-    fn new(
-        task_spawner: Spawner,
-        irq_pending: irq::Pending,
-        dma_pending: irq::Pending,
-    ) -> IpodNano1gBoard {
+    fn new(task_spawner: Spawner) -> IpodNano1gBoard {
         use devices::*;
 
-        let mut soc = Pp502x::new(PpModel::Pp5022, task_spawner, irq_pending, dma_pending);
+        let mut soc = Pp502x::new(PpModel::Pp5022, task_spawner);
 
         soc.i2ccon
             .register_device(0x08, Box::new(i2c::Pcf5060x::new()));
