@@ -10,6 +10,8 @@ use super::*;
 pub struct Pp502x {
     pub model: PpModel,
 
+    pub irq_pending: irq::Pending,
+
     /// On-chip SRAM ("IRAM").
     pub fastram: AsanRam,
 
@@ -54,13 +56,9 @@ pub struct Pp502x {
 }
 
 impl Pp502x {
-    pub fn new(
-        model: PpModel,
-        task_spawner: Spawner,
-        irq_pending: irq::Pending,
-        dma_pending: irq::Pending,
-    ) -> Pp502x {
+    pub fn new(model: PpModel, task_spawner: Spawner, dma_pending: irq::Pending) -> Pp502x {
         // IRQs
+        let irq_pending = irq::Pending::new();
         let (ide_irq_tx, ide_irq_rx) = irq::new(irq_pending.clone(), "IDE");
         let (timer1_irq_tx, timer1_irq_rx) = irq::new(irq_pending.clone(), "Timer1");
         let (timer2_irq_tx, timer2_irq_rx) = irq::new(irq_pending.clone(), "Timer2");
@@ -108,6 +106,7 @@ impl Pp502x {
 
         Pp502x {
             model,
+            irq_pending,
             fastram: AsanRam::new(model.iram_size(), true),
             cpuid: CpuIdReg::new(),
             cpucon: CpuCon::new(task_spawner.clone()),

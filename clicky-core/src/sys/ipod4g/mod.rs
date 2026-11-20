@@ -62,7 +62,6 @@ pub struct Ipod4g {
     /// Keys to hold down once the system starts executing code.
     boot_hold: Option<Vec<IpodKey>>,
 
-    irq_pending: irq::Pending,
     dma_pending: irq::Pending,
     gpio_changed: gpio::Changed,
     i2c_changed: signal::Trigger,
@@ -99,7 +98,6 @@ impl Ipod4g {
         let executor = Executor::new().expect("failed to create task executor");
 
         // initialize base system
-        let irq_pending = irq::Pending::new();
         let dma_pending = irq::Pending::new();
         let gpio_changed = gpio::Changed::new();
         let i2c_changed = signal::Trigger::new(signal::TriggerKind::Edge);
@@ -114,12 +112,11 @@ impl Ipod4g {
 
             cpu: Cpu::new(),
             cop: Cpu::new(),
-            devices: Ipod4gBoard::new(executor.spawner(), irq_pending.clone(), dma_pending.clone()),
+            devices: Ipod4gBoard::new(executor.spawner(), dma_pending.clone()),
             controls: None,
             synthetic_controls: controls_tx.clone(),
             boot_hold: None,
 
-            irq_pending,
             dma_pending,
             gpio_changed: gpio_changed.clone(),
             i2c_changed: i2c_changed.clone(),
@@ -316,7 +313,7 @@ impl Ipod4g {
             devices.soc.opto.on_change();
         }
 
-        if self.irq_pending.check() {
+        if devices.soc.irq_pending.check() {
             use armv4t_emu::Exception;
 
             let (cpu_status, cop_status) = devices.soc.intcon.interrupt_status();
@@ -336,7 +333,7 @@ impl Ipod4g {
                     }
 
                     if core.irq_enable() {
-                        self.irq_pending.clear();
+                        devices.soc.irq_pending.clear();
                     }
                 }
                 if status.fiq {
@@ -348,7 +345,7 @@ impl Ipod4g {
                     }
 
                     if core.fiq_enable() {
-                        self.irq_pending.clear();
+                        devices.soc.irq_pending.clear();
                     }
                 }
             }
@@ -425,14 +422,10 @@ pub struct Ipod4gBoard {
 }
 
 impl Ipod4gBoard {
-    fn new(
-        task_spawner: Spawner,
-        irq_pending: irq::Pending,
-        dma_pending: irq::Pending,
-    ) -> Ipod4gBoard {
+    fn new(task_spawner: Spawner, dma_pending: irq::Pending) -> Ipod4gBoard {
         use devices::*;
 
-        let mut soc = Pp502x::new(PpModel::Pp5020, task_spawner, irq_pending, dma_pending);
+        let mut soc = Pp502x::new(PpModel::Pp5020, task_spawner, dma_pending);
 
         soc.i2ccon
             .register_device(0x08, Box::new(i2c::Pcf5060x::new()));
