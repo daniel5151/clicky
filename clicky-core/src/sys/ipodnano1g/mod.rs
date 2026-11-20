@@ -50,7 +50,6 @@ pub struct IpodNano1g {
     boot_hold: Option<Vec<IpodKey>>,
 
     gpio_changed: gpio::Changed,
-    i2c_changed: signal::Trigger,
     reset_requested: std::sync::Arc<std::sync::atomic::AtomicBool>,
     _lcd_model_strap: gpio::Sender,
 
@@ -87,14 +86,14 @@ impl IpodNano1g {
         }
 
         let executor = Executor::new().expect("failed to create task executor");
+        let board = IpodNano1gBoard::new(executor.spawner());
 
         // initialize base system
         let gpio_changed = gpio::Changed::new();
-        let i2c_changed = signal::Trigger::new(signal::TriggerKind::Edge);
 
         // hook-up external controls
         let (mut hold_tx, hold_rx) = gpio::new(gpio_changed.clone(), "Hold");
-        let (controls_tx, controls_rx) = devices::Controls::new_tx_rx(i2c_changed.clone());
+        let (controls_tx, controls_rx) = devices::Controls::new_tx_rx(board.soc.opto_int.clone());
 
         // LCD model strap
         let (mut lcd_model_tx, lcd_model_rx) = gpio::new(gpio_changed.clone(), "LCD model strap");
@@ -105,13 +104,12 @@ impl IpodNano1g {
 
             cpu: Cpu::new(),
             cop: Cpu::new(),
-            devices: IpodNano1gBoard::new(executor.spawner()),
+            devices: board,
             controls: None,
             synthetic_controls: controls_tx.clone(),
             boot_hold: None,
 
             gpio_changed: gpio_changed.clone(),
-            i2c_changed: i2c_changed.clone(),
             reset_requested: Default::default(),
             _lcd_model_strap: lcd_model_tx,
 
@@ -294,7 +292,7 @@ impl System for IpodNano1g {
         if self.gpio_changed.check_and_clear() {
             devices.soc.update_gpio();
         }
-        if self.i2c_changed.check_and_clear() {
+        if devices.soc.opto_int.check_and_clear() {
             devices.soc.opto.on_change();
         }
 

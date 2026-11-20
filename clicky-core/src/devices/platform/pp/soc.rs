@@ -12,6 +12,7 @@ pub struct Pp502x {
 
     pub irq_pending: irq::Pending,
     pub dma_pending: irq::Pending,
+    pub opto_int: signal::Trigger,
 
     /// On-chip SRAM ("IRAM").
     pub fastram: AsanRam,
@@ -74,6 +75,8 @@ impl Pp502x {
         let dma_pending = irq::Pending::new();
         let (ide_dmarq_tx, ide_dmarq_rx) = irq::new(dma_pending.clone(), "IDE DMA"); // TODO: Migrate to DRQ?
 
+        let opto_int = signal::Trigger::new(signal::TriggerKind::Edge);
+
         // Data requests
         let (i2s_output_drq_tx, i2s_output_drq_rx) = drq::new("I2S output");
 
@@ -110,6 +113,7 @@ impl Pp502x {
             model,
             irq_pending,
             dma_pending,
+            opto_int,
             fastram: AsanRam::new(model.iram_size(), true),
             cpuid: CpuIdReg::new(),
             cpucon: CpuCon::new(task_spawner.clone()),
