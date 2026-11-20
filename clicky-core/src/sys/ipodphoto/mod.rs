@@ -12,7 +12,7 @@ use crate::error::*;
 use crate::executor::*;
 use crate::gui::{AudioCallback, IpodBinds, IpodControls, IpodKey, RenderCallback, TakeControls};
 use crate::memory::{Memory, armv4t_adaptor::MemoryAdapter};
-use crate::signal::{self, gpio, irq};
+use crate::signal::{self, gpio};
 
 use crate::sys::{BootKind, System};
 
@@ -49,7 +49,6 @@ pub struct IpodPhoto {
     /// Keys to hold down once the system starts executing code.
     boot_hold: Option<Vec<IpodKey>>,
 
-    dma_pending: irq::Pending,
     gpio_changed: gpio::Changed,
     i2c_changed: signal::Trigger,
     reset_requested: std::sync::Arc<std::sync::atomic::AtomicBool>,
@@ -89,7 +88,6 @@ impl IpodPhoto {
         let executor = Executor::new().expect("failed to create task executor");
 
         // initialize base system
-        let dma_pending = irq::Pending::new();
         let gpio_changed = gpio::Changed::new();
         let i2c_changed = signal::Trigger::new(signal::TriggerKind::Edge);
 
@@ -103,12 +101,11 @@ impl IpodPhoto {
 
             cpu: Cpu::new(),
             cop: Cpu::new(),
-            devices: IpodPhotoBoard::new(executor.spawner(), dma_pending.clone()),
+            devices: IpodPhotoBoard::new(executor.spawner()),
             controls: None,
             synthetic_controls: controls_tx.clone(),
             boot_hold: None,
 
-            dma_pending,
             gpio_changed: gpio_changed.clone(),
             i2c_changed: i2c_changed.clone(),
             reset_requested: Default::default(),
@@ -254,8 +251,8 @@ impl System for IpodPhoto {
 
         // XXX: this is terrible. truly god awful. it _really_ needs to be rewritten,
         // reorganized, and moved somewhere more appropriate.
-        if self.dma_pending.check() {
-            self.dma_pending.clear();
+        if devices.soc.dma_pending.check() {
+            devices.soc.dma_pending.clear();
             if devices.soc.eidecon.do_ide_dma() {
                 let (kind, addr) = match (devices.soc.eidecon).do_dma() {
                     Ok(tup) => tup,
@@ -396,10 +393,10 @@ pub struct IpodPhotoBoard {
 }
 
 impl IpodPhotoBoard {
-    fn new(task_spawner: Spawner, dma_pending: irq::Pending) -> IpodPhotoBoard {
+    fn new(task_spawner: Spawner) -> IpodPhotoBoard {
         use devices::*;
 
-        let mut soc = Pp502x::new(PpModel::Pp5020, task_spawner, dma_pending);
+        let mut soc = Pp502x::new(PpModel::Pp5020, task_spawner);
 
         soc.i2ccon
             .register_device(0x08, Box::new(i2c::Pcf5060x::new()));

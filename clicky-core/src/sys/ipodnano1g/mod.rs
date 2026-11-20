@@ -12,7 +12,7 @@ use crate::error::*;
 use crate::executor::*;
 use crate::gui::{IpodBinds, IpodControls, IpodKey, RenderCallback, TakeControls};
 use crate::memory::{Memory, armv4t_adaptor::MemoryAdapter};
-use crate::signal::{self, gpio, irq};
+use crate::signal::{self, gpio};
 
 use crate::sys::{BootKind, System};
 
@@ -49,7 +49,6 @@ pub struct IpodNano1g {
     /// Keys to hold down once the system starts executing code.
     boot_hold: Option<Vec<IpodKey>>,
 
-    dma_pending: irq::Pending,
     gpio_changed: gpio::Changed,
     i2c_changed: signal::Trigger,
     reset_requested: std::sync::Arc<std::sync::atomic::AtomicBool>,
@@ -90,7 +89,6 @@ impl IpodNano1g {
         let executor = Executor::new().expect("failed to create task executor");
 
         // initialize base system
-        let dma_pending = irq::Pending::new();
         let gpio_changed = gpio::Changed::new();
         let i2c_changed = signal::Trigger::new(signal::TriggerKind::Edge);
 
@@ -107,12 +105,11 @@ impl IpodNano1g {
 
             cpu: Cpu::new(),
             cop: Cpu::new(),
-            devices: IpodNano1gBoard::new(executor.spawner(), dma_pending.clone()),
+            devices: IpodNano1gBoard::new(executor.spawner()),
             controls: None,
             synthetic_controls: controls_tx.clone(),
             boot_hold: None,
 
-            dma_pending,
             gpio_changed: gpio_changed.clone(),
             i2c_changed: i2c_changed.clone(),
             reset_requested: Default::default(),
@@ -262,8 +259,8 @@ impl System for IpodNano1g {
 
         // XXX: this is terrible. truly god awful. it _really_ needs to be rewritten,
         // reorganized, and moved somewhere more appropriate.
-        if self.dma_pending.check() {
-            self.dma_pending.clear();
+        if devices.soc.dma_pending.check() {
+            devices.soc.dma_pending.clear();
             if devices.soc.eidecon.do_ide_dma() {
                 let (kind, addr) = match (devices.soc.eidecon).do_dma() {
                     Ok(tup) => tup,
@@ -389,10 +386,10 @@ pub struct IpodNano1gBoard {
 }
 
 impl IpodNano1gBoard {
-    fn new(task_spawner: Spawner, dma_pending: irq::Pending) -> IpodNano1gBoard {
+    fn new(task_spawner: Spawner) -> IpodNano1gBoard {
         use devices::*;
 
-        let mut soc = Pp502x::new(PpModel::Pp5022, task_spawner, dma_pending);
+        let mut soc = Pp502x::new(PpModel::Pp5022, task_spawner);
 
         soc.i2ccon
             .register_device(0x08, Box::new(i2c::Pcf5060x::new()));

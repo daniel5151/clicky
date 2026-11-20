@@ -11,6 +11,7 @@ pub struct Pp502x {
     pub model: PpModel,
 
     pub irq_pending: irq::Pending,
+    pub dma_pending: irq::Pending,
 
     /// On-chip SRAM ("IRAM").
     pub fastram: AsanRam,
@@ -56,7 +57,7 @@ pub struct Pp502x {
 }
 
 impl Pp502x {
-    pub fn new(model: PpModel, task_spawner: Spawner, dma_pending: irq::Pending) -> Pp502x {
+    pub fn new(model: PpModel, task_spawner: Spawner) -> Pp502x {
         // IRQs
         let irq_pending = irq::Pending::new();
         let (ide_irq_tx, ide_irq_rx) = irq::new(irq_pending.clone(), "IDE");
@@ -70,6 +71,7 @@ impl Pp502x {
         let (mbx_cpu_irq_tx, mbx_cpu_irq_rx) = irq::new(irq_pending.clone(), "Mailbox (CPU)");
         let (mbx_cop_irq_tx, mbx_cop_irq_rx) = irq::new(irq_pending.clone(), "Mailbox (COP)");
 
+        let dma_pending = irq::Pending::new();
         let (ide_dmarq_tx, ide_dmarq_rx) = irq::new(dma_pending.clone(), "IDE DMA"); // TODO: Migrate to DRQ?
 
         // Data requests
@@ -107,6 +109,7 @@ impl Pp502x {
         Pp502x {
             model,
             irq_pending,
+            dma_pending,
             fastram: AsanRam::new(model.iram_size(), true),
             cpuid: CpuIdReg::new(),
             cpucon: CpuCon::new(task_spawner.clone()),
