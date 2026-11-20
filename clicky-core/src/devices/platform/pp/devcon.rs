@@ -1,7 +1,5 @@
 use crate::devices::prelude::*;
 
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use stdrandom;
 
 use super::common::PpModel;
@@ -20,7 +18,7 @@ pub struct DevCon {
     cache_priority: u8,
     mystery_i2c: u32,
     mystery: [u32; 1],
-    reset_requested: Arc<AtomicBool>,
+    reset_requested: bool,
 }
 
 impl DevCon {
@@ -35,20 +33,18 @@ impl DevCon {
             cache_priority: 0,
             mystery_i2c: 0,
             mystery: [0; 1],
-            reset_requested: Arc::new(AtomicBool::new(false)),
+            reset_requested: false,
         }
     }
 
-    /// Handle to the "someone asked for a system reset" flag.
-    pub fn reset_requested(&self) -> Arc<AtomicBool> {
-        Arc::clone(&self.reset_requested)
+    /// Returns whether software asked for a system reset since the last call.
+    pub fn take_reset_request(&mut self) -> bool {
+        std::mem::take(&mut self.reset_requested)
     }
 
     /// Restore the register state a reset leaves behind.
     pub fn reset(&mut self) {
-        let flag = Arc::clone(&self.reset_requested);
         *self = DevCon::new(self.model);
-        self.reset_requested = flag;
     }
 }
 
@@ -114,7 +110,7 @@ impl Memory for DevCon {
             0x04 => Err(StubWrite(Error, {
                 self.reset[0] = val;
                 if val & DEV_SYSTEM != 0 {
-                    self.reset_requested.store(true, Ordering::SeqCst);
+                    self.reset_requested = true;
                 }
             })),
             0x08 => Err(StubWrite(Error, self.reset[1] = val)),

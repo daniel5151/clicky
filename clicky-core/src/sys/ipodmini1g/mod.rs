@@ -54,7 +54,6 @@ pub struct IpodMini1g {
     boot_hold: Option<Vec<IpodKey>>,
 
     gpio_changed: gpio::Changed,
-    reset_requested: std::sync::Arc<std::sync::atomic::AtomicBool>,
 
     executor: Executor,
 }
@@ -118,12 +117,9 @@ impl IpodMini1g {
             boot_hold: None,
 
             gpio_changed,
-            reset_requested: Default::default(),
 
             executor,
         };
-
-        sys.reset_requested = sys.devices.soc.devcon.reset_requested();
 
         // Connect LCD
         let lcd_panel = LcdPanel {
@@ -219,10 +215,7 @@ impl System for IpodMini1g {
                 .expect("failed to spawn boot-hold task");
         }
 
-        if self
-            .reset_requested
-            .swap(false, std::sync::atomic::Ordering::SeqCst)
-        {
+        if self.devices.soc.devcon.take_reset_request() {
             info!("system reset requested");
             self.warm_reset();
             return Ok(true);
